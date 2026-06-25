@@ -164,7 +164,7 @@ verify:
         fi
         echo "OK: skopeo executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" bash -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
