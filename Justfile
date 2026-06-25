@@ -36,3 +36,72 @@ bst *ARGS:
         -w /src \
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- ${EFFECTIVE_BST_FLAGS} {{ARGS}}
+
+# ── Validate ──────────────────────────────────────────────────────────
+[group('dev')]
+validate:
+    just bst show --deps all oci/static.bst
+
+# ── Build ─────────────────────────────────────────────────────────────
+# Build the static OCI image and load it into podman as
+# ${image_registry}/${image_name}:latest.
+[group('build')]
+build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Building oci/static.bst with BuildStream..."
+    just bst build oci/static.bst
+    just export
+
+# ── Export ────────────────────────────────────────────────────────────
+# Checkout the built OCI image and squash into a single layer in podman.
+[group('build')]
+export:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FINAL_REF="{{image_registry}}/{{image_name}}:latest"
+    SUDO_CMD=""
+    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
+
+    echo "==> Exporting OCI image -> ${FINAL_REF}..."
+    rm -rf .build-out
+    just bst artifact checkout oci/static.bst --directory /src/.build-out
+
+    IMAGE_ID=$($SUDO_CMD podman pull -q oci:.build-out)
+    rm -rf .build-out
+
+    LABEL_ARGS=()
+    [ -n "${OCI_IMAGE_CREATED}" ]  && LABEL_ARGS+=(--label "org.opencontainers.image.created=${OCI_IMAGE_CREATED}")
+    [ -n "${OCI_IMAGE_REVISION}" ] && LABEL_ARGS+=(--label "org.opencontainers.image.revision=${OCI_IMAGE_REVISION}")
+
+    # Squash to a single layer and apply dynamic labels.
+    printf 'FROM %s\n' "$IMAGE_ID" \
+      | $SUDO_CMD podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
+    echo "==> Built ${FINAL_REF}"
+
+# ── Verify ────────────────────────────────────────────────────────────
+# Assert the image is distroless and ships certs + tzdata.
+[group('test')]
+verify:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REF="{{image_registry}}/{{image_name}}:latest"
+    SUDO_CMD=""
+    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
+
+    echo "==> [1/3] distroless: a shell must NOT be present"
+    if $SUDO_CMD podman run --rm --entrypoint /bin/sh "$REF" -c 'echo reached' 2>/dev/null; then
+        echo "FAIL: /bin/sh ran — image is not distroless"; exit 1
+    fi
+    echo "OK: no runnable /bin/sh"
+
+    echo "==> [2/3] CA certificates present"
+    $SUDO_CMD podman create --name verify-static "$REF" >/dev/null
+    trap '$SUDO_CMD podman rm -f verify-static >/dev/null 2>&1 || true' EXIT
+    ( set +o pipefail; $SUDO_CMD podman export verify-static | tar -tf - \
+      | grep -qE 'etc/(ssl|pki)/.*(ca-bundle|cert)' ) && echo "OK: CA bundle present"
+
+    echo "==> [3/3] tzdata present"
+    ( set +o pipefail; $SUDO_CMD podman export verify-static | tar -tf - \
+      | grep -q 'usr/share/zoneinfo/UTC' ) && echo "OK: tzdata present"
+    echo "==> verify passed"

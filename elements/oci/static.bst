@@ -10,6 +10,17 @@ build-depends:
 config:
   commands:
     - |
+      # Remove shell binaries to enforce distroless.
+      # FSDK's 'shells' split-rules domain only covers /usr/share/fish and
+      # /usr/share/zsh data dirs; the bash binary lives in the 'runtime' domain
+      # so compose exclude:shells does not strip it. Explicit removal required.
+      for p in /layer/usr/bin/bash /layer/usr/bin/sh \
+                /layer/bin/bash /layer/bin/sh \
+                /layer/usr/bin/bashbug; do
+        rm -f "$p"
+      done
+
+    - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do
           "${i}" /layer
