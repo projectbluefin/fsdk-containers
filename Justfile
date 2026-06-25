@@ -81,10 +81,22 @@ export:
     IMAGE_ID=$({{sudo_cmd}} podman pull -q oci:.build-out)
     rm -rf .build-out
 
+    case "{{image_name}}" in
+        base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
+        static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
+        skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
+        lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
+        *)          DESC="Project Bluefin distroless container image" ;;
+    esac
+
     LABEL_ARGS=()
     [ -n "${OCI_IMAGE_CREATED}" ]  && LABEL_ARGS+=(--label "org.opencontainers.image.created=${OCI_IMAGE_CREATED}")
     [ -n "${OCI_IMAGE_REVISION}" ] && LABEL_ARGS+=(--label "org.opencontainers.image.revision=${OCI_IMAGE_REVISION}")
     LABEL_ARGS+=(--label "org.opencontainers.image.version={{fsdk_version}}")
+    LABEL_ARGS+=(--label "org.opencontainers.image.title={{image_name}}")
+    LABEL_ARGS+=(--label "org.opencontainers.image.description=${DESC}")
+    LABEL_ARGS+=(--label "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers")
+    LABEL_ARGS+=(--label "org.opencontainers.image.licenses=Apache-2.0")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.version={{fsdk_version}}")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.ref={{fsdk_ref}}")
 
