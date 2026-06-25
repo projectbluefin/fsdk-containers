@@ -21,6 +21,11 @@ config:
       rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset \
              "$L"/etc/terminfo "$L"/lib/terminfo
 
+      # --- gcc dev/debug runtimes: sanitizers + fortran, never used at runtime ---
+      rm -f "$L"/usr/lib/*/libasan.so*  "$L"/usr/lib/*/libtsan.so* \
+            "$L"/usr/lib/*/liblsan.so*  "$L"/usr/lib/*/libubsan.so* \
+            "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
+
       # --- build-time tools leaked into runtime domain ---
       rm -f "$L"/usr/bin/localedef "$L"/usr/bin/iconvconfig
 
