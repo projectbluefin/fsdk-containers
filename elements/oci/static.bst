@@ -13,6 +13,10 @@ config:
       set -eu
       L=/layer
 
+      # --- distroless: remove shells (runtime domain, not the 'shells' split) ---
+      rm -f  "$L"/usr/bin/bash "$L"/usr/bin/sh "$L"/bin/bash "$L"/bin/sh "$L"/usr/bin/bashbug
+      rm -rf "$L"/usr/lib/bash "$L"/usr/lib/*/bash
+
       # --- terminfo: useless in containers ---
       rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset \
              "$L"/etc/terminfo "$L"/lib/terminfo

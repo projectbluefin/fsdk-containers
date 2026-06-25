@@ -49,7 +49,7 @@ jobs:
           OCI_IMAGE_CREATED: ${{ github.event.head_commit.timestamp }}
           OCI_IMAGE_REVISION: ${{ github.sha }}
         run: |
-          for IMAGE in base static skopeo lab-runner loki; do
+          for IMAGE in base static skopeo lab-runner; do
             echo "::group::Build ${IMAGE}"
             BUILD_IMAGE_NAME=${IMAGE} just build
             BUILD_IMAGE_NAME=${IMAGE} just verify
@@ -71,7 +71,7 @@ jobs:
       - name: Assemble multi-arch manifests
         run: |
           set -euo pipefail
-          for IMAGE in base static skopeo lab-runner loki; do
+          for IMAGE in base static skopeo lab-runner; do
             REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
             for t in $(just tags); do
               podman manifest create "${REPO}:${t}"

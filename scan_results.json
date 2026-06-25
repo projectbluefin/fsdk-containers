@@ -1,0 +1,1573 @@
+{
+  "git.": [
+    [
+      "argo/bootstrap/README.md",
+      9,
+      "ArgoCD with `prune: true` would delete a resource the moment it's removed from git."
+    ]
+  ],
+  "workflowtemplate/": [
+    [
+      "argo/bootstrap/README.md",
+      38,
+      "argo submit --from workflowtemplate/<name> -n argo --wait --log"
+    ]
+  ],
+  "workflowtemplate/ghost-kernel-args": [
+    [
+      "argo/bootstrap/README.md",
+      43,
+      "argo submit --from workflowtemplate/ghost-kernel-args -n argo --wait --log"
+    ]
+  ],
+  "cgr.dev/chainguard/kubectl:latest-dev": [
+    [
+      "argo/bootstrap/install-cdi.yaml",
+      17,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-cdi.yaml",
+      17,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubestellar.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubestellar.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubevirt-manager.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubevirt-manager.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubevirt.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-kubevirt.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-test-vms.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/bootstrap/install-test-vms.yaml",
+      13,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/gnomeos-access-spike.yaml",
+      71,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/gnomeos-access-spike.yaml",
+      71,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-qa-pipeline.yaml",
+      214,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-qa-pipeline.yaml",
+      214,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      74,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      74,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      160,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      160,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/dakota-qa-pipeline.yaml",
+      193,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/dakota-qa-pipeline.yaml",
+      193,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      155,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      155,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      253,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      253,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      414,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      414,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/image-poller.yaml",
+      169,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/image-poller.yaml",
+      169,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/provision-bluefin-vm.yaml",
+      144,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "argo/workflow-templates/provision-bluefin-vm.yaml",
+      144,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/image-poll-akmods-43.yaml",
+      35,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/image-poll-akmods-43.yaml",
+      35,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/image-poll-akmods-44.yaml",
+      35,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/image-poll-akmods-44.yaml",
+      35,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/orphan-pod-gc.yaml",
+      30,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/orphan-pod-gc.yaml",
+      30,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/orphan-vm-cleanup.yaml",
+      30,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/orphan-vm-cleanup.yaml",
+      30,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/virtio-console-module.yaml",
+      33,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/virtio-console-module.yaml",
+      33,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/virtio-console-module.yaml",
+      43,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ],
+    [
+      "manifests/virtio-console-module.yaml",
+      43,
+      "image: cgr.dev/chainguard/kubectl:latest-dev"
+    ]
+  ],
+  "alpine:latest": [
+    [
+      "argo/bootstrap/setup-otel.yaml",
+      20,
+      "image: alpine:latest # registry-lint-ignore"
+    ]
+  ],
+  "cgr.dev/chainguard/wolfi-base:latest": [
+    [
+      "argo/one-shot-delete-golden-disks.yaml",
+      34,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/one-shot-delete-golden-disks.yaml",
+      34,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      415,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      415,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      562,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      562,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      712,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      712,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      793,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      793,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      1019,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      1019,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/collect-vm-logs.yaml",
+      60,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/collect-vm-logs.yaml",
+      60,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/dakota-commit-poller.yaml",
+      61,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/dakota-commit-poller.yaml",
+      61,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/ghost-cleanup.yaml",
+      38,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/ghost-cleanup.yaml",
+      38,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      157,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      157,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      211,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      211,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      248,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      248,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      262,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      262,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      359,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      359,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      544,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      544,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      636,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      636,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      691,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      691,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      790,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      790,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      891,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      891,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/pr-poller.yaml",
+      19,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/pr-poller.yaml",
+      19,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      332,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      332,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-flatcar-tests.yaml",
+      42,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-flatcar-tests.yaml",
+      42,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      62,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      62,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      101,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      101,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-incluster-tests.yaml",
+      61,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-incluster-tests.yaml",
+      61,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-incluster-tests.yaml",
+      105,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "argo/workflow-templates/run-incluster-tests.yaml",
+      105,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/flatcar-kernel-poller.yaml",
+      25,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/flatcar-kernel-poller.yaml",
+      25,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/flatcar-update-configurator.yaml",
+      34,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/flatcar-update-configurator.yaml",
+      34,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/golden-disk-gc.yaml",
+      42,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/golden-disk-gc.yaml",
+      42,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/inotify-tuning.yaml",
+      40,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/inotify-tuning.yaml",
+      40,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/k3s-firewalld-config.yaml",
+      36,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/k3s-firewalld-config.yaml",
+      36,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/mask-sleep-targets.yaml",
+      36,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/mask-sleep-targets.yaml",
+      36,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/pr-image-gc.yaml",
+      38,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/pr-image-gc.yaml",
+      38,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/registry-mirror-config.yaml",
+      81,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/registry-mirror-config.yaml",
+      81,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/registry-mirror-config.yaml",
+      111,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ],
+    [
+      "manifests/registry-mirror-config.yaml",
+      111,
+      "image: cgr.dev/chainguard/wolfi-base:latest"
+    ]
+  ],
+  "quay.io/skopeo/stable:latest": [
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      339,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-migration-test.yaml",
+      339,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-qa-pipeline.yaml",
+      123,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/bluefin-qa-pipeline.yaml",
+      123,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      112,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      112,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/dakota-qa-pipeline.yaml",
+      101,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/dakota-qa-pipeline.yaml",
+      101,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/digest-watch.yaml",
+      151,
+      "# Uses quay.io/skopeo/stable:latest (has skopeo + curl) and calls k8s API"
+    ],
+    [
+      "argo/workflow-templates/digest-watch.yaml",
+      163,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/digest-watch.yaml",
+      163,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/image-poller.yaml",
+      120,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/image-poller.yaml",
+      120,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "manifests/image-poll-kinoite-43.yaml",
+      34,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "manifests/image-poll-kinoite-43.yaml",
+      34,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "manifests/image-poll-kinoite-44.yaml",
+      34,
+      "image: quay.io/skopeo/stable:latest"
+    ],
+    [
+      "manifests/image-poll-kinoite-44.yaml",
+      34,
+      "image: quay.io/skopeo/stable:latest"
+    ]
+  ],
+  "Zot": [
+    [
+      "argo/workflow-templates/bluefin-qa-pipeline.yaml",
+      116,
+      "# \u2500\u2500 assert-cd: fail fast if containerDisk is missing from Zot \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+    ],
+    [
+      "argo/workflow-templates/dakota-qa-pipeline.yaml",
+      95,
+      "# \u2500\u2500 assert-cd: fail fast if containerDisk is missing from Zot \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+    ]
+  ],
+  "docker.io/library/busybox:1.36.1": [
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      119,
+      "image: docker.io/library/busybox:1.36.1 # registry-lint-ignore"
+    ],
+    [
+      "argo/workflow-templates/bluefin-service-catalog-pipeline.yaml",
+      119,
+      "image: docker.io/library/busybox:1.36.1 # registry-lint-ignore"
+    ]
+  ],
+  "a": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      8,
+      "Build a KubeVirt containerDisk from a bootc image."
+    ],
+    [
+      "argo/workflow-templates/collect-vm-logs.yaml",
+      8,
+      "# Usage: reference from a workflow DAG or steps block:"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      72,
+      "# Clear any partial clone from a previous attempt \u2014 git clone"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      340,
+      "# Stop any lingering qecore-headless process from a prior run."
+    ]
+  ],
+  "aurora": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      36,
+      "#   bazzite          4712 MB compressed \u2192 40G  (non-native; not yet measured; scaled from aurora's empirical ratio)"
+    ]
+  ],
+  "declares": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      37,
+      "#   dakota           2927 MB compressed \u2192 blocked  (composefs image: declares bootloader=systemd + composefs=yes but ships no UKI; bootc install to-disk requires a signed UKI for composefs path; needs upstream fix or golden-disk approach like GnomeOS)"
+    ]
+  ],
+  "grub2-efi-x64-modules": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      245,
+      "# Fix: rebuild grubx64.efi from grub2-efi-x64-modules with btrfs compiled in BEFORE"
+    ]
+  ],
+  "quay.io/fedora/fedora:latest": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      301,
+      "image: quay.io/fedora/fedora:latest"
+    ],
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      301,
+      "image: quay.io/fedora/fedora:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      72,
+      "image: quay.io/fedora/fedora:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      72,
+      "image: quay.io/fedora/fedora:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      185,
+      "image: quay.io/fedora/fedora:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      185,
+      "image: quay.io/fedora/fedora:latest"
+    ]
+  ],
+  "scratch": [
+    [
+      "argo/workflow-templates/build-containerdisk.yaml",
+      348,
+      "CTR=$(buildah from scratch)"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      109,
+      "CTR=$(buildah from scratch)"
+    ],
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      210,
+      "CTR=$(buildah from scratch)"
+    ]
+  ],
+  "192.168.1.102:30500/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d": [
+    [
+      "argo/workflow-templates/dakota-build-pipeline.yaml",
+      80,
+      "image: 192.168.1.102:30500/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d"
+    ],
+    [
+      "manifests/buildbox-casd.yaml",
+      44,
+      "image: 192.168.1.102:30500/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d"
+    ]
+  ],
+  "GitHub": [
+    [
+      "argo/workflow-templates/dakota-commit-poller.yaml",
+      84,
+      "# Fetch latest commit SHA from GitHub API"
+    ]
+  ],
+  "ConfigMap": [
+    [
+      "argo/workflow-templates/dakota-commit-poller.yaml",
+      93,
+      "# Read stored SHA from ConfigMap"
+    ],
+    [
+      "argo/workflow-templates/digest-watch.yaml",
+      210,
+      "# Read stored digest from ConfigMap via k8s API"
+    ],
+    [
+      "manifests/flatcar-kernel-poller.yaml",
+      44,
+      "# Read last-seen version from ConfigMap"
+    ]
+  ],
+  "192.168.1.102:30500/flatcar-containerdisk:latest": [
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      143,
+      "image: 192.168.1.102:30500/flatcar-containerdisk:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      170,
+      "image: 192.168.1.102:30500/flatcar-containerdisk:latest"
+    ]
+  ],
+  "output": [
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      228,
+      "# needs to call the REST API with the checksums from output parameters."
+    ]
+  ],
+  "VM...": [
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      377,
+      "echo \"Copying output from VM...\""
+    ]
+  ],
+  "build-kernel.": [
+    [
+      "argo/workflow-templates/flatcar-kernel-build.yaml",
+      400,
+      "# size, passed as output parameters from build-kernel."
+    ]
+  ],
+  "installed": [
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      10,
+      "explicit completion signal \u2192 reboot from installed disk \u2192 rediscover IP \u2192 run smoke tests."
+    ]
+  ],
+  "quay.io/kubevirt/virt-launcher:v1.8.2": [
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      439,
+      "image: quay.io/kubevirt/virt-launcher:v1.8.2"
+    ],
+    [
+      "argo/workflow-templates/knuckle-qa-pipeline.yaml",
+      439,
+      "image: quay.io/kubevirt/virt-launcher:v1.8.2"
+    ]
+  ],
+  "the": [
+    [
+      "argo/workflow-templates/provision-bluefin-vm.yaml",
+      8,
+      "Provisions a Bluefin test VM using a containerDisk image from the local Zot registry."
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      310,
+      "# common suite is SSH-driven from the runner container (no AT-SPI/display)."
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      311,
+      "# It reads VM_IP, VM_USER, and SSH_KEY from the environment, which are"
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      353,
+      "# Stop any lingering gnome-ponytail-daemon from the prior suite so the"
+    ],
+    [
+      "manifests/argo-server-nodeport.yaml",
+      2,
+      "# Separate from the cluster-managed argo-server ClusterIP so it won't be"
+    ],
+    [
+      "manifests/argo-server-nodeport.yaml",
+      4,
+      "# Reachable at http://192.168.1.102:32746 from the local network."
+    ],
+    [
+      "manifests/digest-watch-cron.yaml",
+      3,
+      "# Decouples slow BIB builds from the test pipeline \u2014 bluefin-qa-pipeline uses assert-cd"
+    ],
+    [
+      "manifests/promtail-config.yaml",
+      32,
+      "# resolves the pod/container names from the directory structure."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      59,
+      "Servers may infer this from the endpoint the client submits requests to."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      247,
+      "Values may contain `$(LATEST_HASH)` or `$(LATEST_VERSION)`, which will be expanded from the plan status."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      633,
+      "If unspecified, the options from the PodSecurityContext will be used."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      717,
+      "pods, if not specified the default service account from the namespace"
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1146,
+      "If unspecified, the options from the PodSecurityContext will be used."
+    ],
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-kernel/coreos-kernel-7.1.1.ebuild",
+      33,
+      "# Copy the default Flatcar kernel config from the installed sources"
+    ]
+  ],
+  "secret": [
+    [
+      "argo/workflow-templates/provision-flatcar-vm.yaml",
+      209,
+      "# Use pubkey from secret (parameter kept for API compat but ignored)"
+    ]
+  ],
+  "quay.io/buildah/stable:latest": [
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      92,
+      "image: quay.io/buildah/stable:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      92,
+      "image: quay.io/buildah/stable:latest"
+    ]
+  ],
+  "urllib.request": [
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      134,
+      "from urllib.request import urlopen"
+    ]
+  ],
+  "192.168.1.102:30500/gnomeos-containerdisk:latest": [
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      269,
+      "image: 192.168.1.102:30500/gnomeos-containerdisk:latest"
+    ],
+    [
+      "argo/workflow-templates/provision-gnomeos-vm.yaml",
+      324,
+      "image: 192.168.1.102:30500/gnomeos-containerdisk:latest"
+    ]
+  ],
+  "runner": [
+    [
+      "argo/workflow-templates/run-flatcar-tests.yaml",
+      7,
+      "bluefin.io/stack: \"plain behave, SSH from runner pod to Flatcar VM\""
+    ],
+    [
+      "argo/workflow-templates/run-flatcar-tests.yaml",
+      96,
+      "# Run tests from runner pod; steps SSH into VM using FLATCAR_VM_IP env var"
+    ]
+  ],
+  "git": [
+    [
+      "argo/workflow-templates/run-flatcar-tests.yaml",
+      85,
+      "# Clone tests fresh from git \u2014 matches run-gnome-tests pattern, always current"
+    ],
+    [
+      "argocd/application.yaml",
+      1,
+      "# Argo CD Application \u2014 keeps WorkflowTemplates in sync from git"
+    ]
+  ],
+  "this": [
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      290,
+      "# The common suite is SSH-driven from this runner container."
+    ],
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      312,
+      "# available here but NOT inside the VM. Run behave from this container"
+    ]
+  ],
+  "lab": [
+    [
+      "argo/workflow-templates/run-gnome-tests.yaml",
+      416,
+      "--annotation \"org.opencontainers.image.description=Bluefin desktop screenshot from lab e2e suite: ${SUITE}\" \\"
+    ]
+  ],
+  "ghcr.io/actions/actions-runner:latest": [
+    [
+      "argocd/arc-runners-app.yaml",
+      40,
+      "image: ghcr.io/actions/actions-runner:latest"
+    ],
+    [
+      "argocd/arc-runners-app.yaml",
+      40,
+      "image: ghcr.io/actions/actions-runner:latest"
+    ],
+    [
+      "images/arc-runner/Containerfile",
+      5,
+      "FROM ghcr.io/actions/actions-runner:latest"
+    ],
+    [
+      "images/arc-runner/Containerfile",
+      5,
+      "FROM ghcr.io/actions/actions-runner:latest"
+    ]
+  ],
+  "3": [
+    [
+      "manifests/argocd-tuning.yaml",
+      33,
+      "# timeout.reconciliation: reduce git polling from 3 min (default) to 1 h."
+    ]
+  ],
+  "kernel.org": [
+    [
+      "manifests/flatcar-kernel-poller.yaml",
+      32,
+      "# Fetch latest stable kernel version from kernel.org"
+    ]
+  ],
+  "nodes": [
+    [
+      "manifests/flatcar-update-nebraska.yaml",
+      2,
+      "# Reachable from nodes at http://192.168.1.102:30802"
+    ]
+  ],
+  "upstream": [
+    [
+      "manifests/flatcar-update-nebraska.yaml",
+      6,
+      "# syncer disabled: we push custom builds; never pull from upstream channels."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      3,
+      "# Do not edit inline \u2014 re-fetch from upstream on version bumps."
+    ]
+  ],
+  "ghcr.io/flatcar/nebraska:latest": [
+    [
+      "manifests/flatcar-update-nebraska.yaml",
+      41,
+      "image: ghcr.io/flatcar/nebraska:latest"
+    ],
+    [
+      "manifests/flatcar-update-nebraska.yaml",
+      41,
+      "image: ghcr.io/flatcar/nebraska:latest"
+    ]
+  ],
+  "cgr.dev/chainguard/postgres:latest": [
+    [
+      "manifests/flatcar-update-postgres.yaml",
+      49,
+      "image: cgr.dev/chainguard/postgres:latest"
+    ],
+    [
+      "manifests/flatcar-update-postgres.yaml",
+      49,
+      "image: cgr.dev/chainguard/postgres:latest"
+    ]
+  ],
+  "python:3.12-slim": [
+    [
+      "manifests/homelab-access-auth.yaml",
+      17,
+      "image: python:3.12-slim # registry-lint-ignore"
+    ]
+  ],
+  "ghcr.io/ublue-os/akmods:main-43": [
+    [
+      "manifests/image-poll-akmods-43.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/akmods:main-43 (bazzite kernel modules) hourly."
+    ],
+    [
+      "manifests/image-poll-akmods-43.yaml",
+      53,
+      "IMAGE_REF=\"ghcr.io/ublue-os/akmods:main-43\""
+    ]
+  ],
+  "akmods:main-43": [
+    [
+      "manifests/image-poll-akmods-43.yaml",
+      4,
+      "# Bazzite kernel modules are built from akmods:main-43 \u2014 an akmods update means bazzite:testing"
+    ]
+  ],
+  "ghcr.io/ublue-os/akmods:main-44": [
+    [
+      "manifests/image-poll-akmods-44.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/akmods:main-44 (aurora kernel modules) hourly."
+    ],
+    [
+      "manifests/image-poll-akmods-44.yaml",
+      53,
+      "IMAGE_REF=\"ghcr.io/ublue-os/akmods:main-44\""
+    ]
+  ],
+  "akmods:main-44": [
+    [
+      "manifests/image-poll-akmods-44.yaml",
+      4,
+      "# Aurora kernel modules are built from akmods:main-44 \u2014 an akmods update means aurora:testing"
+    ]
+  ],
+  "ghcr.io/ublue-os/aurora:stable": [
+    [
+      "manifests/image-poll-aurora-stable.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/aurora:stable hourly."
+    ]
+  ],
+  "ghcr.io/ublue-os/aurora:testing": [
+    [
+      "manifests/image-poll-aurora-testing.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/aurora:testing hourly."
+    ]
+  ],
+  "ghcr.io/ublue-os/bazzite:stable": [
+    [
+      "manifests/image-poll-bazzite-stable.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/bazzite:stable hourly."
+    ]
+  ],
+  "ghcr.io/ublue-os/bazzite:testing": [
+    [
+      "manifests/image-poll-bazzite-testing.yaml",
+      1,
+      "# CronWorkflow: polls ghcr.io/ublue-os/bazzite:testing hourly."
+    ]
+  ],
+  "quay.io/fedora-ostree-desktops/kinoite:43": [
+    [
+      "manifests/image-poll-kinoite-43.yaml",
+      1,
+      "# CronWorkflow: polls quay.io/fedora-ostree-desktops/kinoite:43 (bazzite base image) hourly."
+    ],
+    [
+      "manifests/image-poll-kinoite-43.yaml",
+      45,
+      "IMAGE_REF=\"quay.io/fedora-ostree-desktops/kinoite:43\""
+    ]
+  ],
+  "kinoite:43": [
+    [
+      "manifests/image-poll-kinoite-43.yaml",
+      4,
+      "# Bazzite is built from kinoite:43 \u2014 a base update means bazzite:testing will be rebuilt."
+    ]
+  ],
+  "quay.io/fedora-ostree-desktops/kinoite:44": [
+    [
+      "manifests/image-poll-kinoite-44.yaml",
+      1,
+      "# CronWorkflow: polls quay.io/fedora-ostree-desktops/kinoite:44 (aurora base image) hourly."
+    ],
+    [
+      "manifests/image-poll-kinoite-44.yaml",
+      45,
+      "IMAGE_REF=\"quay.io/fedora-ostree-desktops/kinoite:44\""
+    ]
+  ],
+  "kinoite:44": [
+    [
+      "manifests/image-poll-kinoite-44.yaml",
+      4,
+      "# Aurora is built from kinoite:44 \u2014 a base update means aurora:testing will be rebuilt."
+    ]
+  ],
+  "registry.k8s.io/pause:3.9": [
+    [
+      "manifests/inotify-tuning.yaml",
+      59,
+      "image: registry.k8s.io/pause:3.9"
+    ],
+    [
+      "manifests/inotify-tuning.yaml",
+      59,
+      "image: registry.k8s.io/pause:3.9"
+    ],
+    [
+      "manifests/k3s-firewalld-config.yaml",
+      58,
+      "image: registry.k8s.io/pause:3.9"
+    ],
+    [
+      "manifests/k3s-firewalld-config.yaml",
+      58,
+      "image: registry.k8s.io/pause:3.9"
+    ]
+  ],
+  "workflow": [
+    [
+      "manifests/k3s-firewalld-config.yaml",
+      14,
+      "into KubeVirt VMs from workflow pods on other nodes."
+    ]
+  ],
+  "rancher/k3s-upgrade": [
+    [
+      "manifests/k3s-upgrade-plans.yaml",
+      38,
+      "image: rancher/k3s-upgrade"
+    ],
+    [
+      "manifests/k3s-upgrade-plans.yaml",
+      61,
+      "image: rancher/k3s-upgrade"
+    ],
+    [
+      "manifests/k3s-upgrade-plans.yaml",
+      66,
+      "image: rancher/k3s-upgrade"
+    ]
+  ],
+  "runaway": [
+    [
+      "manifests/loki-config.yaml",
+      3,
+      "#   2. Per-stream and global ingestion rate limits \u2014 prevent disk fill from runaway pods"
+    ]
+  ],
+  "filling": [
+    [
+      "manifests/loki-config.yaml",
+      59,
+      "# Ingestion rate limits \u2014 prevent a single runaway build pod from filling"
+    ]
+  ],
+  "registry.k8s.io/pause:3.10": [
+    [
+      "manifests/mask-sleep-targets.yaml",
+      48,
+      "image: registry.k8s.io/pause:3.10"
+    ],
+    [
+      "manifests/mask-sleep-targets.yaml",
+      48,
+      "image: registry.k8s.io/pause:3.10"
+    ]
+  ],
+  "registry.k8s.io/metrics-server/metrics-server:v0.8.1": [
+    [
+      "manifests/metrics-server.yaml",
+      142,
+      "image: registry.k8s.io/metrics-server/metrics-server:v0.8.1"
+    ],
+    [
+      "manifests/metrics-server.yaml",
+      142,
+      "image: registry.k8s.io/metrics-server/metrics-server:v0.8.1"
+    ]
+  ],
+  "workflows": [
+    [
+      "manifests/orphan-pod-gc.yaml",
+      58,
+      "#    (e.g. pods from workflows deleted before Argo could GC them)."
+    ]
+  ],
+  "writable": [
+    [
+      "manifests/pr-image-gc.yaml",
+      1,
+      "# PR image GC \u2014 delete bluefin-pr-* tags from writable Zot older than 7 days,"
+    ]
+  ],
+  "argo": [
+    [
+      "manifests/pr-image-gc.yaml",
+      2,
+      "# or whose PR is closed/merged (uses github-token secret from argo namespace)."
+    ]
+  ],
+  "tag": [
+    [
+      "manifests/pr-image-gc.yaml",
+      74,
+      "# Extract PR number from tag name (bluefin-pr-NNN:sha or bluefin-pr-NNN)"
+    ]
+  ],
+  "path:": [
+    [
+      "manifests/promtail-config.yaml",
+      40,
+      "# Extract pod name and container from path:"
+    ]
+  ],
+  "starting.": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      380,
+      "The key within the env file. An invalid key will prevent the pod from starting."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      893,
+      "The key within the env file. An invalid key will prevent the pod from starting."
+    ]
+  ],
+  "which": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      397,
+      "The path within the volume from which to select the file."
+    ],
+    [
+      "manifests/system-upgrade-controller.yaml",
+      910,
+      "The path within the volume from which to select the file."
+    ]
+  ],
+  "processing": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1258,
+      "description: PlanStatus represents the resulting state from processing"
+    ]
+  ],
+  "one": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1275,
+      "description: Last time the condition transitioned from one status"
+    ]
+  ],
+  ".spec.version": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1306,
+      "description: The latest version, as resolved from .spec.version, or"
+    ]
+  ],
+  "rancher/kubectl:v1.30.3": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1520,
+      "SYSTEM_UPGRADE_JOB_KUBECTL_IMAGE: rancher/kubectl:v1.30.3"
+    ]
+  ],
+  "rancher/system-upgrade-controller:v0.19.2": [
+    [
+      "manifests/system-upgrade-controller.yaml",
+      1585,
+      "image: rancher/system-upgrade-controller:v0.19.2"
+    ]
+  ],
+  "Kubernetes": [
+    [
+      "manifests/workflow-controller-configmap.yaml",
+      11,
+      "#     the bottleneck. Real backpressure comes from Kubernetes pod scheduling:"
+    ]
+  ],
+  "exhausting": [
+    [
+      "manifests/workflow-controller-configmap.yaml",
+      19,
+      "#     a single burst from exhausting the API server or scheduler. This is the"
+    ]
+  ],
+  "prometheus": [
+    [
+      "manifests/workflow-controller-configmap.yaml",
+      90,
+      "# \u2500\u2500 metrics TTL \u2014 evict stale label sets from prometheus registry \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+    ]
+  ],
+  "ghcr.io/project-zot/zot-linux-amd64:v2.1.1": [
+    [
+      "manifests/zot-cache.yaml",
+      101,
+      "image: ghcr.io/project-zot/zot-linux-amd64:v2.1.1"
+    ],
+    [
+      "manifests/zot-cache.yaml",
+      101,
+      "image: ghcr.io/project-zot/zot-linux-amd64:v2.1.1"
+    ],
+    [
+      "manifests/zot-writable.yaml",
+      54,
+      "image: ghcr.io/project-zot/zot-linux-amd64:v2.1.1"
+    ],
+    [
+      "manifests/zot-writable.yaml",
+      54,
+      "image: ghcr.io/project-zot/zot-linux-amd64:v2.1.1"
+    ]
+  ],
+  "ARC": [
+    [
+      "images/arc-runner/Containerfile",
+      29,
+      "# argo CLI (fire-and-forget workflow submission from ARC runner jobs)"
+    ]
+  ],
+  "coreos-sources.": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-kernel/coreos-kernel-7.1.1.ebuild",
+      4,
+      "# Builds the CoreOS (Flatcar) kernel from coreos-sources."
+    ]
+  ],
+  "coreos-kernel-6.12.ebuild.": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-kernel/coreos-kernel-7.1.1.ebuild",
+      5,
+      "# Ported from coreos-kernel-6.12.ebuild."
+    ]
+  ],
+  "coreos-modules-6.12.ebuild.": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-modules/coreos-modules-7.1.1.ebuild",
+      5,
+      "# Ported from coreos-modules-6.12.ebuild."
+    ]
+  ],
+  "coreos-sources-6.12.94.ebuild.": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/coreos-sources-7.1.1.ebuild",
+      7,
+      "# Ported from coreos-sources-6.12.94.ebuild."
+    ]
+  ],
+  "UNIPATCH_LIST.": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/coreos-sources-7.1.1.ebuild",
+      11,
+      "# UUID) may already be upstream in 7.x \u2014 verify before removing from UNIPATCH_LIST."
+    ]
+  ],
+  "dcf70e8275cf5cc964a0657312af9210996ae2e7": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0001-kbuild-derive-relative-path-for-srctree-from-CURDIR.patch",
+      1,
+      "From dcf70e8275cf5cc964a0657312af9210996ae2e7 Mon Sep 17 00:00:00 2001"
+    ]
+  ],
+  "CURDIR": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0001-kbuild-derive-relative-path-for-srctree-from-CURDIR.patch",
+      4,
+      "Subject: [PATCH 1/2] kbuild: derive relative path for srctree from CURDIR"
+    ]
+  ],
+  "9faff3734e6456e7927c0914829a4764ec9f1b44": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0002-pahole-support-reproducible-builds.patch",
+      1,
+      "From 9faff3734e6456e7927c0914829a4764ec9f1b44 Mon Sep 17 00:00:00 2001"
+    ]
+  ],
+  "9f34a9ffe5b94aee93baa5762719546e0bebc28d": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0003-Revert-x86-boot-Remove-the-bugger-off-message.patch",
+      1,
+      "From 9f34a9ffe5b94aee93baa5762719546e0bebc28d Mon Sep 17 00:00:00 2001"
+    ]
+  ],
+  "EFI": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0005-efi-lock-down-the-kernel-if-booted-in-secure-boot-mo.patch",
+      106,
+      "+\t  be determined from EFI variables provided by the system firmware if"
+    ]
+  ],
+  "FDT": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0007-arm64-add-kernel-config-option-to-lock-down-when.patch",
+      26,
+      "[bwh: Forward-ported to 5.7: EFI initialisation from FDT was rewritten, so:"
+    ]
+  ],
+  "758737d86f8a2d74c0fa9f8b2523fa7fd1e0d0aa": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0009-block-add-partition-uuid-into-uevent.patch",
+      1,
+      "From 758737d86f8a2d74c0fa9f8b2523fa7fd1e0d0aa Mon Sep 17 00:00:00 2001"
+    ]
+  ],
+  "util-linux": [
+    [
+      "flatcar/kernel-overlay/sys-kernel/coreos-sources/files/7.1/z0009-block-add-partition-uuid-into-uevent.patch",
+      10,
+      "Tools from util-linux use the same notation for them."
+    ]
+  ],
+  "reference": [
+    [
+      ".github/workflows/lint.yaml",
+      45,
+      "# Fail if any image: reference uses a registry not in the cluster cache."
+    ]
+  ],
+  "GHCR": [
+    [
+      ".github/workflows/update-test-results.yml",
+      30,
+      "- name: Pull screenshots from GHCR"
+    ]
+  ],
+  "result": [
+    [
+      ".github/workflows/update-test-results.yml",
+      74,
+      "# Compute aggregate stats from result files"
+    ],
+    [
+      ".github/workflows/update-test-results.yml",
+      105,
+      "# --- Aggregate test coverage from result files ---"
+    ]
+  ]
+}

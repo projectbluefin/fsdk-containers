@@ -54,7 +54,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/loki.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
