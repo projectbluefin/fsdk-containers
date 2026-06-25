@@ -56,3 +56,11 @@ podman run --rm ghcr.io/projectbluefin/<name>:latest /usr/bin/env
 When you cut something in the SLIM recipe that must stay gone, add a matching
 `grep` assertion to gate `[4/N]` in the `verify` recipe so the build fails if it
 creeps back. Renumber the gate labels.
+
+When creating a new image or modifying an existing one, ALWAYS add a smoke test
+that executes the primary binary directly (e.g. `podman run --rm ... /usr/bin/skopeo --version`).
+Distroless images have no shell to drop into, and `ldd` inside BuildStream's sandbox
+does not replicate the minimal container rootfs. A binary might link inside the sandbox
+but fail to run in the final OCI image because a shared library was stripped by the
+`compose` element. The only way to prove all dynamic dependencies made it into the image
+is to execute the binary.
