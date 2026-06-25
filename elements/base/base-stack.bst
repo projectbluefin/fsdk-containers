@@ -4,7 +4,7 @@ description: |
   CA certificates and timezone data. No package manager. The bash binary
   is pulled in by runtime-minimal (it lives in the 'runtime' split domain,
   not 'shells') and is removed by an explicit rm -f step in
-  elements/oci/static.bst, not by a compose domain.
+  elements/oci/base.bst, not by a compose domain.
 
 depends:
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst

@@ -4,7 +4,7 @@ default:
     @just --list
 
 # -- Configuration ---------------------------------------------------------
-export image_name := env("BUILD_IMAGE_NAME", "static")
+export image_name := env("BUILD_IMAGE_NAME", "base")
 export image_registry := env("BUILD_IMAGE_REGISTRY", "ghcr.io/projectbluefin")
 
 # Same bst2 container image FSDK/dakota CI uses -- pinned by SHA.
@@ -55,17 +55,17 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/static.bst
+    just bst show --deps all oci/base.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
-# Build the static OCI image and load it into podman as
+# Build the base OCI image and load it into podman as
 # ${image_registry}/${image_name}:latest.
 [group('build')]
 build:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "==> Building oci/static.bst with BuildStream..."
-    just bst build oci/static.bst
+    echo "==> Building oci/base.bst with BuildStream..."
+    just bst build oci/base.bst
     just export
 
 # ── Export ────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ export:
 
     echo "==> Exporting OCI image -> ${FINAL_REF}..."
     rm -rf .build-out
-    just bst artifact checkout oci/static.bst --directory /src/.build-out
+    just bst artifact checkout oci/base.bst --directory /src/.build-out
 
     IMAGE_ID=$($SUDO_CMD podman pull -q oci:.build-out)
     rm -rf .build-out
@@ -98,7 +98,7 @@ export:
     echo "==> Built ${FINAL_REF}"
 
 # Push the locally built :latest under all derived tags to a given repo ref.
-# Usage: just tag-push ghcr.io/projectbluefin/static
+# Usage: just tag-push ghcr.io/projectbluefin/base
 [group('build')]
 tag-push REPO:
     #!/usr/bin/env bash
@@ -129,12 +129,12 @@ verify:
     echo "OK: no runnable /bin/sh"
 
     echo "==> [2/3] CA certificates present"
-    $SUDO_CMD podman create --name verify-static "$REF" >/dev/null
-    trap '$SUDO_CMD podman rm -f verify-static >/dev/null 2>&1 || true' EXIT
-    ( set +o pipefail; $SUDO_CMD podman export verify-static | tar -tf - \
+    $SUDO_CMD podman create --name verify-base "$REF" >/dev/null
+    trap '$SUDO_CMD podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
+    ( set +o pipefail; $SUDO_CMD podman export verify-base | tar -tf - \
       | grep -qE 'etc/(ssl|pki)/.*(ca-bundle|cert)' ) && echo "OK: CA bundle present"
 
     echo "==> [3/3] tzdata present"
-    ( set +o pipefail; $SUDO_CMD podman export verify-static | tar -tf - \
+    ( set +o pipefail; $SUDO_CMD podman export verify-base | tar -tf - \
       | grep -q 'usr/share/zoneinfo/UTC' ) && echo "OK: tzdata present"
     echo "==> verify passed"

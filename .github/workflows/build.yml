@@ -1,4 +1,4 @@
-name: Build static image
+name: Build base image
 
 on:
   pull_request:
@@ -11,8 +11,8 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: static
-  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  BUILD_IMAGE_NAME: base
+  BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   validate:
@@ -39,8 +39,6 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@v2
@@ -49,17 +47,16 @@ jobs:
       - name: Image metadata
         id: meta
         run: |
-          echo "version=$(just tags | sed -n '3p')" >> "$GITHUB_OUTPUT"
           echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Log in to ghcr
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build
         env:
           OCI_IMAGE_CREATED: ${{ steps.meta.outputs.created }}
           OCI_IMAGE_REVISION: ${{ github.sha }}
         run: just build
       - name: Push per-arch tags
-        run: just tag-push "${IMAGE_REGISTRY}/${IMAGE_NAME}-${{ matrix.arch }}"
+        run: just tag-push "${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}-${{ matrix.arch }}"
 
   manifest:
     needs: build
@@ -75,7 +72,7 @@ jobs:
       - name: Assemble multi-arch manifests
         run: |
           set -euo pipefail
-          REPO="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+          REPO="${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}"
           for t in $(just tags); do
             sudo podman manifest create "${REPO}:${t}"
             sudo podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"

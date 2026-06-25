@@ -9,7 +9,7 @@ instead of maintaining a separate package set.
 
 | Image | Description |
 | ----- | ----------- |
-| `ghcr.io/projectbluefin/static` | Distroless base: glibc, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/base` | Distroless base: glibc, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 
 ## How it works
 
@@ -41,7 +41,7 @@ Requires `podman` and [`just`](https://github.com/casey/just). BuildStream runs
 inside the FSDK `bst2` container -- nothing to install.
 
     just validate        # resolve the element graph
-    just build           # build + load ghcr.io/projectbluefin/static:latest
+    just build           # build + load ghcr.io/projectbluefin/base:latest
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 
