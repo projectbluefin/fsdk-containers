@@ -117,7 +117,9 @@ verify:
 
     echo "==> [1/4] distroless: no shell present"
     # Export the rootfs listing once; reuse for all gates.
-    {{sudo_cmd}} podman create --name verify-base "$REF" >/dev/null
+    # Pass a placeholder CMD so podman create succeeds on images with no
+    # CMD/ENTRYPOINT config (distroless images intentionally have neither).
+    {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
     {{sudo_cmd}} podman export verify-base | tar -tf - > "$LISTING"
