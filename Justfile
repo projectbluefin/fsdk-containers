@@ -14,6 +14,12 @@ export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infr
 export OCI_IMAGE_CREATED := env("OCI_IMAGE_CREATED", "")
 export OCI_IMAGE_REVISION := env("OCI_IMAGE_REVISION", "")
 
+# FSDK release parsed from the pinned junction ref — the single source of truth
+# for image versioning. e.g. "25.08.13".
+export fsdk_version := `grep -oE 'freedesktop-sdk-[0-9]+\.[0-9]+\.[0-9]+' elements/freedesktop-sdk.bst | head -1 | sed 's/freedesktop-sdk-//'`
+# Exact junction commit ref (full ref: value), for provenance.
+export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/^\s*ref:\s*//'`
+
 # -- BuildStream wrapper ------------------------------------------------------
 # Runs any bst command inside the bst2 container via podman.
 # Baseline x86_64 (no x86_64_v3) so the base image runs on the widest CPU set.
@@ -36,6 +42,15 @@ bst *ARGS:
         -w /src \
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- ${EFFECTIVE_BST_FLAGS} {{ARGS}}
+
+# Print the tag set derived from the FSDK release: latest, minor line, point release.
+[group('info')]
+tags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    V="{{fsdk_version}}"
+    MINOR="$(echo "$V" | cut -d. -f1,2)"
+    printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
 
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
@@ -73,11 +88,29 @@ export:
     LABEL_ARGS=()
     [ -n "${OCI_IMAGE_CREATED}" ]  && LABEL_ARGS+=(--label "org.opencontainers.image.created=${OCI_IMAGE_CREATED}")
     [ -n "${OCI_IMAGE_REVISION}" ] && LABEL_ARGS+=(--label "org.opencontainers.image.revision=${OCI_IMAGE_REVISION}")
+    LABEL_ARGS+=(--label "org.opencontainers.image.version={{fsdk_version}}")
+    LABEL_ARGS+=(--label "io.projectbluefin.fsdk.version={{fsdk_version}}")
+    LABEL_ARGS+=(--label "io.projectbluefin.fsdk.ref={{fsdk_ref}}")
 
     # Squash to a single layer and apply dynamic labels.
     printf 'FROM %s\n' "$IMAGE_ID" \
       | $SUDO_CMD podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
     echo "==> Built ${FINAL_REF}"
+
+# Push the locally built :latest under all derived tags to a given repo ref.
+# Usage: just tag-push ghcr.io/projectbluefin/static
+[group('build')]
+tag-push REPO:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SRC="{{image_registry}}/{{image_name}}:latest"
+    SUDO_CMD=""
+    if [ "$(id -u)" -ne 0 ]; then SUDO_CMD="sudo"; fi
+    while read -r t; do
+        $SUDO_CMD podman tag "$SRC" "{{REPO}}:$t"
+        $SUDO_CMD podman push "{{REPO}}:$t"
+        echo "==> pushed {{REPO}}:$t"
+    done < <(just tags)
 
 # ── Verify ────────────────────────────────────────────────────────────
 # Assert the image is distroless and ships certs + tzdata.
