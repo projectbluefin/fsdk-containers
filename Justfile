@@ -105,7 +105,7 @@ tag-push REPO:
     set -euo pipefail
     SRC="{{image_registry}}/{{image_name}}:latest"
     SUDO_CMD=""
-    if [ "$(id -u)" -ne 0 ]; then SUDO_CMD="sudo"; fi
+    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
     while read -r t; do
         $SUDO_CMD podman tag "$SRC" "{{REPO}}:$t"
         $SUDO_CMD podman push "{{REPO}}:$t"
