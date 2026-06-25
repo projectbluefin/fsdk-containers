@@ -9,7 +9,7 @@ instead of maintaining a separate package set.
 
 | Image | Description |
 | ----- | ----------- |
-| `ghcr.io/projectbluefin/static` | Distroless base: glibc, CA certificates, timezone data. No shell, no package manager. |
+| `ghcr.io/projectbluefin/static` | Distroless base: glibc, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 
 ## How it works
 
