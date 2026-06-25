@@ -55,6 +55,8 @@ jobs:
           OCI_IMAGE_CREATED: ${{ steps.meta.outputs.created }}
           OCI_IMAGE_REVISION: ${{ github.sha }}
         run: just build
+      - name: Verify image (distroless + slim gates)
+        run: just verify
       - name: Push per-arch tags
         run: just tag-push "${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}-${{ matrix.arch }}"
 

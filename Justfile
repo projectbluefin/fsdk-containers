@@ -122,25 +122,36 @@ verify:
     SUDO_CMD=""
     if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
 
-    echo "==> [1/4] distroless: a shell must NOT be present"
+    echo "==> [1/4] distroless: no shell present"
     if $SUDO_CMD podman run --rm --entrypoint /bin/sh "$REF" -c 'echo reached' 2>/dev/null; then
         echo "FAIL: /bin/sh ran — image is not distroless"; exit 1
     fi
-    echo "OK: no runnable /bin/sh"
 
-    echo "==> [2/4] CA certificates present"
+    # Export the rootfs listing once; reuse for all file-presence gates.
     $SUDO_CMD podman create --name verify-base "$REF" >/dev/null
     trap '$SUDO_CMD podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
-    ( set +o pipefail; $SUDO_CMD podman export verify-base | tar -tf - \
-      | grep -qE 'etc/(ssl|pki)/.*(ca-bundle|cert)' ) && echo "OK: CA bundle present"
+    LISTING="$(mktemp)"
+    $SUDO_CMD podman export verify-base | tar -tf - > "$LISTING"
+
+    if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
+        echo "FAIL: a shell binary is present in the rootfs"; exit 1
+    fi
+    echo "OK: no shell"
+
+    echo "==> [2/4] CA certificate bundle present"
+    if ! grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$' "$LISTING"; then
+        echo "FAIL: no CA bundle file found"; exit 1
+    fi
+    echo "OK: CA bundle present"
 
     echo "==> [3/4] tzdata present"
-    ( set +o pipefail; $SUDO_CMD podman export verify-base | tar -tf - \
-      | grep -q 'usr/share/zoneinfo/UTC' ) && echo "OK: tzdata present"
+    if ! grep -qE '^usr/share/zoneinfo/UTC$' "$LISTING"; then
+        echo "FAIL: tzdata (zoneinfo/UTC) missing"; exit 1
+    fi
+    echo "OK: tzdata present"
 
     echo "==> [4/4] slim: bloat must NOT be present (terminfo, sanitizers, fortran)"
-    if $SUDO_CMD podman export verify-base | tar -tf - 2>/dev/null \
-       | grep -qE 'usr/share/terminfo/|/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so'; then
+    if grep -qE 'usr/share/terminfo/|/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
         echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
     fi
     echo "OK: slim bloat removed"
