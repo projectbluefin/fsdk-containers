@@ -1,9 +1,10 @@
 kind: stack
 description: |
   Minimal distroless runtime: glibc + gcc-libs + base files, plus
-  CA certificates and timezone data. No package manager. The shell is
-  pulled by runtime-minimal but stripped by the `shells` compose domain
-  in static-runtime.bst.
+  CA certificates and timezone data. No package manager. The bash binary
+  is pulled in by runtime-minimal (it lives in the 'runtime' split domain,
+  not 'shells') and is removed by an explicit rm -f step in
+  elements/oci/static.bst, not by a compose domain.
 
 depends:
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
