@@ -49,10 +49,28 @@ export so every image self-declares its base.
 5. Follow the FSDK **lifecycle**: track the active minor line; when FSDK EOLs a
    line, move `:latest` to the next supported minor. Don't pin to an EOL line.
 
-## Gotchas
+## Verification
+
+Before merging a bump:
+
+- [ ] `just validate` passes (element graph resolves with new ref)
+- [ ] `just tags` output matches the expected `latest / YY.MM / YY.MM.PP` triple
+- [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
+- [ ] `just build && just verify` — all 4 gates pass
+- [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
 - Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components.
   Re-confirm `components/*` names against the staged junction before assuming a
   dep still exists.
 - A point-release tag is immutable: once `:25.08.13` is published, never republish
   different bits under it.
+- **Only the systemd-* overrides and two CAS-config patches remain.** When Dakota
+  syncs a new FSDK pin, check whether `patches/freedesktop-sdk/0001` and `0002`
+  (CAS limits + GNOME CAS servers) still apply cleanly. All other dakota patches
+  (openssh, lvm2, pipewire, cross-compilers, frei0r, kernel-v3) were stripped
+  because this repo never builds those components.
+- **Junction overrides are only meaningful for components your local elements
+  reference directly.** The 25 GNOME sdk/* overrides (cairo, gtk3, pango, glib,
+  gdk-pixbuf…) were dead weight — none of our `base-stack`, `brew-deps` etc. ever
+  reference those components. If you copy a junction from dakota in the future,
+  strip every override whose component is not in your local dep graph.

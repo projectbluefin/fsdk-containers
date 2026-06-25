@@ -14,6 +14,9 @@ export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infr
 export OCI_IMAGE_CREATED := env("OCI_IMAGE_CREATED", "")
 export OCI_IMAGE_REVISION := env("OCI_IMAGE_REVISION", "")
 
+# Prefix for podman calls: empty when rootless podman works, "sudo" otherwise.
+sudo_cmd := if `podman info >/dev/null 2>&1 && echo 1 || echo 0` == "1" { "" } else { "sudo" }
+
 # FSDK release parsed from the pinned junction ref — the single source of truth
 # for image versioning. e.g. "25.08.13".
 export fsdk_version := `grep -oE 'freedesktop-sdk-[0-9]+\.[0-9]+\.[0-9]+' elements/freedesktop-sdk.bst | head -1 | sed 's/freedesktop-sdk-//'`
@@ -28,10 +31,6 @@ bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
-    EFFECTIVE_BST_FLAGS="${BST_FLAGS:-}"
-    if [[ ! " ${EFFECTIVE_BST_FLAGS} " =~ [[:space:]]--no-interactive([[:space:]]|$) ]]; then
-        EFFECTIVE_BST_FLAGS="${EFFECTIVE_BST_FLAGS} --no-interactive"
-    fi
     # shellcheck disable=SC2086
     podman run --rm \
         --privileged \
@@ -41,7 +40,7 @@ bst *ARGS:
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
         -w /src \
         "{{bst2_image}}" \
-        bash -c 'bst --colors "$@"' -- ${EFFECTIVE_BST_FLAGS} {{ARGS}}
+        bash -c 'bst --colors "$@"' -- --no-interactive ${BST_FLAGS:-} {{ARGS}}
 
 # Print the tag set derived from the FSDK release: latest, minor line, point release.
 [group('info')]
@@ -75,14 +74,12 @@ export:
     #!/usr/bin/env bash
     set -euo pipefail
     FINAL_REF="{{image_registry}}/{{image_name}}:latest"
-    SUDO_CMD=""
-    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
 
     echo "==> Exporting OCI image -> ${FINAL_REF}..."
     rm -rf .build-out
     just bst artifact checkout oci/base.bst --directory /src/.build-out
 
-    IMAGE_ID=$($SUDO_CMD podman pull -q oci:.build-out)
+    IMAGE_ID=$({{sudo_cmd}} podman pull -q oci:.build-out)
     rm -rf .build-out
 
     LABEL_ARGS=()
@@ -94,7 +91,7 @@ export:
 
     # Squash to a single layer and apply dynamic labels.
     printf 'FROM %s\n' "$IMAGE_ID" \
-      | $SUDO_CMD podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
+      | {{sudo_cmd}} podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
     echo "==> Built ${FINAL_REF}"
 
 # Push the locally built :latest under all derived tags to a given repo ref.
@@ -104,11 +101,9 @@ tag-push REPO:
     #!/usr/bin/env bash
     set -euo pipefail
     SRC="{{image_registry}}/{{image_name}}:latest"
-    SUDO_CMD=""
-    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
     while read -r t; do
-        $SUDO_CMD podman tag "$SRC" "{{REPO}}:$t"
-        $SUDO_CMD podman push "{{REPO}}:$t"
+        {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
+        {{sudo_cmd}} podman push "{{REPO}}:$t"
         echo "==> pushed {{REPO}}:$t"
     done < <(just tags)
 
@@ -119,19 +114,17 @@ verify:
     #!/usr/bin/env bash
     set -euo pipefail
     REF="{{image_registry}}/{{image_name}}:latest"
-    SUDO_CMD=""
-    if ! podman info >/dev/null 2>&1; then SUDO_CMD="sudo"; fi
 
     echo "==> [1/4] distroless: no shell present"
-    if $SUDO_CMD podman run --rm --entrypoint /bin/sh "$REF" -c 'echo reached' 2>/dev/null; then
+    if {{sudo_cmd}} podman run --rm --entrypoint /bin/sh "$REF" -c 'echo reached' 2>/dev/null; then
         echo "FAIL: /bin/sh ran — image is not distroless"; exit 1
     fi
 
     # Export the rootfs listing once; reuse for all file-presence gates.
-    $SUDO_CMD podman create --name verify-base "$REF" >/dev/null
-    trap '$SUDO_CMD podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
+    {{sudo_cmd}} podman create --name verify-base "$REF" >/dev/null
+    trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
-    $SUDO_CMD podman export verify-base | tar -tf - > "$LISTING"
+    {{sudo_cmd}} podman export verify-base | tar -tf - > "$LISTING"
 
     if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
         echo "FAIL: a shell binary is present in the rootfs"; exit 1

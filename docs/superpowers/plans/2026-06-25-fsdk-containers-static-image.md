@@ -1,8 +1,13 @@
-# fsdk-containers `static` image — Implementation Plan
+# fsdk-containers `base` image — Implementation Plan
+
+> **Status: DELIVERED (2026-06-25).** Image shipped as `ghcr.io/projectbluefin/base`
+> (not `static` — see implementation note in the spec). All tasks below were
+> completed. Delta from plan: element and image names use `base-*` not `static-*`;
+> the dakota-copied GNOME overrides and unrelated patches were trimmed post-delivery.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and publish a distroless `static` base OCI image carved from freedesktop-sdk (FSDK) components via BuildStream, multi-arch, pushed to `ghcr.io/projectbluefin/static`.
+**Goal:** Build and publish a distroless `base` OCI image carved from freedesktop-sdk (FSDK) components via BuildStream, multi-arch, pushed to `ghcr.io/projectbluefin/base`.
 
 **Architecture:** Mirror the proven dakota BST project shape. Copy dakota's pinned `freedesktop-sdk.bst` + `gnome-build-meta.bst` junctions, their `patches/`, and plugin junctions verbatim (guaranteed-buildable start). Add three small new elements — a `stack` listing the minimal runtime deps, a `compose` that chisels non-runtime domains (the size/CVE killer, including the `shells` domain → distroless), and a `script` that runs FSDK's `oci-builder` to package the image. A Justfile drives local build/export; a GitHub Actions workflow builds per-arch and publishes a multi-arch manifest.
 

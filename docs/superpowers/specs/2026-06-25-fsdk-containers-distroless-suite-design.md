@@ -1,7 +1,17 @@
 # fsdk-containers — distroless OCI suite (design)
 
 Date: 2026-06-25
-Status: approved for planning
+Status: implemented
+
+> **Implementation note (2026-06-25):** The tracer bullet was delivered as
+> `ghcr.io/projectbluefin/base` (not `static`). `base` is the correct distroless
+> idiom for a glibc+certs+tzdata image (matching gcr.io/distroless/base semantics);
+> `static` conventionally implies no libc. All element paths use `base-*` naming.
+> The pipeline, SLIM recipe, multi-arch CI, and verify gates are all live.
+> The dakota-derived GNOME component overrides and unrelated patches (pipewire,
+> openssh, lvm2, frei0r, kernel) have been stripped — only systemd-* overrides and
+> the two CAS-config patches remain.
+> Future work (python, node, CNCF tool images) is still open.
 
 ## Summary
 
