@@ -1,17 +1,91 @@
 # fsdk-containers — distroless OCI suite (design)
 
 Date: 2026-06-25
-Status: implemented
+Status: in progress
 
 > **Implementation note (2026-06-25):** The tracer bullet was delivered as
-> `ghcr.io/projectbluefin/base` (not `static`). `base` is the correct distroless
-> idiom for a glibc+certs+tzdata image (matching gcr.io/distroless/base semantics);
-> `static` conventionally implies no libc. All element paths use `base-*` naming.
-> The pipeline, SLIM recipe, multi-arch CI, and verify gates are all live.
-> The dakota-derived GNOME component overrides and unrelated patches (pipewire,
-> openssh, lvm2, frei0r, kernel) have been stripped — only systemd-* overrides and
-> the two CAS-config patches remain.
-> Future work (python, node, CNCF tool images) is still open.
+> `ghcr.io/projectbluefin/base`. Suite expanded (2026-06-25) to cover all
+> supply chain gaps identified in the projectbluefin testing-lab cluster.
+
+## Summary
+
+An OSS distroless container suite carved from
+[freedesktop-sdk](https://gitlab.com/freedesktop-sdk/freedesktop-sdk) (FSDK)
+components using BuildStream (BST). Inherits FSDK's CVE patching and reproducible
+builds. No separate package set to maintain.
+
+Supply chain rule: every image is either from the official upstream project
+(e.g. `registry.k8s.io/kubectl`) or built here from FSDK. No vendor images
+(Chainguard, Fedora, etc.) except where FSDK has no component and there is no
+official upstream distroless equivalent.
+
+## Image suite
+
+| Image | Tier | Contents | Replaces |
+|---|---|---|---|
+| `base` | base | glibc + CA certs + tzdata | *(tracer bullet — delivered)* |
+| `static` | static | CA certs + tzdata, no glibc | `gcr.io/distroless/static` pattern |
+| `skopeo` | app on base | base + skopeo + containers-common | `quay.io/skopeo/stable` (Fedora) |
+| `lab-runner` | shell on base | base + bash/curl/git/jq/python3/openssh | `wolfi-base` + `apk add` |
+| `loki` | app on static | static + loki binary (static Go) | `docker.io/grafana/loki` (Docker Hub) |
+
+### Kept as official upstream (not rebuilt here)
+
+| Image | Reason |
+|---|---|
+| `registry.k8s.io/kubectl` | Official Kubernetes upstream distroless |
+| `registry.k8s.io/pause`, `metrics-server` | Official Kubernetes |
+| `quay.io/kubevirt/virt-launcher` | KubeVirt CNCF project |
+| `ghcr.io/project-zot/zot-linux-amd64` | Zot project official |
+| `ghcr.io/flatcar/nebraska` | Flatcar project official |
+| `ghcr.io/actions/actions-runner` | GitHub Actions official |
+| `quay.io/argoproj/argocd`, `workflow-controller` | CNCF Graduated, quay.io/argoproj |
+| `cgr.dev/chainguard/postgres` | FSDK has no postgresql component; no official upstream distroless |
+
+### Deferred
+
+| Image | Reason |
+|---|---|
+| `promtail` | Deprecated upstream; replacement (Fluent Bit / OTel Collector) under investigation |
+
+## Tiers (following distroless.dev conventions)
+
+- **static**: CA certs + tzdata, no glibc. For statically compiled Go binaries.
+- **base**: static + glibc + gcc-libs. For dynamically linked binaries.
+- **app images**: sit on base or static, add only the application binary and its deps.
+- **lab-runner**: shell-enabled exception. Not distroless. CI utility container only.
+
+## Hard rule: never duplicate an official upstream distroless image
+
+Before adding ANY image, check whether the tool already ships an official
+CNCF / upstream distroless image. If one exists, consume it from upstream.
+Chainguard images are vendor images, not official upstream images.
+
+## Architecture
+
+Three-element pattern per image:
+1. `stack` — declares FSDK component deps
+2. `compose` — chisels by domain (excludes debug/devel/doc/locale/static-blocklist)
+3. `oci/*` script — runs `build-oci`, applies SLIM recipe, emits the OCI artifact
+
+## Element layout
+
+```
+elements/
+  base/         base-stack.bst, base-runtime.bst, base-init-script.bst
+  static/       static-stack.bst, static-runtime.bst, static-init-script.bst
+  skopeo/       skopeo-stack.bst, skopeo-runtime.bst
+  lab-runner/   lab-runner-stack.bst, lab-runner-runtime.bst
+  loki/         loki-bin.bst (kind: import, arch-conditional zip sources)
+  oci/          base.bst, static.bst, skopeo.bst, lab-runner.bst, loki.bst
+```
+
+## Versioning
+
+FSDK release version parsed from the pinned junction ref in
+`elements/freedesktop-sdk.bst`. Tags: `:latest`, `:<minor>`, `:<point>`.
+Loki image additionally labeled with the Loki upstream version.
+
 
 ## Summary
 

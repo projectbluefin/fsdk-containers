@@ -1,4 +1,4 @@
-name: Build base image
+name: Build images
 
 on:
   pull_request:
@@ -11,7 +11,6 @@ permissions:
   packages: write
 
 env:
-  BUILD_IMAGE_NAME: base
   BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
@@ -45,15 +44,18 @@ jobs:
           tool: just
       - name: Log in to ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Build
+      - name: Build and verify all images
         env:
           OCI_IMAGE_CREATED: ${{ github.event.head_commit.timestamp }}
           OCI_IMAGE_REVISION: ${{ github.sha }}
-        run: just build
-      - name: Verify image (distroless + slim gates)
-        run: just verify
-      - name: Push per-arch tags
-        run: just tag-push "${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}-${{ matrix.arch }}"
+        run: |
+          for IMAGE in base static skopeo lab-runner loki; do
+            echo "::group::Build ${IMAGE}"
+            BUILD_IMAGE_NAME=${IMAGE} just build
+            BUILD_IMAGE_NAME=${IMAGE} just verify
+            BUILD_IMAGE_NAME=${IMAGE} just tag-push "${BUILD_IMAGE_REGISTRY}/${IMAGE}-${{ matrix.arch }}"
+            echo "::endgroup::"
+          done
 
   manifest:
     needs: build
@@ -69,11 +71,13 @@ jobs:
       - name: Assemble multi-arch manifests
         run: |
           set -euo pipefail
-          REPO="${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}"
-          for t in $(just tags); do
-            podman manifest create "${REPO}:${t}"
-            podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
-            podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
-            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
-            echo "==> published ${REPO}:${t} (multi-arch)"
+          for IMAGE in base static skopeo lab-runner loki; do
+            REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
+            for t in $(just tags); do
+              podman manifest create "${REPO}:${t}"
+              podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
+              podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
+              podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+              echo "==> published ${REPO}:${t} (multi-arch)"
+            done
           done

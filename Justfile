@@ -54,17 +54,16 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/loki.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
-# Build the base OCI image and load it into podman as
-# ${image_registry}/${image_name}:latest.
+# Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
 [group('build')]
 build:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "==> Building oci/base.bst with BuildStream..."
-    just bst build oci/base.bst
+    echo "==> Building oci/{{image_name}}.bst with BuildStream..."
+    just bst build "oci/{{image_name}}.bst"
     just export
 
 # ── Export ────────────────────────────────────────────────────────────
@@ -77,7 +76,7 @@ export:
 
     echo "==> Exporting OCI image -> ${FINAL_REF}..."
     rm -rf .build-out
-    just bst artifact checkout oci/base.bst --directory /src/.build-out
+    just bst artifact checkout "oci/{{image_name}}.bst" --directory /src/.build-out
 
     IMAGE_ID=$({{sudo_cmd}} podman pull -q oci:.build-out)
     rm -rf .build-out
@@ -108,45 +107,56 @@ tag-push REPO:
     done < <(just tags)
 
 # ── Verify ────────────────────────────────────────────────────────────
-# Assert the image is distroless and ships certs + tzdata.
+# Assert the image meets its contract: distroless images have no shell;
+# all images ship CA certs + tzdata (except static-tier Go binaries which
+# carry these in their own layer); lab-runner explicitly keeps a shell.
 [group('test')]
 verify:
     #!/usr/bin/env bash
     set -euo pipefail
     REF="{{image_registry}}/{{image_name}}:latest"
+    IMG="{{image_name}}"
 
-    echo "==> [1/4] distroless: no shell present"
-    # Export the rootfs listing once; reuse for all gates.
-    # Pass a placeholder CMD so podman create succeeds on images with no
-    # CMD/ENTRYPOINT config (distroless images intentionally have neither).
     {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
     {{sudo_cmd}} podman export verify-base | tar -tf - > "$LISTING"
 
-    if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
-        echo "FAIL: a shell binary is present in the rootfs"; exit 1
-    fi
-    echo "OK: no shell"
+    GATE=1
+    if [ "$IMG" = "lab-runner" ]; then
+        echo "==> [${GATE}/${GATE}] shell present (lab-runner is intentionally shell-enabled)"
+        if ! grep -qE '(^|/)bash$' "$LISTING"; then
+            echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
+        fi
+        echo "OK: bash present"
+        TOTAL=1
+    else
+        TOTAL=4
+        echo "==> [1/${TOTAL}] distroless: no shell present"
+        if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
+            echo "FAIL: a shell binary is present in the rootfs"; exit 1
+        fi
+        echo "OK: no shell"
 
-    echo "==> [2/4] CA certificate bundle present"
-    if ! grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$' "$LISTING"; then
-        echo "FAIL: no CA bundle file found"; exit 1
-    fi
-    echo "OK: CA bundle present"
+        echo "==> [2/${TOTAL}] CA certificate bundle present"
+        if ! grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$' "$LISTING"; then
+            echo "FAIL: no CA bundle file found"; exit 1
+        fi
+        echo "OK: CA bundle present"
 
-    echo "==> [3/4] tzdata present"
-    if ! grep -qE '^usr/share/zoneinfo/UTC$' "$LISTING"; then
-        echo "FAIL: tzdata (zoneinfo/UTC) missing"; exit 1
-    fi
-    echo "OK: tzdata present"
+        echo "==> [3/${TOTAL}] tzdata present"
+        if ! grep -qE '^usr/share/zoneinfo/UTC$' "$LISTING"; then
+            echo "FAIL: tzdata (zoneinfo/UTC) missing"; exit 1
+        fi
+        echo "OK: tzdata present"
 
-    echo "==> [4/4] slim: bloat must NOT be present (terminfo, sanitizers, fortran)"
-    if grep -qE 'usr/share/terminfo/|/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
-        echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
+        echo "==> [4/${TOTAL}] slim: bloat must NOT be present (terminfo, sanitizers, fortran)"
+        if grep -qE 'usr/share/terminfo/|/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
+            echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
+        fi
+        echo "OK: slim bloat removed"
     fi
-    echo "OK: slim bloat removed"
-    echo "==> verify passed"
+    echo "==> verify passed (${IMG})"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
