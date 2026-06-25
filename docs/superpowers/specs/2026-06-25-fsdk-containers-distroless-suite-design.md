@@ -34,10 +34,21 @@ same pipeline and are out of scope here.
 ## Non-goals (for the tracer bullet)
 
 - `-dev` / shell variants (distroless-only for now; add later).
-- Language-runtime images (python, node) and CNCF Go tool images (argo, kubectl).
-  These come after the pipeline is proven.
+- Language-runtime images (python, node) and CNCF Go tool images (only tools
+  that lack an official upstream distroless image — see Hard rule below;
+  kubectl is excluded because it ships one upstream).
 - Argo Workflows orchestration (deferred; GitHub Actions for now).
 - Wolfi source tracking (explicitly rejected — FSDK is the source of truth).
+
+## Hard rule: never duplicate an official upstream distroless image
+
+Before adding ANY image to this suite, check whether the tool already ships an
+official CNCF / upstream distroless image (e.g. `kubectl`,
+`registry.k8s.io/kubectl`, and similar first-party distroless artifacts). If one
+exists, **do not rebuild it here** — consume it from upstream. This suite exists
+to fill gaps (FSDK-derived bases, runtimes, and tools that lack a maintained
+upstream distroless build), not to re-package images the ecosystem already
+maintains. This rule governs every future image-scoping decision.
 
 ## Architecture
 
@@ -201,6 +212,8 @@ squash, push) to keep local and CI builds identical.
 
 - `-dev` shell variants.
 - `python`, `node` runtime images (compose from `components/python3.bst` etc.).
-- CNCF Go tool images (argo, kubectl, kubevirt) — static Go binaries.
+- CNCF Go tool images — ONLY for tools without an official upstream distroless
+  image. Tools that already ship one (e.g. kubectl) are consumed from upstream,
+  never rebuilt (see Hard rule). Each candidate is checked before scoping.
 - Drop the `gnome-build-meta` junction once no image needs its `sdk/*` overrides.
 - Argo Workflows fan-out for a large image matrix.
