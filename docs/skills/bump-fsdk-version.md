@@ -74,3 +74,11 @@ Before merging a bump:
   gdk-pixbuf…) were dead weight — none of our `base-stack`, `brew-deps` etc. ever
   reference those components. If you copy a junction from dakota in the future,
   strip every override whose component is not in your local dep graph.
+
+## Automated Point-Release Bumps
+
+Point releases are fully automated via the `.github/workflows/auto-update-fsdk.yml` GHA workflow.
+- **Trigger:** Daily cron schedule at `03:00 UTC` and manual `workflow_dispatch`.
+- **Mechanism:** Runs `just bst source track freedesktop-sdk.bst` to check for newer refs on the tracking line. If changed, validates the element graph and commits/pushes the new junction ref directly to `main`.
+- **Build Loop:** The push trigger on `main` kicks off the standard multi-arch build and publish workflow, which rebuilds, verifies, and publishes the new point-release tag and manifests.
+
