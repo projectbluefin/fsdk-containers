@@ -9,3 +9,7 @@ depends:
   - freedesktop-sdk.bst:components/containers-common.bst
   - freedesktop-sdk.bst:components/gpgme.bst
   - freedesktop-sdk.bst:components/libassuan.bst
+  - freedesktop-sdk.bst:components/sqlite.bst
+  - freedesktop-sdk.bst:components/libgpg-error.bst
+  - freedesktop-sdk.bst:components/glib.bst
+  - freedesktop-sdk.bst:components/pkg-config.bst

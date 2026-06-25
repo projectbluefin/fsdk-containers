@@ -156,6 +156,20 @@ verify:
         fi
         echo "OK: slim bloat removed"
     fi
+
+    echo "==> smoke test (executing binary)"
+    if [ "$IMG" = "skopeo" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" skopeo --version >/dev/null; then
+            echo "FAIL: skopeo failed to execute"; exit 1
+        fi
+        echo "OK: skopeo executes successfully"
+    elif [ "$IMG" = "lab-runner" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" bash -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
+            echo "FAIL: lab-runner tools failed to execute"; exit 1
+        fi
+        echo "OK: lab-runner tools execute successfully"
+    fi
+
     echo "==> verify passed (${IMG})"
 
 # -- Homebrew nspawn machine image -------------------------------------------
