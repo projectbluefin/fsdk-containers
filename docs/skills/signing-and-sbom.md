@@ -101,3 +101,10 @@ Always cache the pip wheel for `buildstream-sbom` in CI, pinned to the exact com
     key: pip-sbom-0706fec3bedf6f73bd9d2fed32c2aed585feef8d
     restore-keys: pip-sbom-
 ```
+
+### 5. Multi-image SBOM Optimization (Speed + Uniqueness)
+To generate SBOMs for multiple images efficiently and correctly in CI:
+- **Avoid calling `pip install` inside GHA loops.** Running `pip install` inside a loop for each container spins up the container multiple times and repeats dependency resolution.
+- Use `just sboms` (plural) to spin up the BuildStream container **once**, install `buildstream-sbom` **once**, and generate SBOMs for all target images in a single run.
+- **Enforce Unique SPDX Namespaces.** Ensure each image variant receives a unique SPDX document namespace (as required by the SPDX spec) by appending the image name to the namespace URL: `https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}`.
+

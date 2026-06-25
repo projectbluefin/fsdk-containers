@@ -256,10 +256,54 @@ sbom variant="base":
             done
             buildstream-sbom "${ELEMENT}" \
                 --spdx-name "${SPDX_NAME}" \
-                --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}" \
+                --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}" \
                 --spdx-creator "Tool: buildstream-sbom" \
                 --spdx-creator "Organization: projectbluefin" \
                 --deps all \
                 --output "/src/${OUTFILE}"
         '
+
+# Generate BuildStream-native SBOMs for all images in a single optimized container run
+[group('test')]
+sboms:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "${HOME}/.cache/buildstream"
+    mkdir -p "${HOME}/.cache/pip"
+    GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+
+    podman run --rm \
+        --network=host \
+        -v "{{justfile_directory()}}:/src:rw" \
+        -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
+        -v "${HOME}/.cache/pip:/root/.cache/pip:rw" \
+        -w /src \
+        -e GIT_SHA="${GIT_SHA}" \
+        "{{bst2_image}}" \
+        bash -c '
+            for attempt in 1 2 3; do
+                pip install --quiet \
+                    git+https://gitlab.com/BuildStream/buildstream-sbom.git@0706fec3bedf6f73bd9d2fed32c2aed585feef8d \
+                    && break
+                echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
+                [ "${attempt}" -lt 3 ] && sleep 5
+            done
+            for img in base static skopeo lab-runner; do
+                case "$img" in
+                    base)       ELEMENT="oci/base.bst" ;;
+                    static)     ELEMENT="oci/static.bst" ;;
+                    skopeo)     ELEMENT="oci/skopeo.bst" ;;
+                    lab-runner) ELEMENT="oci/lab-runner.bst" ;;
+                esac
+                echo "==> Generating SBOM for ${img}..."
+                buildstream-sbom "${ELEMENT}" \
+                    --spdx-name "${img}" \
+                    --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${img}" \
+                    --spdx-creator "Tool: buildstream-sbom" \
+                    --spdx-creator "Organization: projectbluefin" \
+                    --deps all \
+                    --output "/src/${img}.spdx.json"
+            done
+        '
+
 

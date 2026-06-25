@@ -57,6 +57,29 @@ The `sudo_cmd` Just variable auto-detects at recipe startup:
 sudo_cmd := if `podman info >/dev/null 2>&1 && echo 1 || echo 0` == "1" { "" } else { "sudo" }
 ```
 
+### Personal Access Tokens (PAT) Ban & Mergeraptor Bot
+Personal Access Tokens (PATs) are strictly banned in this organization. To perform cross-repository operations, trigger other workflows, or write back to branches, always generate a GitHub App installation token using the **Mergeraptor** app:
+
+```yaml
+- name: Get mergeraptor token
+  id: app-token
+  uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+  with:
+    app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+    private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+```
+
+### Triggering Workflows (Pushes vs. Repository Dispatch)
+Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Actions workflows. To trigger downstream workflows or standard build runs from an automated update:
+1. Push updates to an automated branch (e.g. `auto/update-fsdk`) and create a Pull Request using the Mergeraptor token.
+2. Trigger the build workflow via a `repository_dispatch` event (e.g. `fsdk-updated`) using the Mergeraptor token as the authorization token.
+3. Configure the build workflow's checkout step to accept a custom branch ref passed via `client_payload`:
+   ```yaml
+   - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+     with:
+       ref: ${{ github.event.client_payload.ref || github.ref }}
+   ```
+
 ## Workflow Structure
 
 | Job | Trigger | Purpose |
