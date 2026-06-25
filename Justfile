@@ -118,6 +118,20 @@ tag-push REPO:
         echo "==> pushed {{REPO}}:$t"
     done < <(just tags)
 
+# Push the locally built image to Quay.io with zstd:chunked compression.
+# Usage: just push-quay quay.io/yourusername/base
+[group('build')]
+push-quay REPO:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SRC="{{image_registry}}/{{image_name}}:latest"
+    while read -r t; do
+        echo "==> Tagging $SRC to {{REPO}}:$t..."
+        {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
+        echo "==> Pushing {{REPO}}:$t with zstd:chunked compression..."
+        {{sudo_cmd}} podman push --compression-format zstd:chunked --force-compression "{{REPO}}:$t"
+    done < <(just tags)
+
 # ── Verify ────────────────────────────────────────────────────────────
 # Assert the image meets its contract: distroless images have no shell;
 # all images ship CA certs + tzdata (except static-tier Go binaries which
