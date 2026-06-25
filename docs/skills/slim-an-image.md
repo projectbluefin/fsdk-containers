@@ -18,7 +18,15 @@ vm-only, zoneinfo`. The largest **runtime-domain** bloat has *no domain* to excl
 it, so it must be removed explicitly with `rm` — the same pattern used for bash.
 The shared block lives in `elements/oci/base.bst` under "SLIM RECIPE".
 
-## Measure first
+## Applies to every image — not just glibc images
+
+Even a "static" image (no glibc by design, e.g. one that only adds tzdata + CA
+certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a runtime dep on
+`runtime-minimal`, which carries glibc, gcc runtimes (libasan, libtsan, libgfortran),
+and terminfo into any compose that includes it. Skipping the SLIM recipe on a
+"minimal" image will fail gate `[4/4]` of `just verify`.
+
+Rule: copy the full SLIM block from `oci/base.bst` into every new OCI script.
 
 ```
 rm -rf _sizecheck

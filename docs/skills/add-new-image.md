@@ -70,3 +70,16 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   and `case` (see `oci/base.bst`).
 - Paths are arch-specific (`x86_64-linux-gnu` vs `aarch64-linux-gnu`). Use
   `/layer/usr/lib/*/...` globs so both arches work.
+- **BST arch conditionals use `arch`, not `target_arch`.** The project option in
+  `project.conf` is named `arch`. A conditional written as `target_arch == 'aarch64'`
+  will fail with "variable 'target_arch' is undefined". The correct form is:
+  ```yaml
+  (?):
+  - arch == 'aarch64':
+      ...
+  ```
+- **`tzdata` pulls in `runtime-minimal` transitively.** `tzdata.bst` has a runtime
+  dep on `runtime-minimal`, which includes glibc, gcc runtimes (libasan, libgfortran),
+  and terminfo. Even a "static" image (no glibc by design) that includes tzdata will
+  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + terminfo
+  removal) to every image without exception — see `slim-an-image.md`.
