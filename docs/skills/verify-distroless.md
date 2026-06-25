@@ -13,10 +13,12 @@ metadata:
 
 ## The gates
 
-1. **No runnable shell.** Tries `podman run --entrypoint /bin/sh ... -c echo`.
-   If a shell runs, the image is not distroless → fail. The bash binary lives in
-   FSDK's `runtime` domain (NOT `shells`), so it is removed by explicit `rm` in the
-   SLIM recipe, not by a compose exclude.
+1. **No shell binary in rootfs.** Exports the container filesystem and greps for
+   `(ba)?sh` in the path list. The bash binary lives in FSDK's `runtime` domain
+   (NOT `shells`), so it is removed by explicit `rm` in the SLIM recipe, not by a
+   compose exclude. Using a tar listing avoids podman's exit-125 error on images
+   with no CMD/ENTRYPOINT config — attempting `podman run --entrypoint /bin/sh`
+   on such an image triggers `set -e` regardless of whether the shell exists.
 2. **CA certificates present** — `etc/(ssl|pki)/.*(ca-bundle|cert)` in the rootfs.
 3. **tzdata present** — `usr/share/zoneinfo/UTC`. A kept crash-preventer.
 4. **Slim bloat removed** — fails if `terminfo` or any

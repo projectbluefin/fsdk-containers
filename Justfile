@@ -116,11 +116,7 @@ verify:
     REF="{{image_registry}}/{{image_name}}:latest"
 
     echo "==> [1/4] distroless: no shell present"
-    if {{sudo_cmd}} podman run --rm --entrypoint /bin/sh "$REF" -c 'echo reached' 2>/dev/null; then
-        echo "FAIL: /bin/sh ran — image is not distroless"; exit 1
-    fi
-
-    # Export the rootfs listing once; reuse for all file-presence gates.
+    # Export the rootfs listing once; reuse for all gates.
     {{sudo_cmd}} podman create --name verify-base "$REF" >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
