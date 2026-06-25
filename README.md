@@ -1,26 +1,34 @@
 # fsdk-containers
 
-Distroless OCI base images carved from [freedesktop-sdk](https://gitlab.com/freedesktop-sdk/freedesktop-sdk)
-(FSDK) using BuildStream. A free, OSS alternative to commercial distroless
-suites: images inherit FSDK's existing CVE patching and reproducible builds
-instead of maintaining a separate package set.
+**Bringing distroless patterns to [freedesktop-sdk](https://gitlab.com/freedesktop-sdk/freedesktop-sdk) (FSDK) containers.**
+
+FSDK already maintains beautifully patched, reproducible builds of glibc and
+every major runtime. This repo applies the distroless playbook to them — carve
+out only the runtime, strip the bloat, ship slim by default — so you get a free,
+OSS distroless suite that **inherits FSDK's CVE patching** instead of maintaining
+a separate package set.
 
 ## Images
 
-| Image | Description |
-| ----- | ----------- |
-| `ghcr.io/projectbluefin/base` | Distroless base: glibc, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| Image | Size | Description |
+| ----- | ---- | ----------- |
+| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 
 ## How it works
 
 Each image is composed from raw FSDK `components/*` (never `platform.bst`),
 then chiseled with a BuildStream `compose` element that drops every non-runtime
-domain. The OCI script step also explicitly removes shell binaries (`bash`, `sh`)
-because the FSDK `shells` domain covers only `/usr/share/fish` and `/usr/share/zsh`
-data; the bash binary lives in the `runtime` domain and must be removed by hand.
-The result is glibc + openssl certs + tzdata + base files and nothing else.
+split-rule domain, and finally run through the **SLIM recipe** in the OCI script
+step. The slim recipe removes the large runtime-domain bloat that has no FSDK
+domain to exclude it: shell binaries, `terminfo`, gcc sanitizer/fortran runtimes,
+the `gconv` charset long-tail, the glibc `locale-archive`, and leaked build tools.
 
-Pipeline: `stack` (list deps) -> `compose` (chisel) -> `script` (oci-builder).
+It deliberately **keeps** the cheap crash-preventers — `tzdata`, a common charset
+set, CA certificates — so `datetime`/TLS work out of the box without the wheel
+gymnastics other distroless suites push onto you.
+
+Pipeline: `stack` (deps) -> `compose` (chisel) -> `script` (slim + oci-builder).
+See [`docs/skills/slim-an-image.md`](docs/skills/slim-an-image.md) for the recipe.
 
 ## Versioning
 
