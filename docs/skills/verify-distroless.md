@@ -16,9 +16,7 @@ metadata:
 1. **No shell binary in rootfs.** Exports the container filesystem and greps for
    `(ba)?sh` in the path list. The bash binary lives in FSDK's `runtime` domain
    (NOT `shells`), so it is removed by explicit `rm` in the SLIM recipe, not by a
-   compose exclude. Using a tar listing avoids podman's exit-125 error on images
-   with no CMD/ENTRYPOINT config — attempting `podman run --entrypoint /bin/sh`
-   on such an image triggers `set -e` regardless of whether the shell exists.
+   compose exclude.
 2. **CA certificates present** — `etc/(ssl|pki)/.*(ca-bundle|cert)` in the rootfs.
 3. **tzdata present** — `usr/share/zoneinfo/UTC`. A kept crash-preventer.
 4. **Slim bloat removed** — fails if `terminfo` or any
@@ -36,10 +34,12 @@ info` fails.
 
 ## Debugging a failure
 
-Export the rootfs and inspect directly:
+Export the rootfs and inspect directly. Distroless images have no CMD or
+ENTRYPOINT in their OCI config — `podman create` requires a placeholder command
+to succeed (it does not validate whether the command exists in the image):
 
 ```
-cid=$(podman create ghcr.io/projectbluefin/<name>:latest)
+cid=$(podman create ghcr.io/projectbluefin/<name>:latest /nonexistent)
 podman export "$cid" | tar -tf - | grep -E '<thing you expect/don.t expect>'
 podman rm "$cid"
 ```
