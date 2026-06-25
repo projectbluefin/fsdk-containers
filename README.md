@@ -8,7 +8,7 @@ out only the runtime, strip the bloat, ship slim by default — so you get a fre
 OSS distroless suite that **inherits FSDK's CVE patching** instead of maintaining
 a separate package set.
 
-These containers are maintained for projectblufin/fsdk usage for cluster ops, etc. 
+These containers are maintained for projectblufin/fsdk usage for cluster ops, etc. Digital sovereignty isn't just for nations, this controls our supply chain. 
 
 ## Images
 
