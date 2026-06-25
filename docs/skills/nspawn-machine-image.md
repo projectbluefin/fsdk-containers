@@ -34,8 +34,7 @@ spec in `docs/brew-nspawn-container-spec.md`).
 1. `*-deps.bst` (`stack`) — reuse `base/base-stack.bst`, add `components/systemd.bst`
    plus the runtime tools (ruby, git, curl, gcc, make, patch, diffutils, which,
    procps, tar/gzip/xz/zstd, sed/gawk/grep/findutils, file, util-linux, shadow).
-   For an app sandbox (e.g. Homebrew 6) also add `components/bubblewrap.bst` and,
-   on Linux, `components/patchelf.bst` (bottle relocation).
+   On Linux also add `components/patchelf.bst` (Homebrew bottle relocation).
 2. `*-runtime.bst` (`compose`) — exclude only `debug/doc/tests`. **Keep**
    `devel/locale/shells/zoneinfo/sysconf`.
 3. `*-prefix.bst` (`manual`) — stage the app tree from a `git_repo` source (do NOT
@@ -81,13 +80,6 @@ Get the artifact out with `bst artifact checkout <oci elem> --directory dist`.
   `zstd`; add `components/zstd.bst` to the assembly element's `build-depends`,
   not just to the runtime. `.tar.zst` decompresses 3-5x faster than gzip and
   systemd-sysupdate (`url-tar` / `Type=url-tar`) handles it natively.
-- **Homebrew 6 needs bubblewrap.** `brew install` source builds sandbox via
-  `bwrap`, so `components/bubblewrap.bst` must be in the image. The consuming
-  nspawn config must NOT deny `@mount` in its `SystemCallFilter` or bwrap fails.
-  Validate with `brew install hello` (forces a source build, not a bottle pour).
-- **Disable brew self-update in the image.** Write `/etc/environment` with
-  `HOMEBREW_NO_AUTO_UPDATE=1` and `HOMEBREW_NO_INSTALL_CLEANUP=1` — updates are
-  driven by the image cycle, not by brew checking on every command.
 
 ## Verification
 

@@ -3,8 +3,8 @@ description: |
   Assemble the Homebrew nspawn machine image as a machinectl-compatible rootfs
   tarball (NOT an OCI image). Stages the brew runtime rootfs and the brew prefix
   at /layer, finalises the container-specific bits that need to live in the image
-  (linuxbrew user, init symlink, machine-id, locale, brew environment), then
-  emits homebrew-env-<ver>.tar.zst + SHA256SUMS for systemd-sysupdate.
+  (linuxbrew user, init symlink, machine-id, locale), then emits
+  homebrew-env-<ver>.tar.zst + SHA256SUMS for systemd-sysupdate.
 
 build-depends:
   # Root toolchain to run the assembly commands (coreutils, bash, tar, zstd).
@@ -59,11 +59,6 @@ config:
 
       # --- locale: utf-locale provides C.UTF-8 (a real UTF-8 locale brew is happy with) ---
       echo 'LANG=C.UTF-8' > "$L/etc/locale.conf"
-
-      # --- brew environment: updates are driven by the image cycle, not brew self-update.
-      # Set in /etc/environment so every login/systemd-run session in the container
-      # inherits them (the host wrapper also passes them via --setenv as a backstop).
-      printf 'LANG=C.UTF-8\nHOMEBREW_NO_AUTO_UPDATE=1\nHOMEBREW_NO_INSTALL_CLEANUP=1\n' > "$L/etc/environment"
 
     - |
       set -eu

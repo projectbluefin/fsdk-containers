@@ -18,7 +18,6 @@ depends:
   - freedesktop-sdk.bst:components/git.bst             # taps + self-update
   - freedesktop-sdk.bst:components/curl.bst            # bottle downloads
   - freedesktop-sdk.bst:components/gcc.bst             # source builds / compiler
-  - freedesktop-sdk.bst:components/bubblewrap.bst      # Homebrew 6 formula build sandbox (REQUIRED)
   - freedesktop-sdk.bst:components/patchelf.bst        # bottle relocation on Linux
 
   # Common unix tooling brew and formulas shell out to at runtime.

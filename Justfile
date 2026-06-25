@@ -187,12 +187,12 @@ verify-brew: export-brew
     # usr-merge: /bin and /sbin are symlinks to usr/bin, so check the real paths.
     # bwrap is required so `brew install` source builds can sandbox (Homebrew 6).
     for p in ./usr/bin/bash ./usr/bin/ruby ./usr/bin/git ./usr/bin/curl \
-             ./usr/bin/bwrap ./usr/bin/patchelf \
+             ./usr/bin/patchelf \
              ./usr/lib/systemd/systemd ./usr/bin/init \
              ./home/linuxbrew/.linuxbrew/bin/brew \
              ./home/linuxbrew/.linuxbrew/Homebrew/bin/brew \
              ./etc/passwd ./etc/machine-id ./etc/locale.conf \
-             ./etc/environment ./etc/subuid ./etc/subgid; do
+             ./etc/subuid ./etc/subgid; do
         if grep -qxF "$p" "$L"; then echo "OK   $p"; else echo "MISS $p"; fail=1; fi
     done
     # linuxbrew user must be present at uid 1001.
@@ -200,11 +200,5 @@ verify-brew: export-brew
         echo "OK   linuxbrew uid 1001 in /etc/passwd"
     else
         echo "MISS linuxbrew uid 1001 in /etc/passwd"; fail=1
-    fi
-    # brew self-update must be disabled in the image environment.
-    if tar --zstd -xf "$T" -O ./etc/environment | grep -q '^HOMEBREW_NO_AUTO_UPDATE=1'; then
-        echo "OK   HOMEBREW_NO_AUTO_UPDATE in /etc/environment"
-    else
-        echo "MISS HOMEBREW_NO_AUTO_UPDATE in /etc/environment"; fail=1
     fi
     [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }
