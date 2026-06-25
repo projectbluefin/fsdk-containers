@@ -1,0 +1,50 @@
+name: Auto-update FSDK
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Runs daily at 03:00 UTC
+  workflow_dispatch:      # Allows manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-fsdk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2
+        with:
+          tool: just
+
+      - name: Track FSDK Point Release
+        run: |
+          just bst source track freedesktop-sdk.bst
+
+      - name: Check for updates
+        id: check_changes
+        run: |
+          if git diff --exit-code elements/freedesktop-sdk.bst; then
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+            echo "No new freedesktop-sdk point releases found."
+          else
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+            echo "Found new freedesktop-sdk point release!"
+          fi
+
+      - name: Validate Element Graph
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          just validate
+
+      - name: Commit and Push Update
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add elements/freedesktop-sdk.bst
+          git commit -m "chore: bump freedesktop-sdk point release" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+          git push origin main
