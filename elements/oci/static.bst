@@ -34,6 +34,6 @@ config:
             'org.opencontainers.image.licenses': 'Apache-2.0'
             'org.opencontainers.image.url': 'https://github.com/projectbluefin/fsdk-containers'
             'org.opencontainers.image.source': 'https://github.com/projectbluefin/fsdk-containers'
-          index-annotations:
-            'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/static:latest'
+        index-annotations:
+          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/static:latest'
       EOF
