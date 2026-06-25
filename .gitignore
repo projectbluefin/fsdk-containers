@@ -6,6 +6,7 @@
 *.raw
 *.tar
 *.tar.gz
+*.spdx.json
 dist/
 .build-out
 .worktrees/

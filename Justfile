@@ -217,3 +217,49 @@ verify-brew: export-brew
         echo "MISS linuxbrew uid 1001 in /etc/passwd"; fail=1
     fi
     [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }
+
+# Generate a BST-native SBOM (SPDX 2.3) using buildstream-sbom.
+[group('test')]
+sbom variant="base":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{variant}}" in
+        base)       ELEMENT="oci/base.bst";        SPDX_NAME="base" ;;
+        static)     ELEMENT="oci/static.bst";      SPDX_NAME="static" ;;
+        skopeo)     ELEMENT="oci/skopeo.bst";      SPDX_NAME="skopeo" ;;
+        lab-runner) ELEMENT="oci/lab-runner.bst";  SPDX_NAME="lab-runner" ;;
+        *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
+    esac
+    OUTFILE="${SPDX_NAME}.spdx.json"
+    mkdir -p "${HOME}/.cache/buildstream"
+    mkdir -p "${HOME}/.cache/pip"
+    GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+
+    podman run --rm \
+        --network=host \
+        -v "{{justfile_directory()}}:/src:rw" \
+        -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
+        -v "${HOME}/.cache/pip:/root/.cache/pip:rw" \
+        -w /src \
+        -e ELEMENT="${ELEMENT}" \
+        -e SPDX_NAME="${SPDX_NAME}" \
+        -e OUTFILE="${OUTFILE}" \
+        -e GIT_SHA="${GIT_SHA}" \
+        "{{bst2_image}}" \
+        bash -c '
+            for attempt in 1 2 3; do
+                pip install --quiet \
+                    git+https://gitlab.com/BuildStream/buildstream-sbom.git@0706fec3bedf6f73bd9d2fed32c2aed585feef8d \
+                    && break
+                echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
+                [ "${attempt}" -lt 3 ] && sleep 5
+            done
+            buildstream-sbom "${ELEMENT}" \
+                --spdx-name "${SPDX_NAME}" \
+                --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}" \
+                --spdx-creator "Tool: buildstream-sbom" \
+                --spdx-creator "Organization: projectbluefin" \
+                --deps all \
+                --output "/src/${OUTFILE}"
+        '
+

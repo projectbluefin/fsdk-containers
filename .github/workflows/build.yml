@@ -61,17 +61,44 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write      # Required for Sigstore keyless signing
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2
         with:
           tool: just
+
+      - name: Restore pip cache for buildstream-sbom
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        with:
+          path: ~/.cache/pip
+          key: pip-sbom-0706fec3bedf6f73bd9d2fed32c2aed585feef8d
+          restore-keys: pip-sbom-
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+
       - name: Log in to ghcr
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Assemble multi-arch manifests
+        run: |
+          mkdir -p ~/.docker
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
+
+      - name: Assemble multi-arch manifests, sign, and attach SBOMs
         run: |
           set -euo pipefail
           for IMAGE in base static skopeo lab-runner; do
+            echo "::group::Processing SBOM and manifest for ${IMAGE}"
+            
+            # Generate BuildStream-native SBOM once per image
+            just sbom "${IMAGE}"
+            
             REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
             for t in $(just tags); do
               podman manifest create "${REPO}:${t}"
@@ -79,5 +106,41 @@ jobs:
               podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
               podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
               echo "==> published ${REPO}:${t} (multi-arch)"
+
+              # Resolve canonical manifest list digest
+              DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" | jq -r '.Digest')
+              if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
+                echo "ERROR: Failed to resolve digest for ${REPO}:${t}"
+                exit 1
+              fi
+              echo "==> Canonical digest for ${REPO}:${t}: ${DIGEST}"
+
+              # Keyless-sign the OCI image manifest list
+              cosign sign -y "${REPO}@${DIGEST}"
+
+              # Attach and sign the SBOM
+              SBOM_FILE="${IMAGE}.spdx.json"
+              if [[ -f "${SBOM_FILE}" ]]; then
+                echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
+                
+                oras attach \
+                  --artifact-type application/vnd.spdx+json \
+                  --annotation "filename=${SBOM_FILE}" \
+                  "${REPO}@${DIGEST}" \
+                  "${SBOM_FILE}"
+
+                SBOM_DIGEST=$(oras discover --format json "${REPO}@${DIGEST}" \
+                  | jq -r '.referrers[] | select(.artifactType == "application/vnd.spdx+json") | .digest' \
+                  | head -n1)
+
+                if [[ -n "${SBOM_DIGEST}" && "${SBOM_DIGEST}" != "null" ]]; then
+                  echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
+                  cosign sign -y "${REPO}@${SBOM_DIGEST}"
+                else
+                  echo "WARNING: Failed to capture SBOM digest for ${REPO}:${t}"
+                fi
+              fi
             done
+            echo "::endgroup::"
           done
+

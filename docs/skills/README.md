@@ -20,6 +20,7 @@ load the focused skill for your task.
 | Make an image smaller / apply the SLIM recipe | [slim-an-image.md](slim-an-image.md) |
 | Move to a new FSDK release / retag | [bump-fsdk-version.md](bump-fsdk-version.md) |
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
+| Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
 | Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
 | Finishing a task (always) | [skill-improvement.md](skill-improvement.md) |
