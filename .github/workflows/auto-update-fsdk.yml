@@ -5,6 +5,10 @@ on:
     - cron: '0 3 * * *'  # Runs daily at 03:00 UTC
   workflow_dispatch:      # Allows manual trigger
 
+concurrency:
+  group: auto-update-fsdk
+  cancel-in-progress: true
+
 permissions: read-all
 
 jobs:

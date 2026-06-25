@@ -8,6 +8,10 @@ on:
     types: [fsdk-updated]
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.event.client_payload.ref || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -48,12 +52,13 @@ jobs:
       - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2
         with:
           tool: just
+      - name: Compute OCI Metadata
+        run: |
+          echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
       - name: Log in to ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build and verify all images
-        env:
-          OCI_IMAGE_CREATED: ${{ github.event.head_commit.timestamp }}
-          OCI_IMAGE_REVISION: ${{ github.sha }}
         run: |
           for IMAGE in base static skopeo lab-runner; do
             echo "::group::Build ${IMAGE}"
@@ -116,7 +121,13 @@ jobs:
             esac
             
             REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
-            for t in $(just tags); do
+            
+            # Step 1: Create, annotate, and push all tags
+            FIRST_TAG=""
+            while read -r t; do
+              if [[ -z "${FIRST_TAG}" ]]; then
+                FIRST_TAG="${t}"
+              fi
               podman manifest create "${REPO}:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
@@ -129,41 +140,41 @@ jobs:
               
               podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
               echo "==> published ${REPO}:${t} (multi-arch)"
+            done < <(just tags)
 
-              # Resolve canonical manifest list digest
-              DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" | jq -r '.Digest')
-              if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
-                echo "ERROR: Failed to resolve digest for ${REPO}:${t}"
-                exit 1
+            # Step 2: Resolve canonical manifest list digest exactly once
+            DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
+            if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
+              echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
+              exit 1
+            fi
+            echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
+
+            # Step 3: Keyless-sign the OCI image manifest list digest exactly once
+            cosign sign -y "${REPO}@${DIGEST}"
+
+            # Step 4: Attach and sign the SBOM exactly once
+            SBOM_FILE="${IMAGE}.spdx.json"
+            if [[ -f "${SBOM_FILE}" ]]; then
+              echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
+              
+              oras attach \
+                --artifact-type application/vnd.spdx+json \
+                --annotation "filename=${SBOM_FILE}" \
+                "${REPO}@${DIGEST}" \
+                "${SBOM_FILE}"
+
+              SBOM_DIGEST=$(oras discover --format json "${REPO}@${DIGEST}" \
+                | jq -r '.referrers[] | select(.artifactType == "application/vnd.spdx+json") | .digest' \
+                | head -n1)
+
+              if [[ -n "${SBOM_DIGEST}" && "${SBOM_DIGEST}" != "null" ]]; then
+                echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
+                cosign sign -y "${REPO}@${SBOM_DIGEST}"
+              else
+                echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
               fi
-              echo "==> Canonical digest for ${REPO}:${t}: ${DIGEST}"
-
-              # Keyless-sign the OCI image manifest list
-              cosign sign -y "${REPO}@${DIGEST}"
-
-              # Attach and sign the SBOM
-              SBOM_FILE="${IMAGE}.spdx.json"
-              if [[ -f "${SBOM_FILE}" ]]; then
-                echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
-                
-                oras attach \
-                  --artifact-type application/vnd.spdx+json \
-                  --annotation "filename=${SBOM_FILE}" \
-                  "${REPO}@${DIGEST}" \
-                  "${SBOM_FILE}"
-
-                SBOM_DIGEST=$(oras discover --format json "${REPO}@${DIGEST}" \
-                  | jq -r '.referrers[] | select(.artifactType == "application/vnd.spdx+json") | .digest' \
-                  | head -n1)
-
-                if [[ -n "${SBOM_DIGEST}" && "${SBOM_DIGEST}" != "null" ]]; then
-                  echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
-                  cosign sign -y "${REPO}@${SBOM_DIGEST}"
-                else
-                  echo "WARNING: Failed to capture SBOM digest for ${REPO}:${t}"
-                fi
-              fi
-            done
+            fi
             echo "::endgroup::"
           done
 

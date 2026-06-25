@@ -32,7 +32,7 @@ bst *ARGS:
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
     # shellcheck disable=SC2086
-    podman run --rm \
+    {{sudo_cmd}} podman run --rm \
         --privileged \
         --device /dev/fuse \
         --network=host \
@@ -261,7 +261,7 @@ sbom variant="base":
     mkdir -p "${HOME}/.cache/pip"
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
-    podman run --rm \
+    {{sudo_cmd}} podman run --rm \
         --network=host \
         -v "{{justfile_directory()}}:/src:rw" \
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
@@ -298,7 +298,7 @@ sboms:
     mkdir -p "${HOME}/.cache/pip"
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
-    podman run --rm \
+    {{sudo_cmd}} podman run --rm \
         --network=host \
         -v "{{justfile_directory()}}:/src:rw" \
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
