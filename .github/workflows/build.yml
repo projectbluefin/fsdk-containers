@@ -107,11 +107,26 @@ jobs:
           for IMAGE in base static skopeo lab-runner; do
             echo "::group::Processing SBOM and manifest for ${IMAGE}"
             
+            case "${IMAGE}" in
+              base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
+              static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
+              skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
+              lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
+              *)          DESC="Project Bluefin distroless container image" ;;
+            esac
+            
             REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
             for t in $(just tags); do
               podman manifest create "${REPO}:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
+              
+              # Annotate the multi-arch manifest index itself with OCI labels for GHCR
+              podman manifest annotate --index --annotation "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" "${REPO}:${t}"
+              podman manifest annotate --index --annotation "org.opencontainers.image.description=${DESC}" "${REPO}:${t}"
+              podman manifest annotate --index --annotation "org.opencontainers.image.title=${IMAGE}" "${REPO}:${t}"
+              podman manifest annotate --index --annotation "org.opencontainers.image.licenses=Apache-2.0" "${REPO}:${t}"
+              
               podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
               echo "==> published ${REPO}:${t} (multi-arch)"
 
