@@ -21,6 +21,7 @@ load the focused skill for your task.
 | Move to a new FSDK release / retag | [bump-fsdk-version.md](bump-fsdk-version.md) |
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
+| Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
 | Finishing a task (always) | [skill-improvement.md](skill-improvement.md) |
 
 ## What belongs here

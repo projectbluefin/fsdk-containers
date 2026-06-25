@@ -68,6 +68,12 @@ config:
             'org.opencontainers.image.licenses': 'Apache-2.0'
             'org.opencontainers.image.url': 'https://github.com/projectbluefin/fsdk-containers'
             'org.opencontainers.image.source': 'https://github.com/projectbluefin/fsdk-containers'
+            'io.artifacthub.package.readme-url': 'https://raw.githubusercontent.com/projectbluefin/fsdk-containers/main/README.md'
+            'io.artifacthub.package.logo-url': 'https://projectbluefin.io/logo.png'
+            'io.artifacthub.package.license': 'Apache-2.0'
+            'io.artifacthub.package.maintainers': '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]'
+            'io.artifacthub.package.keywords': 'freedesktop-sdk,bluefin,ci'
+            'io.artifacthub.package.category': 'integration-delivery'
         index-annotations:
           'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/lab-runner:latest'
       EOF
