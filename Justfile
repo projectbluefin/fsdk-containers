@@ -262,6 +262,8 @@ sbom variant="base":
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
     {{sudo_cmd}} podman run --rm \
+        --privileged \
+        --device /dev/fuse \
         --network=host \
         -v "{{justfile_directory()}}:/src:rw" \
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
@@ -299,6 +301,8 @@ sboms:
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
     {{sudo_cmd}} podman run --rm \
+        --privileged \
+        --device /dev/fuse \
         --network=host \
         -v "{{justfile_directory()}}:/src:rw" \
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
