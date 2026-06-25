@@ -30,7 +30,6 @@ jobs:
   build:
     if: github.event_name != 'pull_request'
     strategy:
-      fail-fast: false
       matrix:
         include:
           - arch: x86_64
@@ -44,15 +43,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just
-      - name: Image metadata
-        id: meta
-        run: |
-          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Log in to ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build
         env:
-          OCI_IMAGE_CREATED: ${{ steps.meta.outputs.created }}
+          OCI_IMAGE_CREATED: ${{ github.event.head_commit.timestamp }}
           OCI_IMAGE_REVISION: ${{ github.sha }}
         run: just build
       - name: Verify image (distroless + slim gates)
@@ -70,15 +65,15 @@ jobs:
         with:
           tool: just
       - name: Log in to ghcr
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Assemble multi-arch manifests
         run: |
           set -euo pipefail
           REPO="${BUILD_IMAGE_REGISTRY}/${BUILD_IMAGE_NAME}"
           for t in $(just tags); do
-            sudo podman manifest create "${REPO}:${t}"
-            sudo podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
-            sudo podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
-            sudo podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+            podman manifest create "${REPO}:${t}"
+            podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
+            podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
+            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
             echo "==> published ${REPO}:${t} (multi-arch)"
           done

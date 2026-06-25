@@ -176,7 +176,7 @@ verify-brew: export-brew
     tar --zstd -tf "$T" > "$L"
     fail=0
     # usr-merge: /bin and /sbin are symlinks to usr/bin, so check the real paths.
-    # bwrap is required so `brew install` source builds can sandbox (Homebrew 6).
+    # Run smoke checks inside the brew machine container.
     for p in ./usr/bin/bash ./usr/bin/ruby ./usr/bin/git ./usr/bin/curl \
              ./usr/bin/patchelf \
              ./usr/lib/systemd/systemd ./usr/bin/init \
