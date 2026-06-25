@@ -14,6 +14,12 @@ a separate package set.
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 
+### Machine images (not distroless)
+
+| Image | Size | Description |
+| ----- | ---- | ----------- |
+| `ghcr.io/projectbluefin/brew` | ~410 MB | Homebrew developer environment as a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`, **not** an OCI image). Full dev env: bash, ruby, git, curl, gcc, bubblewrap, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
+
 ## How it works
 
 Each image is composed from raw FSDK `components/*` (never `platform.bst`),

@@ -156,3 +156,55 @@ verify:
     fi
     echo "OK: slim bloat removed"
     echo "==> verify passed"
+
+# -- Homebrew nspawn machine image -------------------------------------------
+# NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
+# machinectl import-tar (see docs/skills/nspawn-machine-image.md).
+brew_version := "6.0.3"
+
+# Build the brew nspawn machine image (rootfs tarball, not OCI).
+[group('brew')]
+build-brew:
+    just bst build oci/brew-nspawn.bst
+
+# Export the rootfs tarball + SHA256SUMS to dist/.
+[group('brew')]
+export-brew: build-brew
+    rm -rf dist
+    just bst artifact checkout oci/brew-nspawn.bst --directory dist
+    @echo "==> wrote:" && ls -lh dist/
+
+# Verify the tarball is a machinectl-shaped rootfs with the required contents.
+[group('brew')]
+verify-brew: export-brew
+    #!/usr/bin/env bash
+    set -euo pipefail
+    T="dist/homebrew-env-{{brew_version}}.tar.zst"
+    [ -f "$T" ] || { echo "FAIL: $T not found"; exit 1; }
+    L="$(mktemp)"
+    tar --zstd -tf "$T" > "$L"
+    fail=0
+    # usr-merge: /bin and /sbin are symlinks to usr/bin, so check the real paths.
+    # bwrap is required so `brew install` source builds can sandbox (Homebrew 6).
+    for p in ./usr/bin/bash ./usr/bin/ruby ./usr/bin/git ./usr/bin/curl \
+             ./usr/bin/bwrap ./usr/bin/patchelf \
+             ./usr/lib/systemd/systemd ./usr/bin/init \
+             ./home/linuxbrew/.linuxbrew/bin/brew \
+             ./home/linuxbrew/.linuxbrew/Homebrew/bin/brew \
+             ./etc/passwd ./etc/machine-id ./etc/locale.conf \
+             ./etc/environment ./etc/subuid ./etc/subgid; do
+        if grep -qxF "$p" "$L"; then echo "OK   $p"; else echo "MISS $p"; fail=1; fi
+    done
+    # linuxbrew user must be present at uid 1001.
+    if tar --zstd -xf "$T" -O ./etc/passwd | grep -q '^linuxbrew:x:1001:1001:'; then
+        echo "OK   linuxbrew uid 1001 in /etc/passwd"
+    else
+        echo "MISS linuxbrew uid 1001 in /etc/passwd"; fail=1
+    fi
+    # brew self-update must be disabled in the image environment.
+    if tar --zstd -xf "$T" -O ./etc/environment | grep -q '^HOMEBREW_NO_AUTO_UPDATE=1'; then
+        echo "OK   HOMEBREW_NO_AUTO_UPDATE in /etc/environment"
+    else
+        echo "MISS HOMEBREW_NO_AUTO_UPDATE in /etc/environment"; fail=1
+    fi
+    [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }

@@ -6,13 +6,15 @@ A systemd-nspawn machine image — a rootfs tarball suitable for `machinectl imp
 
 **This is NOT a distroless image.** It is a full dev environment container. The distroless rules (no shells, strip locales, etc.) do NOT apply. This container needs bash, a package manager runtime, compilers, and a real init.
 
-Ships in the Dakota OCI image at `/usr/share/containers/homebrew-env.tar`. Updated independently via `systemd-sysupdate`. Also installable standalone on any systemd distro as `bluefin-cli`.
+Updated independently via `systemd-sysupdate`. Also installable standalone on any systemd distro as `bluefin-cli`.
 
 ## Output format
 
-A `.tar.gz` rootfs archive, NOT an OCI image. The BST element chain must produce a tarball that `machinectl import-tar` accepts — i.e., a complete Linux rootfs with `/etc`, `/usr`, `/bin`, `/lib`, etc.
+A `.tar.zst` rootfs archive (zstd compression — 3-5x faster decompression than gzip on modern CPUs; systemd-sysupdate supports it natively), NOT an OCI image. The BST element chain must produce a tarball that `machinectl import-tar` accepts — i.e., a complete Linux rootfs with `/etc`, `/usr`, `/bin`, `/lib`, etc.
 
-The output goes to: `ghcr.io/projectbluefin/bluefin-cli/homebrew-env-@v.tar.gz` (versioned, with `SHA256SUMS` and `SHA256SUMS.gpg` alongside for `systemd-sysupdate`).
+Published to GitHub Releases at `https://github.com/projectbluefin/bluefin-cli/releases/download/<ver>/homebrew-env-<ver>.tar.zst`.
+
+A `SHA256SUMS` file **must** be published alongside the tarball at the same URL prefix — `systemd-sysupdate url-tar` requires it. GitHub Releases does not generate this automatically; it must be produced and uploaded in CI.
 
 ## Required contents
 
@@ -99,6 +101,64 @@ config:
       sha256sum --binary homebrew-env-%{version}.tar.gz > SHA256SUMS
 ```
 
+## Performance requirements
+
+The container image must support these performance optimizations. They are not optional:
+
+1. **zstd compression** — use `.tar.zst` not `.tar.gz`. Decompresses 3-5x faster on pull.
+
+2. **virtiofs compatibility (no DAX for writable prefix)** — the rootfs must make no
+   assumptions about direct `/dev` access or host-specific paths. For the VM tier,
+   `/home/linuxbrew` is shared via virtiofs in **non-DAX mode** (default). DAX has
+   known truncation/page-fault pathologies for mutable data. Do NOT use `cache=always`
+   DAX for the writable brew prefix.
+
+3. **`HOMEBREW_NO_AUTO_UPDATE=1`** and **`HOMEBREW_NO_INSTALL_CLEANUP=1`** must be set
+   in `/etc/environment` inside the container. Brew checks for updates on every
+   `install`/`search` by default. Updates are handled by the container image cycle,
+   not by brew's self-update.
+
+4. **`/tmp` on tmpfs** — ensure the container's `/tmp` is backed by tmpfs (standard
+   systemd behavior). Bottle installs untar to temp before moving.
+
+5. **btrfs NOCOW for hot-write dirs** — `HOMEBREW_CACHE` and `HOMEBREW_TEMP` inside
+   the container (which map to host-side bind mounts) should be on btrfs subvolumes
+   with `chattr +C` (NoDataCoW). btrfs CoW is expensive for sqlite, git ref writes,
+   and download cache churn. Keep CoW on Cellar for snapshot value.
+
+6. **Bubblewrap (bwrap) must work inside the container.** Homebrew 6 on Linux uses
+   bubblewrap for formula build sandboxing. The container kernel and nspawn syscall
+   filter must allow: `clone3`, `mount`, `pivot_root`, `open_tree`, `move_mount`,
+   `unshare`. Do NOT add `@mount` to any syscall deny list. Validate with:
+   `brew install hello` (forces a source build + bwrap, not just bottle install).
+
+## Security tiers (for reference / docs)
+
+The container image is the same for all tiers. The consuming side selects the tier at install time by deploying the appropriate config file and enabling the right systemd unit.
+
+**Tier 1 — hardened nspawn (default):** namespace isolation + capability drop + syscall filter + NoNewPrivileges. ~35MB RAM, zero VM overhead. Not a hard security boundary (shared kernel), but meaningful defense-in-depth.
+
+**Tier 2 — Cloud Hypervisor + kata-kernel (opt-in):**
+- **VMM:** Cloud Hypervisor (Rust, Intel/Microsoft) — not QEMU (too heavy), not Firecracker (no virtiofs DAX), not the Kata runtime (wrong layer — Kata is a runtime, not a VMM)
+- **Kernel:** kata-kernel from the `kata-containers` package — a stripped LTS kernel with minimal attack surface. Borrowed standalone; the Kata runtime itself is NOT needed
+- **virtiofs DAX:** `/home/linuxbrew` shared into the VM via virtiofsd with DAX (shared memory mapping, zero-copy). ~95% native random read, ~90% write, ~85% metadata ops
+- **Landlock:** the Cloud Hypervisor VMM process itself is Landlock-sandboxed — can only access `/home/linuxbrew` and the kernel image on the host
+- **~55MB RAM, ~125ms cold boot** (amortized to zero with always-on model)
+- **Genuine hypervisor boundary** — equivalent to macOS VMs, stronger VMM security story (Rust + Landlock vs QEMU's C codebase)
+
+Security stack for Tier 2 (bottom to top):
+```
+host kernel
+  ← seccomp: VMM syscall filter on virtio devices
+    ← Landlock: VMM process restricted to /home/linuxbrew + kernel image
+      ← Cloud Hypervisor VMM (Rust, memory-safe)
+        ← KVM hardware boundary
+          ← kata-kernel (stripped LTS, minimal attack surface)
+            ← brew process
+```
+
+The container image must be compatible with virtiofs — no assumptions about direct `/dev` access or host-specific paths baked in at image build time.
+
 ## Working nspawn config (for reference / docs)
 
 The consuming side (Dakota/bluefin-cli) uses this config. The container image must be compatible with it:
@@ -108,6 +168,9 @@ The consuming side (Dakota/bluefin-cli) uses this config. The container image mu
 [Exec]
 PrivateUsers=no
 ResolvConf=bind-host
+DropCapability=CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_NET_ADMIN CAP_SYS_RAWIO CAP_SYS_MODULE CAP_AUDIT_CONTROL
+SystemCallFilter=~@mount @reboot @swap @obsolete
+NoNewPrivileges=yes
 
 [Files]
 Bind=/home/linuxbrew
@@ -120,15 +183,34 @@ VirtualEthernet=no
 
 ## Host wrapper (for reference)
 
+Shipped at `/usr/bin/brew` in the Dakota OCI image. The wrapper sets `HOMEBREW_NO_AUTO_UPDATE=1` to suppress brew's per-command update check.
+
 ```bash
-#!/bin/bash
-# /var/usrlocal/bin/brew
-machinectl show homebrew &>/dev/null || machinectl start homebrew
-exec systemd-run --quiet --pipe --machine=homebrew --uid=linuxbrew -- \
-  /home/linuxbrew/.linuxbrew/bin/brew "$@"
+#!/usr/bin/env bash
+set -euo pipefail
+MACHINE=homebrew
+BREW_BIN=/home/linuxbrew/.linuxbrew/bin/brew
+
+if ! machinectl list --no-legend | grep -q "^${MACHINE}\b"; then
+    if machinectl list-images --no-legend | grep -q "^${MACHINE}\b"; then
+        machinectl start "$MACHINE" 1>&2
+        sleep 0.5
+    else
+        echo "bluefin-cli: homebrew container not installed. Run: ujust setup-bluefin-cli" >&2
+        exit 1
+    fi
+fi
+
+exec systemd-run --quiet --pipe --wait --machine="$MACHINE" --uid=linuxbrew \
+    --setenv=HOMEBREW_NO_AUTO_UPDATE=1 --setenv=HOMEBREW_NO_INSTALL_CLEANUP=1 \
+    -- "$BREW_BIN" "$@"
 ```
 
+A future compiled wrapper (Rust + Varlink PID lookup + nsenter) will cut the ~50-100ms dbus overhead to ~3ms. The bash wrapper is correct for initial implementation.
+
 ## systemd-sysupdate transfer config (for reference)
+
+Pulls versioned tarballs from GitHub Releases. A `SHA256SUMS` file must exist at the same path.
 
 ```ini
 # /usr/lib/sysupdate.d/homebrew-container.transfer
@@ -137,14 +219,14 @@ ProtectVersion=%A
 
 [Source]
 Type=url-tar
-Path=https://ghcr.io/projectbluefin/bluefin-cli/
-MatchPattern=homebrew-env-@v.tar.gz
+Path=https://github.com/projectbluefin/bluefin-cli/releases/download/
+MatchPattern=homebrew-env-@v.tar.zst
 
 [Target]
-Type=subvolume
-Path=/var/lib/machines
-MatchPattern=homebrew-@v
-CurrentSymlink=/var/lib/machines/homebrew
+Type=directory
+Path=/var/lib/bluefin-cli
+MatchPattern=homebrew-env-@v.tar.zst
+CurrentSymlink=/var/lib/bluefin-cli/homebrew-env.tar.zst
 ```
 
 ## Prototype reference (ubuntu baseline)

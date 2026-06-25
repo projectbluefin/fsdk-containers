@@ -5,5 +5,7 @@
 *.img
 *.raw
 *.tar
+*.tar.gz
+dist/
 .build-out
 .worktrees/
