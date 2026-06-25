@@ -1,0 +1,85 @@
+name: Build static image
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: static
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Resolve element graph
+        run: just validate
+
+  build:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 300
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Image metadata
+        id: meta
+        run: |
+          echo "version=$(just tags | sed -n '3p')" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Log in to ghcr
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build
+        env:
+          OCI_IMAGE_CREATED: ${{ steps.meta.outputs.created }}
+          OCI_IMAGE_REVISION: ${{ github.sha }}
+        run: just build
+      - name: Push per-arch tags
+        run: just tag-push "${IMAGE_REGISTRY}/${IMAGE_NAME}-${{ matrix.arch }}"
+
+  manifest:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: Log in to ghcr
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Assemble multi-arch manifests
+        run: |
+          set -euo pipefail
+          REPO="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+          for t in $(just tags); do
+            sudo podman manifest create "${REPO}:${t}"
+            sudo podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
+            sudo podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
+            sudo podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+            echo "==> published ${REPO}:${t} (multi-arch)"
+          done
