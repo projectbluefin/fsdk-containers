@@ -19,8 +19,8 @@ depends:
   - freedesktop-sdk.bst:components/composefs.bst
   - flatcar-clone/bootc.bst
 
-  # Modern Server Kernel
-  - flatcar-clone/kernel-server.bst
+  # Stock FSDK Kernel
+  - freedesktop-sdk.bst:components/linux.bst
 
   # Sysext Compatibility Identity
   - flatcar-clone/os-release-flatcar.bst
