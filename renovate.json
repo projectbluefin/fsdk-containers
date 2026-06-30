@@ -9,7 +9,7 @@
     "github-actions"
   ],
   "schedule": [
-    "after 2am and before 6am every day"
+    "after 2am and before 6am"
   ],
   "packageRules": [
     {
