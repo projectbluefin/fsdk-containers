@@ -111,14 +111,15 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 
 ## Manifest Annotation Compatibility (GitHub Runners)
 
-`podman manifest annotate --index` is not available on all runner podman versions.
-For index-level OCI labels, set annotations during creation instead:
+Runner podman versions vary, and both `podman manifest annotate --index` and
+`podman manifest create --annotation ...` may be unavailable depending on the
+image. For maximum compatibility, keep manifest assembly to:
 
 ```bash
-podman manifest create \
-  --annotation "org.opencontainers.image.title=${IMAGE}" \
-  --annotation "org.opencontainers.image.description=${DESC}" \
-  "${REPO}:${TAG}"
+podman manifest create "${REPO}:${TAG}"
+podman manifest add "${REPO}:${TAG}" "docker://${REPO}-x86_64:${TAG}"
+podman manifest add "${REPO}:${TAG}" "docker://${REPO}-aarch64:${TAG}"
+podman manifest push --all "${REPO}:${TAG}" "docker://${REPO}:${TAG}"
 ```
 
 Use `oras attach --format json --no-tty` and capture `.digest` directly when you

@@ -128,12 +128,7 @@ jobs:
               if [[ -z "${FIRST_TAG}" ]]; then
                 FIRST_TAG="${t}"
               fi
-              podman manifest create \
-                --annotation "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" \
-                --annotation "org.opencontainers.image.description=${DESC}" \
-                --annotation "org.opencontainers.image.title=${IMAGE}" \
-                --annotation "org.opencontainers.image.licenses=Apache-2.0" \
-                "${REPO}:${t}"
+              podman manifest create "${REPO}:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
 
