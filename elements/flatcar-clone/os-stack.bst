@@ -19,8 +19,9 @@ depends:
   - freedesktop-sdk.bst:components/composefs.bst
   - flatcar-clone/bootc.bst
 
-  # Stock FSDK Kernel
+  # Stock FSDK Kernel & Server-Chiseled Firmware
   - freedesktop-sdk.bst:components/linux.bst
+  - flatcar-clone/linux-firmware-split.bst
 
   # Sysext Compatibility Identity
   - flatcar-clone/os-release-flatcar.bst
