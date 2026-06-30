@@ -128,16 +128,15 @@ jobs:
               if [[ -z "${FIRST_TAG}" ]]; then
                 FIRST_TAG="${t}"
               fi
-              podman manifest create "${REPO}:${t}"
+              podman manifest create \
+                --annotation "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" \
+                --annotation "org.opencontainers.image.description=${DESC}" \
+                --annotation "org.opencontainers.image.title=${IMAGE}" \
+                --annotation "org.opencontainers.image.licenses=Apache-2.0" \
+                "${REPO}:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
               podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
-              
-              # Annotate the multi-arch manifest index itself with OCI labels for GHCR
-              podman manifest annotate --index --annotation "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" "${REPO}:${t}"
-              podman manifest annotate --index --annotation "org.opencontainers.image.description=${DESC}" "${REPO}:${t}"
-              podman manifest annotate --index --annotation "org.opencontainers.image.title=${IMAGE}" "${REPO}:${t}"
-              podman manifest annotate --index --annotation "org.opencontainers.image.licenses=Apache-2.0" "${REPO}:${t}"
-              
+
               podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
               echo "==> published ${REPO}:${t} (multi-arch)"
             done < <(just tags)
@@ -158,17 +157,17 @@ jobs:
             if [[ -f "${SBOM_FILE}" ]]; then
               echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
               
-              oras attach \
+              SBOM_REF=$(oras attach \
+                --format json \
+                --no-tty \
                 --artifact-type application/vnd.spdx+json \
                 --annotation "filename=${SBOM_FILE}" \
                 "${REPO}@${DIGEST}" \
-                "${SBOM_FILE}"
+                "${SBOM_FILE}" \
+                | jq -r '.digest')
 
-              SBOM_DIGEST=$(oras discover --format json "${REPO}@${DIGEST}" \
-                | jq -r '.referrers[] | select(.artifactType == "application/vnd.spdx+json") | .digest' \
-                | head -n1)
-
-              if [[ -n "${SBOM_DIGEST}" && "${SBOM_DIGEST}" != "null" ]]; then
+              if [[ -n "${SBOM_REF}" && "${SBOM_REF}" != "null" ]]; then
+                SBOM_DIGEST="${SBOM_REF#*@}"
                 echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
                 cosign sign -y "${REPO}@${SBOM_DIGEST}"
               else
@@ -177,4 +176,3 @@ jobs:
             fi
             echo "::endgroup::"
           done
-

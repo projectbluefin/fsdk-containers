@@ -108,3 +108,19 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] No new mutable action refs introduced
+
+## Manifest Annotation Compatibility (GitHub Runners)
+
+`podman manifest annotate --index` is not available on all runner podman versions.
+For index-level OCI labels, set annotations during creation instead:
+
+```bash
+podman manifest create \
+  --annotation "org.opencontainers.image.title=${IMAGE}" \
+  --annotation "org.opencontainers.image.description=${DESC}" \
+  "${REPO}:${TAG}"
+```
+
+Use `oras attach --format json --no-tty` and capture `.digest` directly when you
+need the SBOM referrer digest to sign, instead of selecting the first match from
+`oras discover` output.
