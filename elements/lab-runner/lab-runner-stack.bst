@@ -12,3 +12,4 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  - lab-runner/kubectl.bst

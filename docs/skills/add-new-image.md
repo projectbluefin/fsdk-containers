@@ -58,6 +58,26 @@ For **python** (FSDK stdlib is ~51 MB), additionally `rm -rf` from
 
 Document the prune list and *why each entry is safe* in this skill when you add it.
 
+### Python-specific prune details:
+- `test/` / `tests/`: Standard library unit tests, only needed for development.
+- `ensurepip/` / `idlelib/` / `tkinter/` / `turtledemo`: Installers and GUI libraries, useless in head-less distroless containers.
+- `lib2to3/` / `pydoc_data/` / `__phello__/`: Code translation and doc utilities.
+- `config-*/` / `*.a`: Build configuration and static libraries, not needed at runtime.
+
+### Statically compiled Go / manual element guidelines:
+- **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
+- **Auto-Renovate version updates:** Use the generic regex customManager in `renovate.json` by adding a comment above your version/track variable:
+  ```yaml
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
+  kubectl_version: v1.30.2
+  ```
+  Or for git_repo tracking:
+  ```yaml
+  # renovate: datasource=github-releases depName=containers/buildah
+  track: v1.36.0
+  ```
+  Once Renovate updates the tag, the CI workflow runs `just bst source track <element>` to resolve the exact commit hash and update the `ref:` field.
+
 ## Wire it up
 
 - Add a `build-<name>` target or parameterize the Justfile (`image_name`).

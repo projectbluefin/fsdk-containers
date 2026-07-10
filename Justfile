@@ -54,7 +54,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -86,6 +86,8 @@ export:
         static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
         skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
         lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
+        python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
+        buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -189,6 +191,16 @@ verify:
             echo "FAIL: skopeo failed to execute"; exit 1
         fi
         echo "OK: skopeo executes successfully"
+    elif [ "$IMG" = "python" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
+            echo "FAIL: python failed to execute"; exit 1
+        fi
+        echo "OK: python executes successfully"
+    elif [ "$IMG" = "buildah" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
+            echo "FAIL: buildah failed to execute"; exit 1
+        fi
+        echo "OK: buildah executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
@@ -254,6 +266,8 @@ sbom variant="base":
         static)     ELEMENT="oci/static.bst";      SPDX_NAME="static" ;;
         skopeo)     ELEMENT="oci/skopeo.bst";      SPDX_NAME="skopeo" ;;
         lab-runner) ELEMENT="oci/lab-runner.bst";  SPDX_NAME="lab-runner" ;;
+        python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
+        buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -318,12 +332,14 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner; do
+            for img in base static skopeo lab-runner python buildah; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
                     skopeo)     ELEMENT="oci/skopeo.bst" ;;
                     lab-runner) ELEMENT="oci/lab-runner.bst" ;;
+                    python)     ELEMENT="oci/python.bst" ;;
+                    buildah)    ELEMENT="oci/buildah.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \

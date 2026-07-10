@@ -60,7 +60,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build and verify all images
         run: |
-          for IMAGE in base static skopeo lab-runner; do
+          for IMAGE in base static skopeo lab-runner python buildah; do
             echo "::group::Build ${IMAGE}"
             BUILD_IMAGE_NAME=${IMAGE} just build
             BUILD_IMAGE_NAME=${IMAGE} just verify
@@ -109,7 +109,7 @@ jobs:
       - name: Assemble multi-arch manifests, sign, and attach SBOMs
         run: |
           set -euo pipefail
-          for IMAGE in base static skopeo lab-runner; do
+          for IMAGE in base static skopeo lab-runner python buildah; do
             echo "::group::Processing SBOM and manifest for ${IMAGE}"
             
             case "${IMAGE}" in
@@ -117,6 +117,8 @@ jobs:
               static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
               skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
               lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
+              python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
+              buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
               *)          DESC="Project Bluefin distroless container image" ;;
             esac
             
