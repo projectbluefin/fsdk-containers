@@ -31,7 +31,8 @@ Use this skill when auditing the codebase, workflows, or BuildStream elements fo
 2. Audit BuildStream Elements (elements/**/*.bst):
    - Verify that builds do not execute commands requiring host root privileges.
    - Check that no sensitive credentials, keys, or personal access tokens are included in the recipe sources.
-   - Ensure that strip-binaries is correctly configured where necessary (e.g., manual Go elements) to prevent binary corruption or builder issues.
+   - Ensure that manual C/C++ elements (like qemu-img) inject OpenSSF-aligned compiler hardening flags with a fallback root-level default `hardening-flags: ""` definition.
+   - Ensure that strip-binaries is correctly configured where necessary (e.g., manual Go/Rust/static binary elements) to prevent binary corruption or builder issues.
 3. Execute Static Scans:
    - Run local security checks, container scans, or helper tools to verify the integrity of built OCI images.
 4. Formulate and Present Findings:
@@ -57,4 +58,5 @@ Use this skill when auditing the codebase, workflows, or BuildStream elements fo
 - [ ] All workflows use strict 40-character commit SHAs for actions.
 - [ ] No hardcoded secrets or API tokens exist in any file.
 - [ ] Workflow steps with custom branch checkout specify canonical refs securely.
+- [ ] Manual C/C++ elements (e.g. qemu-img.bst) inject OpenSSF-aligned compiler hardening flags with a fallback root-level default `hardening-flags: ""` definition.
 - [ ] Findings summary table matches user constraints and is free of unwanted decorative elements.

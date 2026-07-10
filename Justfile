@@ -201,6 +201,11 @@ verify:
             echo "FAIL: buildah failed to execute"; exit 1
         fi
         echo "OK: buildah executes successfully"
+    elif [ "$IMG" = "qemu-img" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
+            echo "FAIL: qemu-img failed to execute"; exit 1
+        fi
+        echo "OK: qemu-img executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
