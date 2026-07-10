@@ -5,6 +5,7 @@ build-depends:
   - freedesktop-sdk.bst:components/make.bst
 
 variables:
+  strip-binaries: ""
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.30.2
 
