@@ -25,6 +25,7 @@ load the focused skill for your task.
 | Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
 | Container quality standards and SRE tagging | [container-standards.md](container-standards.md) |
+| Run or respond to a security audit / review | [security-review.md](security-review.md) |
 | Finishing a task (always) | [skill-improvement.md](skill-improvement.md) |
 
 ## What belongs here
