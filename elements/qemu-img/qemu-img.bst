@@ -27,12 +27,18 @@ depends:
 
 variables:
   strip-binaries: ""
+  (?):
+    - arch == "x86_64":
+        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
+    - arch == "aarch64":
+        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
 config:
   configure-commands:
     - |
       ./configure \
         --prefix=/usr \
+        --extra-cflags="%{hardening-flags}" \
         --disable-system \
         --disable-user \
         --enable-tools \

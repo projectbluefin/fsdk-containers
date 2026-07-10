@@ -65,6 +65,17 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 - `config-*/` / `*.a`: Build configuration and static libraries, not needed at runtime.
 
 ### Statically compiled Go / manual element guidelines:
+- **Enforce compiler-level security and hardening:** When compiling manual elements (e.g. C/C++ elements like `qemu-img` or custom tools) from source, always inject strict, OpenSSF-aligned compiler hardening flags using BuildStream variables. Use `(?):` to set architecture-specific branch protection:
+  ```yaml
+  variables:
+    strip-binaries: ""
+    (?):
+      - arch == "x86_64":
+          hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
+      - arch == "aarch64":
+          hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
+  ```
+  Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
 - **Auto-Renovate version updates:** Use the generic regex customManager in `renovate.json` by adding a comment above your version/track variable:
   ```yaml

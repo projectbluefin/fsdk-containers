@@ -63,6 +63,33 @@ inside the FSDK `bst2` container -- nothing to install.
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 
+## Homebrew systemd-nspawn container
+
+For a full developer environment container booted by `systemd-nspawn` instead of a distroless OCI image, we provide the `brew` machine image.
+
+### 1. Build and install
+
+The build process produces a `.tar.zst` rootfs, imports it into `machinectl`, creates a dedicated `/home/linuxbrew` folder on your host, and configures the `systemd-nspawn` sandbox settings (requires `sudo`):
+
+    just install-brew
+
+This runs `build-brew`, `export-brew`, and `verify-brew` before importing it as a systemd machine named `homebrew`.
+
+### 2. Run commands
+
+Execute brew commands inside the sandboxed container from your host shell:
+
+    just run-brew info
+    just run-brew install hello
+
+### 3. Uninstall
+
+Stop the container, remove the machine image, and clean up sandbox settings:
+
+    just uninstall-brew
+
+Please report any issues or feedback you encounter while using the Homebrew nspawn container!
+
 ## Custom Builds and Caching
 
 You can fork/clone this repository to run your own custom builds and maintain them in GitHub Actions.

@@ -256,6 +256,82 @@ verify-brew: export-brew
     fi
     [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }
 
+# Install and configure the local brew nspawn container (requires sudo).
+[group('brew')]
+install-brew: verify-brew
+    #!/usr/bin/env bash
+    set -euo pipefail
+    T="dist/homebrew-env-{{brew_version}}.tar.zst"
+    [ -f "$T" ] || { echo "FAIL: $T not found"; exit 1; }
+
+    echo "==> Importing brew container as machine 'homebrew'..."
+    if sudo machinectl list-images --no-legend | grep -q "^homebrew\b"; then
+        echo "==> Removing existing homebrew machine image..."
+        sudo machinectl terminate homebrew >/dev/null 2>&1 || true
+        sudo machinectl remove homebrew || true
+    fi
+    sudo machinectl import-tar "$T" homebrew
+
+    echo "==> Setting up nspawn configuration at /etc/systemd/nspawn/homebrew.nspawn..."
+    sudo mkdir -p /etc/systemd/nspawn
+    { \
+        echo "[Exec]"; \
+        echo "PrivateUsers=no"; \
+        echo "ResolvConf=bind-host"; \
+        echo "DropCapability=CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_NET_ADMIN CAP_SYS_RAWIO CAP_SYS_MODULE CAP_AUDIT_CONTROL"; \
+        echo "SystemCallFilter=~@mount @reboot @swap @obsolete"; \
+        echo "NoNewPrivileges=yes"; \
+        echo ""; \
+        echo "[Files]"; \
+        echo "Bind=/home/linuxbrew"; \
+        echo ""; \
+        echo "[Network]"; \
+        echo "VirtualEthernet=no"; \
+    } | sudo tee /etc/systemd/nspawn/homebrew.nspawn >/dev/null
+
+    echo "==> Creating /home/linuxbrew on the host..."
+    sudo mkdir -p /home/linuxbrew
+    sudo chown 1001:1001 /home/linuxbrew
+
+    echo "==> Starting homebrew container..."
+    sudo machinectl start homebrew
+    echo "==> Waiting for systemd inside the container to boot..."
+    sleep 3
+    echo "==> Homebrew container successfully installed and booted!"
+    echo "==> You can now run brew commands using: just run-brew <command>"
+
+# Run a brew command inside the imported homebrew container (e.g. just run-brew install hello).
+[group('brew')]
+run-brew *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! sudo machinectl list --no-legend | grep -q "^homebrew\b"; then
+        if sudo machinectl list-images --no-legend | grep -q "^homebrew\b"; then
+            echo "==> Starting homebrew container..."
+            sudo machinectl start homebrew
+            sleep 2
+        else
+            echo "ERROR: homebrew container is not installed. Run 'just install-brew' first." >&2
+            exit 1
+        fi
+    fi
+    sudo systemd-run --quiet --pipe --wait --machine=homebrew --uid=linuxbrew \
+        --setenv=HOMEBREW_NO_AUTO_UPDATE=1 --setenv=HOMEBREW_NO_INSTALL_CLEANUP=1 \
+        -- /home/linuxbrew/.linuxbrew/bin/brew {{ARGS}}
+
+# Stop and remove the homebrew container and its files (requires sudo).
+[group('brew')]
+uninstall-brew:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Stopping homebrew container..."
+    sudo machinectl terminate homebrew >/dev/null 2>&1 || true
+    echo "==> Removing homebrew machine image..."
+    sudo machinectl remove homebrew >/dev/null 2>&1 || true
+    echo "==> Cleaning up /etc/systemd/nspawn/homebrew.nspawn..."
+    sudo rm -f /etc/systemd/nspawn/homebrew.nspawn
+    echo "==> Done. Note: /home/linuxbrew is left intact. Remove it manually if desired."
+
 # Generate a BST-native SBOM (SPDX 2.3) using buildstream-sbom.
 [group('test')]
 sbom variant="base":
