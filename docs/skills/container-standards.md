@@ -1,17 +1,23 @@
 ---
 name: container-standards
-description: The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy.
+description: The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance.
 metadata:
   type: standard
 ---
 
 # Container Standard of Quality
 
-Every container image in `fsdk-containers` must conform to strict standards of security, minimalism, autoupdating, and reliable tagging. This guarantees that Site Reliability Engineers (SREs) can trust these images in mission-critical environments.
+## When to Use
+- Adding a new container runtime or application to the suite.
+- Verifying whether an existing container meets standard compliance.
+- Auditing the tagging and signing configurations.
 
----
+## When NOT to Use
+- Managing machine-images/nspawn containers (see `nspawn-machine-image.md`).
 
-## 1. The FSDK Quality Contract
+## Core Process
+
+### 1. The FSDK Quality Contract
 
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`).
@@ -63,3 +69,20 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 - `org.opencontainers.image.created` (Creation timestamp)
 - `io.projectbluefin.fsdk.version`
 - `io.projectbluefin.fsdk.ref`
+
+---
+
+## Red Flags
+- Any hardcoded version tags in `.bst` files with no corresponding `# renovate:` comment.
+- Including a shell (`/usr/bin/bash` or similar) in a distroless-tier image.
+- Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
+- Images published to GHCR without point-release tagging (e.g. only `:latest`).
+
+---
+
+## Verification
+- [ ] Element validates successfully (`just validate` exits with 0).
+- [ ] Image builds and compiles cleanly (`just build`).
+- [ ] Verification test suite passes all 4 gates (`just verify`).
+- [ ] Image uncompressed size is under ~150MB.
+- [ ] OCI Labels contain valid Git hashes and FSDK tags.
