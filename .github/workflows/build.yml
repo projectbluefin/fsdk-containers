@@ -37,14 +37,17 @@ jobs:
   build:
     if: github.event_name != 'pull_request'
     strategy:
+      fail-fast: false
       matrix:
+        image: [base, static, skopeo, lab-runner, python, buildah]
+        arch: [x86_64, aarch64]
         include:
           - arch: x86_64
             runner: ubuntu-24.04
           - arch: aarch64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 300
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -58,15 +61,11 @@ jobs:
           echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
       - name: Log in to ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Build and verify all images
+      - name: Build and verify image
         run: |
-          for IMAGE in base static skopeo lab-runner python buildah; do
-            echo "::group::Build ${IMAGE}"
-            BUILD_IMAGE_NAME=${IMAGE} just build
-            BUILD_IMAGE_NAME=${IMAGE} just verify
-            BUILD_IMAGE_NAME=${IMAGE} just tag-push "${BUILD_IMAGE_REGISTRY}/${IMAGE}-${{ matrix.arch }}"
-            echo "::endgroup::"
-          done
+          BUILD_IMAGE_NAME=${{ matrix.image }} just build
+          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
+          BUILD_IMAGE_NAME=${{ matrix.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ matrix.image }}-${{ matrix.arch }}"
 
   manifest:
     needs: build
@@ -76,6 +75,10 @@ jobs:
       contents: read
       packages: write
       id-token: write      # Required for Sigstore keyless signing
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [base, static, skopeo, lab-runner, python, buildah]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -103,73 +106,71 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
 
-      - name: Generate all BuildStream-native SBOMs
-        run: just sboms
+      - name: Generate BuildStream-native SBOM
+        run: just sbom "${{ matrix.image }}"
 
-      - name: Assemble multi-arch manifests, sign, and attach SBOMs
+      - name: Assemble multi-arch manifest, sign, and attach SBOM
         run: |
           set -euo pipefail
-          for IMAGE in base static skopeo lab-runner python buildah; do
-            echo "::group::Processing SBOM and manifest for ${IMAGE}"
-            
-            case "${IMAGE}" in
-              base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
-              static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
-              skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
-              lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
-              python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
-              buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
-              *)          DESC="Project Bluefin distroless container image" ;;
-            esac
-            
-            REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
-            
-            # Step 1: Create, annotate, and push all tags
-            FIRST_TAG=""
-            while read -r t; do
-              if [[ -z "${FIRST_TAG}" ]]; then
-                FIRST_TAG="${t}"
-              fi
-              podman manifest create "${REPO}:${t}"
-              podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
-              podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
-
-              podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
-              echo "==> published ${REPO}:${t} (multi-arch)"
-            done < <(just tags)
-
-            # Step 2: Resolve canonical manifest list digest exactly once
-            DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
-            if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
-              echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
-              exit 1
+          IMAGE="${{ matrix.image }}"
+          echo "Processing SBOM and manifest for ${IMAGE}"
+          
+          case "${IMAGE}" in
+            base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
+            static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
+            skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
+            lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
+            python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
+            buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
+            *)          DESC="Project Bluefin distroless container image" ;;
+          esac
+          
+          REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
+          
+          # Step 1: Create, annotate, and push all tags
+          FIRST_TAG=""
+          while read -r t; do
+            if [[ -z "${FIRST_TAG}" ]]; then
+              FIRST_TAG="${t}"
             fi
-            echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
+            podman manifest create "${REPO}:${t}"
+            podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
+            podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
 
-            # Step 3: Keyless-sign the OCI image manifest list digest exactly once
-            cosign sign -y "${REPO}@${DIGEST}"
+            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+            echo "==> published ${REPO}:${t} (multi-arch)"
+          done < <(just tags)
 
-            # Step 4: Attach and sign the SBOM exactly once
-            SBOM_FILE="${IMAGE}.spdx.json"
-            if [[ -f "${SBOM_FILE}" ]]; then
-              echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
-              
-              SBOM_REF=$(oras attach \
-                --format json \
-                --no-tty \
-                --artifact-type application/vnd.spdx+json \
-                --annotation "filename=${SBOM_FILE}" \
-                "${REPO}@${DIGEST}" \
-                "${SBOM_FILE}" \
-                | jq -r '.digest')
+          # Step 2: Resolve canonical manifest list digest exactly once
+          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
+          if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
+            echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
+            exit 1
+          fi
+          echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
 
-              if [[ -n "${SBOM_REF}" && "${SBOM_REF}" != "null" ]]; then
-                SBOM_DIGEST="${SBOM_REF#*@}"
-                echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
-                cosign sign -y "${REPO}@${SBOM_DIGEST}"
-              else
-                echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
-              fi
+          # Step 3: Keyless-sign the OCI image manifest list digest exactly once
+          cosign sign -y "${REPO}@${DIGEST}"
+
+          # Step 4: Attach and sign the SBOM exactly once
+          SBOM_FILE="${IMAGE}.spdx.json"
+          if [[ -f "${SBOM_FILE}" ]]; then
+            echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
+            
+            SBOM_REF=$(oras attach \
+              --format json \
+              --no-tty \
+              --artifact-type application/vnd.spdx+json \
+              --annotation "filename=${SBOM_FILE}" \
+              "${REPO}@${DIGEST}" \
+              "${SBOM_FILE}" \
+              | jq -r '.digest')
+
+            if [[ -n "${SBOM_REF}" && "${SBOM_REF}" != "null" ]]; then
+              SBOM_DIGEST="${SBOM_REF#*@}"
+              echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
+              cosign sign -y "${REPO}@${SBOM_DIGEST}"
+            else
+              echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
             fi
-            echo "::endgroup::"
-          done
+          fi

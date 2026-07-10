@@ -85,10 +85,10 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | Job | Trigger | Purpose |
 |---|---|---|
 | `validate` | `pull_request` only | `bst show` element graph resolution, no build |
-| `build` | `push`, `workflow_dispatch` | matrix (x86_64 + aarch64), build + verify + tag-push |
-| `manifest` | after `build` succeeds | assemble and push multi-arch manifest |
+| `build` | `push`, `workflow_dispatch` | matrix per container (base, static, etc.) and arch (x86_64 + aarch64), build + verify + tag-push |
+| `manifest` | after `build` succeeds | matrix per container (base, static, etc.), assemble and push multi-arch manifest |
 
-`fail-fast` on a 2-element matrix has no practical effect — omit it.
+Set `fail-fast: false` on the multi-dimensional matrices to prevent a single container build failure from canceling the other container builds.
 
 ## Common Rationalizations
 
