@@ -64,6 +64,14 @@ The version axis is the **FSDK release**, parsed from the pinned junction ref in
 `io.projectbluefin.fsdk.version` and `io.projectbluefin.fsdk.ref` labels. Follow
 the FSDK lifecycle — see [docs/skills/bump-fsdk-version.md](docs/skills/bump-fsdk-version.md).
 
+## Custom Builds and Caching
+
+When you clone or fork this repository, you can configure your own custom builds and maintain them in GitHub Actions.
+
+1. **GNOME and FSDK Pull-Caches:** BuildStream is pre-configured in `project.conf` to pull from public, read-only cache servers. This is enabled automatically for all local and CI/CD builds, preventing the need to compile freedesktop-sdk components from scratch.
+2. **Custom Target Registry:** The GHA workflow (`.github/workflows/build.yml`) publishes OCI images to `ghcr.io/${{ github.repository_owner }}/<image>` dynamically. Ensure the target repository's GHA workflow has "Read and write permissions" enabled.
+3. **Custom Push Cache Configuration:** To push compiled artifacts to your own cache server or speed up builds in GitHub Actions, see the setup instructions in **[docs/skills/custom-builds-and-caching.md](docs/skills/custom-builds-and-caching.md)**.
+
 ## The self-improvement loop
 
 Every session produces two outputs:

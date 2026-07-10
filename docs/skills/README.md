@@ -22,6 +22,7 @@ load the focused skill for your task.
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
+| Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
 | Container quality standards and SRE tagging | [container-standards.md](container-standards.md) |
 | Finishing a task (always) | [skill-improvement.md](skill-improvement.md) |

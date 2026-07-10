@@ -63,6 +63,14 @@ inside the FSDK `bst2` container -- nothing to install.
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 
+## Custom Builds and Caching
+
+You can fork/clone this repository to run your own custom builds and maintain them in GitHub Actions.
+
+The repository includes pre-configured public, read-only cache servers (from GNOME and Project Bluefin) in `project.conf` so you can build on top of pre-compiled freedesktop-sdk components without rebuilding everything from scratch.
+
+For instructions on configuring your own push caches (local or remote CAS) or setting up GitHub Actions caching, see the **[Custom Builds and Caching Guide](docs/skills/custom-builds-and-caching.md)**.
+
 ## License
 
 Apache-2.0.
