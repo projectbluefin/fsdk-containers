@@ -27,6 +27,7 @@ depends:
 
 variables:
   strip-binaries: ""
+  hardening-flags: ""
   (?):
     - arch == "x86_64":
         hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"

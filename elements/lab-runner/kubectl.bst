@@ -1,6 +1,9 @@
 kind: manual
 description: Fetch kubectl static binary for lab-runner
 
+build-depends:
+  - freedesktop-sdk.bst:components/make.bst
+
 variables:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.30.2

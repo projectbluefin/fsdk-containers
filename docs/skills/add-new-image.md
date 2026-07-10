@@ -65,10 +65,11 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 - `config-*/` / `*.a`: Build configuration and static libraries, not needed at runtime.
 
 ### Statically compiled Go / manual element guidelines:
-- **Enforce compiler-level security and hardening:** When compiling manual elements (e.g. C/C++ elements like `qemu-img` or custom tools) from source, always inject strict, OpenSSF-aligned compiler hardening flags using BuildStream variables. Use `(?):` to set architecture-specific branch protection:
+- **Enforce compiler-level security and hardening:** When compiling manual elements (e.g. C/C++ elements like `qemu-img` or custom tools) from source, always inject strict, OpenSSF-aligned compiler hardening flags using BuildStream variables. Declare `hardening-flags: ""` as a default at the root of your `variables:` block to avoid composition-time errors on unsupported architectures, then use `(?):` to set architecture-specific branch protection:
   ```yaml
   variables:
     strip-binaries: ""
+    hardening-flags: ""
     (?):
       - arch == "x86_64":
           hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
