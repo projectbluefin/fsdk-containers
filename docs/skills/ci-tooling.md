@@ -4,6 +4,9 @@ description: >
   CI workflow conventions for fsdk-containers. Use when writing or editing
   .github/workflows/*.yml, debugging a failing build job, or adding a new
   CI step.
+metadata:
+  context7-sources:
+    - /websites/github_en_actions
 ---
 
 # CI Tooling
