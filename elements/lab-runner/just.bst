@@ -3,6 +3,7 @@ description: Fetch the just command runner for lab-runner
 
 build-depends:
   - freedesktop-sdk.bst:components/gzip.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
   strip-binaries: ""

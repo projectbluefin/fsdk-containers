@@ -112,6 +112,18 @@ Set `fail-fast: false` on the multi-dimensional matrices to prevent a single con
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] No new mutable action refs introduced
 
+## Build-time utility dependencies
+
+Manual elements run their `config.install-commands` inside a minimal BuildStream sandbox. Declare every command used by those commands in `build-depends`; transitive availability from another element is not a contract. In particular, `gzip.bst` provides `gunzip`, while `bootstrap/coreutils.bst` provides `install`:
+
+```yaml
+build-depends:
+  - freedesktop-sdk.bst:components/gzip.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
+```
+
+Keep this explicit for downloaded binary elements such as the lab-runner CLI tools so both architectures build from a clean cache.
+
 ## Manifest Annotation Compatibility (GitHub Runners)
 
 Runner podman versions vary, and both `podman manifest annotate --index` and
