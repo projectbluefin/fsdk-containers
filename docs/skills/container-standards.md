@@ -22,6 +22,7 @@ metadata:
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`).
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) without relying on a runtime package manager or network bootstrap.
 
 ---
 
@@ -76,6 +77,7 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 - Any hardcoded version tags in `.bst` files with no corresponding `# renovate:` comment.
 - Including a shell (`/usr/bin/bash` or similar) in a distroless-tier image.
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
+- A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.
 - Images published to GHCR without point-release tagging (e.g. only `:latest`).
 
 ---
@@ -83,6 +85,6 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 ## Verification
 - [ ] Element validates successfully (`just validate` exits with 0).
 - [ ] Image builds and compiles cleanly (`just build`).
-- [ ] Verification test suite passes all 4 gates (`just verify`).
+- [ ] Verification test suite passes all image-specific gates (`just verify`), including the `lab-runner` CLI contract check.
 - [ ] Image uncompressed size is under ~150MB.
 - [ ] OCI Labels contain valid Git hashes and FSDK tags.
