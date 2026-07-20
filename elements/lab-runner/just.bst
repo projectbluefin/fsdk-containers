@@ -25,4 +25,6 @@ config:
   install-commands:
     - |
       tar -xzf just.tar.gz just
-      install -D -m 755 just "%{install-root}/usr/bin/just"
+      mkdir -p "%{install-root}/usr/bin"
+      cp just "%{install-root}/usr/bin/just"
+      chmod 755 "%{install-root}/usr/bin/just"

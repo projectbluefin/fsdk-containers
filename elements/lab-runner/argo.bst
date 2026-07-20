@@ -25,4 +25,6 @@ config:
   install-commands:
     - |
       gunzip argo.gz
-      install -D -m 755 argo "%{install-root}/usr/bin/argo"
+      mkdir -p "%{install-root}/usr/bin"
+      cp argo "%{install-root}/usr/bin/argo"
+      chmod 755 "%{install-root}/usr/bin/argo"
