@@ -157,7 +157,14 @@ verify:
             echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
         fi
         echo "OK: bash present"
-        TOTAL=1
+        TOTAL=2
+        echo "==> [2/${TOTAL}] lab-runner CLI tools present"
+        for tool in argo just kubectl; do
+            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
+                echo "FAIL: ${tool} missing from lab-runner"; exit 1
+            fi
+        done
+        echo "OK: argo, just, and kubectl present"
     else
         TOTAL=4
         echo "==> [1/${TOTAL}] distroless: no shell present"
