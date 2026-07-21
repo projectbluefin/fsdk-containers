@@ -1,0 +1,30 @@
+# Throwaway test: proves the mergeraptor app token can be minted in this repo
+# and that a repository_dispatch sent with it actually triggers build.yml.
+# Delete after verification.
+name: Test mergeraptor dispatch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-dispatch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Get mergeraptor token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
+      - name: Send repository dispatch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            -f event_type="fsdk-updated" \
+            -F "client_payload[ref]=refs/heads/fix/production-audit"
+          echo "dispatch sent"
