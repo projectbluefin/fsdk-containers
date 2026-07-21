@@ -7,9 +7,27 @@ description: >
   or deciding when local execution is acceptable.
 metadata:
   type: runbook
+  context7-sources:
+    - /apache/buildstream
 ---
 
 # BuildStream Remote Execution on the Ghost Cluster
+
+## When to Use
+
+- Running `just build`, `just bst`, or any recipe that wraps `bst` locally or
+  as an agent
+- Debugging a build that fails at `Failed to query action cache` or hangs at
+  `Waiting for the remote build to complete`
+- Deciding whether a local (`BST_LOCAL=1`) build is acceptable
+
+## When NOT to Use
+
+- CI workflow debugging — CI is deliberately local-execution (see
+  [ci-tooling.md](ci-tooling.md))
+- Cache-server (pull-cache) configuration — see
+  [custom-builds-and-caching.md](custom-builds-and-caching.md); RE and
+  artifact caching are separate mechanisms
 
 ## Policy
 
@@ -91,3 +109,31 @@ KUBECONFIG=~/.kube/bluespeed.yaml kubectl top pods -n buildbarn   # worker CPU a
 - The grid is shared with dakota builds (`ghost-heavy-compute` mutex on the
   Argo side). Check `argo list -n argo` before firing large builds.
 - `.bst-re.conf` is generated per-invocation and git-ignored — never commit it.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "It's a small build, local is faster." | Most elements come from the pull caches either way; the grid only runs what must be built. Local heavy builds on workstations are untracked resource use — the exact thing the cluster exists to absorb. |
+| "The cluster check failed, I'll just build locally." | A dead grid is a cluster incident — report it. `BST_LOCAL=1` is a deliberate, announced choice, not an automatic workaround. |
+| "I'll point at cache.projectbluefin.io:11002, it's the same grid." | It requires mTLS client certs this repo doesn't have. Anonymous gRPC gets `UNIMPLEMENTED/404` and wastes a debugging session. |
+
+## Red Flags
+
+- Build logs showing local sandbox staging for build actions (no `Waiting for
+  the remote build to complete`) when `BST_LOCAL` was not set
+- A committed `.bst-re.conf` in a diff
+- Any config in this repo referencing `cache.projectbluefin.io:11002`
+- `BST_LOCAL=1` used without mention in the handoff/PR
+
+## Verification
+
+- [ ] `just bst --version` prints the `remote execution: ghost cluster` banner
+- [ ] Element build log contains `Waiting for the remote build to complete`
+- [ ] `kubectl top pods -n buildbarn` shows worker activity during the build
+- [ ] `.bst-re.conf` is not tracked (`git ls-files | grep bst-re` → empty)
+- [ ] `just verify` still green for the built image
+
+_Config shape verified against `/apache/buildstream` user-config docs
+(`remote-execution.{execution,storage,action-cache}-service`,
+`connection-config` keys)._
