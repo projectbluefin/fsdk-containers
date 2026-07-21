@@ -19,9 +19,12 @@ metadata:
    compose exclude.
 2. **CA certificates present** — `etc/(ssl|pki)/.*(ca-bundle|cert)` in the rootfs.
 3. **tzdata present** — `usr/share/zoneinfo/UTC`. A kept crash-preventer.
-4. **Slim bloat removed** — fails if `terminfo` or any
-   `lib{asan,tsan,lsan,ubsan,hwasan,gfortran}.so` reappears. Regression guard for
-   the SLIM recipe.
+4. **Slim bloat removed** — fails if `terminfo`, sanitizer/Fortran runtimes,
+   locale archives/charmaps, leaked locale/build tools, or extra PCRE2 widths
+   reappear. Regression guard for the shared SLIM recipe.
+5. **Image size ceiling** — compares Podman's uncompressed local `.Size` against
+   a per-image ceiling with FSDK growth headroom. This is not compressed registry
+   transfer size; it catches silent runtime-rootfs creep.
 
 ## Run it
 
@@ -54,8 +57,10 @@ podman run --rm ghcr.io/projectbluefin/<name>:latest /usr/bin/env
 ## Adding a gate
 
 When you cut something in the SLIM recipe that must stay gone, add a matching
-`grep` assertion to gate `[4/N]` in the `verify` recipe so the build fails if it
-creeps back. Renumber the gate labels.
+`grep` assertion to gate `[5/N]` in the `verify` recipe so the build fails if it
+creeps back. Renumber the gate labels. Keep the image size ceilings in the
+`verify` recipe calibrated against both architecture builds; allow headroom for
+normal FSDK point-release growth rather than encoding today's exact size.
 
 When creating a new image or modifying an existing one, ALWAYS add a smoke test
 that executes the primary binary directly (e.g. `podman run --rm ... /usr/bin/skopeo --version`).

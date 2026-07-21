@@ -21,13 +21,14 @@ To produce authoritative, high-integrity SBOMs, we generate them directly from B
 The pipeline consists of three phases:
 
 ```
-[Build & Verify] ──> [Assemble Manifests] ──> [Sign Manifest] ──> [Attach SBOM] ──> [Sign SBOM]
+[Build & Verify] ──> [Assemble Manifests] ──> [Sign Manifest] ──> [Provenance Attestation] ──> [Attach SBOM] ──> [Sign SBOM]
 ```
 
 1. **SBOM Generation:** Runs `just sbom <image>` locally or in CI. This runs `buildstream-sbom` inside the cached `bst2` builder container and writes `<image>.spdx.json`.
 2. **Keyless Signing:** Uses Sigstore Cosign in keyless mode (OIDC via GitHub Actions as the issuer with `id-token: write` permissions).
-3. **ORAS Attachment:** Binds the SPDX SBOM to the published OCI multi-arch manifest list as a referrer.
-4. **Referrer Signing:** Signs the attached SBOM OCI artifact, ensuring the entire graph (image + metadata) is cryptographically bound and verifiable.
+3. **GitHub Provenance:** Uses `actions/attest` with the resolved multi-arch digest and `push-to-registry: true`; this is independently verifiable with `gh attestation verify`.
+4. **ORAS Attachment:** Binds the SPDX SBOM to the published OCI multi-arch manifest list as a referrer.
+5. **Referrer Signing:** Signs the attached SBOM OCI artifact, ensuring the entire graph (image + metadata) is cryptographically bound and verifiable.
 
 ---
 
@@ -71,7 +72,8 @@ The job performing the signing must explicitly request:
 permissions:
   contents: read
   packages: write
-  id-token: write      # Crucial for Fulcio keyless OIDC token generation
+  attestations: write  # GitHub artifact provenance
+  id-token: write      # Fulcio keyless OIDC and attestations
 ```
 
 ### 2. Compatibility Auth File (Blocking Gotcha)

@@ -16,7 +16,11 @@ FSDK split-rule domains only cover:
 `devel, debug, doc, sysconf, tests, shells, static-blocklist, license, locale,
 vm-only, zoneinfo`. The largest **runtime-domain** bloat has *no domain* to exclude
 it, so it must be removed explicitly with `rm` — the same pattern used for bash.
-The shared block lives in `elements/oci/base.bst` under "SLIM RECIPE".
+The shared commands live in `include/slim.yml` as BuildStream variables. Each
+OCI element includes that fragment with `variables: (@): include/slim.yml` and
+references either `%{slim-distroless-commands}` or
+`%{slim-shell-enabled-commands}`. This keeps the lab-runner shell exception
+explicit while preventing recipe drift.
 
 ## Applies to every image — not just glibc images
 
@@ -26,7 +30,8 @@ certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a runtime dep
 and terminfo into any compose that includes it. Skipping the SLIM recipe on a
 "minimal" image will fail gate `[4/4]` of `just verify`.
 
-Rule: copy the full SLIM block from `oci/base.bst` into every new OCI script.
+Rule: include `include/slim.yml` in every new OCI script and choose the
+appropriate shared command variable; do not copy/paste the recipe.
 
 ```
 rm -rf _sizecheck
@@ -79,8 +84,8 @@ done
 
 ## Lock it in
 
-Add a regression assertion to `just verify` (gate `[4/4]`) for anything you cut
-that must stay gone, so it fails the build if it creeps back.
+Add a regression assertion to `just verify` (the slim gates) for anything you
+cut that must stay gone, so it fails the build if it creeps back.
 
 ## Reference result
 

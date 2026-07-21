@@ -7,28 +7,12 @@ build-depends:
     config:
       location: /layer
 
+variables:
+  (@): include/slim.yml
+
 config:
   commands:
-    - |
-      set -eu
-      L=/layer
-
-      # --- distroless: remove shells (runtime domain, not the 'shells' split) ---
-      rm -f  "$L"/usr/bin/bash "$L"/usr/bin/sh "$L"/bin/bash "$L"/bin/sh "$L"/usr/bin/bashbug
-      rm -rf "$L"/usr/lib/bash "$L"/usr/lib/*/bash
-
-      # --- terminfo: useless in containers ---
-      rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset \
-             "$L"/etc/terminfo "$L"/lib/terminfo
-
-      # --- gcc dev/debug runtimes: sanitizers + fortran, never used at runtime ---
-      rm -f "$L"/usr/lib/*/libasan.so*  "$L"/usr/lib/*/libtsan.so* \
-            "$L"/usr/lib/*/liblsan.so*  "$L"/usr/lib/*/libubsan.so* \
-            "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
-
-      # --- build-time tools leaked into runtime domain ---
-      rm -f "$L"/usr/bin/localedef "$L"/usr/bin/iconvconfig
-
+    - "%{slim-distroless-commands}"
     - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do
