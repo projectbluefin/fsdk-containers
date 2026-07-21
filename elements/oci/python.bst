@@ -7,52 +7,13 @@ build-depends:
     config:
       location: /layer
 
+variables:
+  (@): include/slim.yml
+
 config:
   commands:
     # --- Shared SLIM Recipe ---
-    - |
-      set -eu
-      L=/layer
-
-      # --- distroless: remove shells (runtime domain, not the 'shells' split) ---
-      rm -f  "$L"/usr/bin/bash "$L"/usr/bin/sh "$L"/bin/bash "$L"/bin/sh "$L"/usr/bin/bashbug
-      rm -rf "$L"/usr/lib/bash "$L"/usr/lib/*/bash
-
-      # --- terminfo: ~12M terminal capability DB, useless in containers ---
-      rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset \
-             "$L"/etc/terminfo "$L"/lib/terminfo
-
-      # --- gcc dev/debug runtimes: sanitizers + fortran, never used at runtime (~9M) ---
-      rm -f "$L"/usr/lib/*/libasan.so*  "$L"/usr/lib/*/libtsan.so* \
-            "$L"/usr/lib/*/liblsan.so*  "$L"/usr/lib/*/libubsan.so* \
-            "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
-
-      # --- gconv: keep common charsets, drop the long tail (~7M) ---
-      for g in "$L"/usr/lib/*/gconv; do
-        [ -d "$g" ] || continue
-        for f in "$g"/*; do
-          [ -f "$f" ] || continue
-          case "${f##*/}" in
-            gconv-modules*|UTF*|UNICODE*|ISO8859-1.so|ISO8859-15.so|CP1252.so|ANSI_X3.110.so) : ;;
-            *) rm -f "$f" ;;
-          esac
-        done
-      done
-
-      # --- glibc locale-archive: drop to built-in C.UTF-8 only (~3M) ---
-      rm -f  "$L"/usr/lib/locale/locale-archive
-      rm -rf "$L"/usr/share/i18n/charmaps
-
-      # --- build-time tools leaked into the runtime domain ---
-      rm -f "$L"/usr/bin/localedef "$L"/usr/bin/sln "$L"/usr/bin/iconvconfig \
-            "$L"/usr/bin/ldconfig "$L"/usr/sbin/ldconfig \
-            "$L"/usr/bin/pcre2test "$L"/usr/bin/pcre2grep
-
-      # --- extra PCRE2 code-unit widths (keep the 8-bit lib) ---
-      rm -f "$L"/usr/lib/*/libpcre2-16.so* "$L"/usr/lib/*/libpcre2-32.so* \
-            "$L"/usr/lib/*/libpcre2-posix.so*
-
-    # --- Python-specific Prune ---
+    - "%{slim-distroless-commands}"
     - |
       set -eu
       L=/layer

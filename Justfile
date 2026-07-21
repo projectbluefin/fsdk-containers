@@ -209,6 +209,25 @@ verify:
     REF="{{image_registry}}/{{image_name}}:latest"
     IMG="{{image_name}}"
 
+    # Guard against silent size creep. These are uncompressed local Podman
+    # sizes (not registry transfer sizes), with headroom for FSDK growth.
+    case "$IMG" in
+        base)       MAX_BYTES=$((64 * 1024 * 1024)) ;;
+        static)     MAX_BYTES=$((80 * 1024 * 1024)) ;;
+        skopeo)     MAX_BYTES=$((96 * 1024 * 1024)) ;;
+        python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
+        qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
+        buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
+        lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
+        *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
+    esac
+    SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
+    if ! [[ "$SIZE_BYTES" =~ ^[0-9]+$ ]] || [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
+        echo "FAIL: $IMG image size ${SIZE_BYTES} bytes exceeds ${MAX_BYTES} bytes" >&2
+        exit 1
+    fi
+    echo "OK: image size ${SIZE_BYTES} bytes (limit ${MAX_BYTES})"
+
     {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
@@ -223,7 +242,7 @@ verify:
         echo "OK: bash present"
         TOTAL=1
     else
-        TOTAL=4
+        TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
         if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
             echo "FAIL: a shell binary is present in the rootfs"; exit 1
@@ -247,6 +266,12 @@ verify:
             echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: slim bloat removed"
+
+        echo "==> [5/${TOTAL}] slim: locale/build-tool bloat must NOT be present"
+        if grep -qE 'usr/lib(/[^/]*)?/locale/locale-archive$|usr/share/i18n/charmaps/|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$|libpcre2-(16|32|posix)\.so' "$LISTING"; then
+            echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
+        fi
+        echo "OK: locale/build-tool bloat removed"
     fi
 
     echo "==> smoke test (executing binary)"

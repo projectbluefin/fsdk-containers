@@ -6,7 +6,8 @@
     "helpers:pinGitHubActionDigests"
   ],
   "enabledManagers": [
-    "github-actions"
+    "github-actions",
+    "custom.regex"
   ],
   "customManagers": [
     {

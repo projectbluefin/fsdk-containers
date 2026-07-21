@@ -32,7 +32,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 
 | Element | Description |
 | ------- | ----------- |
-| `oci/flatcar-clone-bootc.bst` | Experimental bootc-compatible OS image lane (kernel, systemd, bootc) — not distroless, not built or published by CI. Build locally with `just bst build oci/flatcar-clone-bootc.bst` at your own risk. |
+| `oci/flatcar-clone-bootc.bst` | Experimental bootc-compatible OS image lane (kernel, systemd, bootc) — not distroless, has no CI build/boot test, and is not signed, SBOM-published, or published by CI. Build locally with `just bst build oci/flatcar-clone-bootc.bst` at your own risk. |
 
 ## How it works
 
@@ -61,6 +61,14 @@ and ship an attached SPDX SBOM. Verify a main-branch build with:
 
 (Builds triggered from other refs, e.g. dispatch test builds, are signed with the
 corresponding branch ref in the certificate identity.)
+
+GitHub also publishes a registry-backed build provenance attestation for each
+image. Verify it with the GitHub CLI:
+
+    gh attestation verify oci://ghcr.io/projectbluefin/base:latest \
+      -R projectbluefin/fsdk-containers
+
+For reproducible audits, replace `:latest` with the exact manifest digest.
 
 ## Versioning
 

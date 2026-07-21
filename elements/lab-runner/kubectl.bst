@@ -7,17 +7,17 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
+  kubectl_version: v1.36.2
 
 sources:
   - kind: remote
     (?):
       - arch == "x86_64":
           url: "k8s-bin:release/%{kubectl_version}/bin/linux/amd64/kubectl"
-          ref: c6e9c45ce3f82c90663e3c30db3b27c167e8b19d83ed4048b61c1013f6a7c66e
+          ref: 1e9045ec32bea85da43de85f0065358529ea7c7a152eca78154fba5b58c27d82
       - arch == "aarch64":
           url: "k8s-bin:release/%{kubectl_version}/bin/linux/arm64/kubectl"
-          ref: 56becf07105fbacd2b70f87f3f696cfbed226cb48d6d89ed7f65ba4acae3f2f8
+          ref: c957eb8c4bea27a3bb35b269edd9082e27f027f7b76b20b5bf4afebc726c6d3e
     filename: kubectl
 
 config:

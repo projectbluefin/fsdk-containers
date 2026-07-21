@@ -17,15 +17,17 @@ depends:
 
 sources:
   - kind: tar
-    url: https://github.com/containers/bootc/archive/refs/tags/v1.16.2.tar.gz
-    ref: e26f91796b764d160a40292e90d7998b5c5545aebf6f4e81b6f265714f71cacd
+    url: "https://github.com/containers/bootc/archive/refs/tags/%{bootc_version}.tar.gz"
+    ref: 77b4c7114915bca1e9ea9e29f64f3c0bea7c58e0db3ce81408d81409e135b4ba
   - kind: remote
-    url: https://github.com/bootc-dev/bootc/releases/download/v1.16.2/bootc-1.16.2-vendor.tar.zstd
+    url: "https://github.com/bootc-dev/bootc/releases/download/%{bootc_version}/bootc-%{bootc_version}-vendor.tar.zstd"
     filename: bootc-vendor.tar.zstd
-    ref: 53d759ca521144a675af67e68d23c3f5f18dca784e4e900052d0cfdc4467732b
+    ref: b707122ce8ebc8d1a145c9122c5d1258379e42466affdd8ecaa4d6d256b9224b
 
 variables:
   strip-binaries: ""
+  # renovate: datasource=github-releases depName=containers/bootc
+  bootc_version: v1.16.4
 
 config:
   build-commands:

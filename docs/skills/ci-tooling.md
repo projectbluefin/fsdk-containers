@@ -89,7 +89,13 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 |---|---|---|
 | `validate` | `pull_request` only | `bst show` element graph resolution, no build |
 | `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
-| `manifest` | after `build` succeeds | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM |
+| `manifest` | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+
+`repository_dispatch` (used by the automated FSDK bump PR check) is
+**verification-only**: it checks out the payload branch and runs both native
+architecture builds plus `just verify`, but it must not log in, push per-arch
+images, assemble manifests, sign, or publish attestations. This prevents
+unreviewed bump branches from moving `latest` or minor production tags.
 
 The container matrix is the publishing contract: every OCI image in
 `elements/oci/` that ships to GHCR must appear in **both** matrices, in
@@ -126,6 +132,17 @@ Set `fail-fast: false` on the multi-dimensional matrices to prevent a single con
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] No new mutable action refs introduced
+
+### GitHub artifact attestations
+
+The manifest job uses the current GitHub `actions/attest` action with a
+SHA-pinned ref. It requires `contents: read`, `packages: write`,
+`attestations: write`, and `id-token: write`. The subject is the fully-qualified
+repository name plus the resolved multi-arch `sha256:` digest, and
+`push-to-registry: true` stores the attestation beside the image. Consumers can
+verify it with `gh attestation verify oci://IMAGE:TAG -R ORG/REPO`.
+
+Source-verified via Context7: `/websites/github_en_actions`.
 
 ## Manifest Annotation Compatibility (GitHub Runners)
 
