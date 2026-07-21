@@ -28,12 +28,6 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/brew` | ~410 MB | Homebrew developer environment as a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`, **not** an OCI image). Full dev env: bash, ruby, git, curl, gcc, patchelf, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
 
-### Experimental (local-only, not published by CI)
-
-| Element | Description |
-| ------- | ----------- |
-| `oci/flatcar-clone-bootc.bst` | Experimental bootc-compatible OS image lane (kernel, systemd, bootc) — not distroless, has no CI build/boot test, and is not signed, SBOM-published, or published by CI. Build locally with `just bst build oci/flatcar-clone-bootc.bst` at your own risk. |
-
 ## How it works
 
 Each image is composed from raw FSDK `components/*` (never `platform.bst`),

@@ -100,8 +100,7 @@ unreviewed bump branches from moving `latest` or minor production tags.
 The container matrix is the publishing contract: every OCI image in
 `elements/oci/` that ships to GHCR must appear in **both** matrices, in
 `just validate`, and in the `just sbom`/`sboms` case lists. `brew-nspawn`
-(machine tarball) and `flatcar-clone-bootc` (experimental) are deliberately
-excluded.
+(machine tarball) is deliberately excluded from the OCI publishing matrix.
 
 ### Point-release tag immutability
 
