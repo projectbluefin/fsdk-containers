@@ -4,7 +4,8 @@
 name: Test mergeraptor dispatch
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [fix/production-audit]
 
 permissions:
   contents: read
