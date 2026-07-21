@@ -268,7 +268,7 @@ verify:
         echo "OK: slim bloat removed"
 
         echo "==> [5/${TOTAL}] slim: locale/build-tool bloat must NOT be present"
-        if grep -qE 'usr/lib/[^/]*/locale/locale-archive$|usr/share/i18n/charmaps/|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$|libpcre2-(16|32|posix)\.so' "$LISTING"; then
+        if grep -qE 'usr/lib(/[^/]*)?/locale/locale-archive$|usr/share/i18n/charmaps/|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$|libpcre2-(16|32|posix)\.so' "$LISTING"; then
             echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: locale/build-tool bloat removed"
