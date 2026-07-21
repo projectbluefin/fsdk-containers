@@ -88,8 +88,23 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | Job | Trigger | Purpose |
 |---|---|---|
 | `validate` | `pull_request` only | `bst show` element graph resolution, no build |
-| `build` | `push`, `workflow_dispatch` | matrix per container (base, static, etc.) and arch (x86_64 + aarch64), build + verify + tag-push |
-| `manifest` | after `build` succeeds | matrix per container (base, static, etc.), assemble and push multi-arch manifest |
+| `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
+| `manifest` | after `build` succeeds | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM |
+
+The container matrix is the publishing contract: every OCI image in
+`elements/oci/` that ships to GHCR must appear in **both** matrices, in
+`just validate`, and in the `just sbom`/`sboms` case lists. `brew-nspawn`
+(machine tarball) and `flatcar-clone-bootc` (experimental) are deliberately
+excluded.
+
+### Point-release tag immutability
+
+FSDK point-release tags (e.g. `:25.08.13`) are immutable once published. Both
+the Justfile `tag-push` recipe and the workflow manifest loop guard this with
+a `skopeo inspect --no-tags docker://REPO:TAG` existence check and skip the
+push if the tag exists. `latest` and the minor-line tag are rolling and always
+pushed — the manifest job resolves the signing digest from `latest`
+(`FIRST_TAG`), so signing is unaffected when the point tag is skipped.
 
 Set `fail-fast: false` on the multi-dimensional matrices to prevent a single container build failure from canceling the other container builds.
 

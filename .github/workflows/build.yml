@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -114,24 +114,20 @@ jobs:
           set -euo pipefail
           IMAGE="${{ matrix.image }}"
           echo "Processing SBOM and manifest for ${IMAGE}"
-          
-          case "${IMAGE}" in
-            base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
-            static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
-            skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
-            lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
-            python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
-            buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
-            *)          DESC="Project Bluefin distroless container image" ;;
-          esac
-          
+
           REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
           
-          # Step 1: Create, annotate, and push all tags
+          # Step 1: Create, annotate, and push all tags.
+          # The FSDK point-release tag is immutable: skip it if already published.
+          POINT_TAG="$(just tags | tail -1)"
           FIRST_TAG=""
           while read -r t; do
             if [[ -z "${FIRST_TAG}" ]]; then
               FIRST_TAG="${t}"
+            fi
+            if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
+              echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
+              continue
             fi
             podman manifest create "${REPO}:${t}"
             podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
