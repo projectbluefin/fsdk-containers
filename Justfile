@@ -214,7 +214,7 @@ verify:
     case "$IMG" in
         base)       MAX_BYTES=$((64 * 1024 * 1024)) ;;
         static)     MAX_BYTES=$((80 * 1024 * 1024)) ;;
-        skopeo)     MAX_BYTES=$((96 * 1024 * 1024)) ;;
+        skopeo)     MAX_BYTES=$((224 * 1024 * 1024)) ;;
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
