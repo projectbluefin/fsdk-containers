@@ -8,21 +8,31 @@ out only the runtime, strip the bloat, ship slim by default — so you get a fre
 OSS distroless suite that **inherits FSDK's CVE patching** instead of maintaining
 a separate package set.
 
-These containers are maintained for projectblufin/fsdk usage for cluster ops, etc. Digital sovereignty isn't just for nations, this controls our supply chain. 
+These containers are maintained for projectbluefin/fsdk usage for cluster ops, etc. Digital sovereignty isn't just for nations, this controls our supply chain. 
 
 ## Images
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/static` | — | Static tier for compiled Go/Rust binaries (`CGO_ENABLED=0`): CA certificates + tzdata only, no libc. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, python3, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 
 ### Machine images (not distroless)
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/brew` | ~410 MB | Homebrew developer environment as a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`, **not** an OCI image). Full dev env: bash, ruby, git, curl, gcc, patchelf, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
+
+### Experimental (local-only, not published by CI)
+
+| Element | Description |
+| ------- | ----------- |
+| `oci/flatcar-clone-bootc.bst` | Experimental bootc-compatible OS image lane (kernel, systemd, bootc) — not distroless, not built or published by CI. Build locally with `just bst build oci/flatcar-clone-bootc.bst` at your own risk. |
 
 ## How it works
 
@@ -38,7 +48,19 @@ set, CA certificates — so `datetime`/TLS work out of the box without the wheel
 gymnastics other distroless suites push onto you.
 
 Pipeline: `stack` (deps) -> `compose` (chisel) -> `script` (slim + oci-builder).
-See [`docs/skills/slim-an-image.md`](docs/skills/slim-an-image.md) for the recipe.
+See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
+
+## Verify signatures
+
+All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
+and ship an attached SPDX SBOM. Verify a main-branch build with:
+
+    cosign verify ghcr.io/projectbluefin/base:latest \
+      --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/build.yml@refs/heads/main" \
+      --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+
+(Builds triggered from other refs, e.g. dispatch test builds, are signed with the
+corresponding branch ref in the certificate identity.)
 
 ## Versioning
 
@@ -48,7 +70,8 @@ FSDK release. Tags are derived from the pinned junction ref in
 
 - `:latest` -- rolling
 - `:25.08` -- FSDK minor line
-- `:25.08.13` -- FSDK point release (treated immutable)
+- `:25.08.13` -- FSDK point release (immutable: once published, CI never
+  overwrites a point-release tag)
 
 Every image self-declares its base via `io.projectbluefin.fsdk.version` and
 `io.projectbluefin.fsdk.ref` labels.

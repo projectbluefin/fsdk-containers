@@ -54,7 +54,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -88,6 +88,7 @@ export:
         lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
+        qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -108,6 +109,8 @@ export:
     echo "==> Built ${FINAL_REF}"
 
 # Push the locally built :latest under all derived tags to a given repo ref.
+# The FSDK point-release tag (e.g. :25.08.13) is treated as immutable: if it
+# already exists at the destination it is skipped, never overwritten.
 # Usage: just tag-push ghcr.io/projectbluefin/base
 [group('build')]
 tag-push REPO:
@@ -115,6 +118,10 @@ tag-push REPO:
     set -euo pipefail
     SRC="{{image_registry}}/{{image_name}}:latest"
     while read -r t; do
+        if [ "$t" = "{{fsdk_version}}" ] && skopeo inspect --no-tags "docker://{{REPO}}:$t" >/dev/null 2>&1; then
+            echo "==> skipping {{REPO}}:$t (point-release tag already published, immutable)"
+            continue
+        fi
         {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
         {{sudo_cmd}} podman push "{{REPO}}:$t"
         echo "==> pushed {{REPO}}:$t"
@@ -349,6 +356,7 @@ sbom variant="base":
         lab-runner) ELEMENT="oci/lab-runner.bst";  SPDX_NAME="lab-runner" ;;
         python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
         buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
+        qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -413,7 +421,7 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah; do
+            for img in base static skopeo lab-runner python buildah qemu-img; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
@@ -421,6 +429,7 @@ sboms:
                     lab-runner) ELEMENT="oci/lab-runner.bst" ;;
                     python)     ELEMENT="oci/python.bst" ;;
                     buildah)    ELEMENT="oci/buildah.bst" ;;
+                    qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \
