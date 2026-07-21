@@ -26,11 +26,68 @@ export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | 
 # -- BuildStream wrapper ------------------------------------------------------
 # Runs any bst command inside the bst2 container via podman.
 # Baseline x86_64 (no x86_64_v3) so the base image runs on the widest CPU set.
+#
+# Builds are submitted to the ghost cluster's BuildBarn remote-execution grid
+# by default for local/agent builds: the in-cluster frontend
+# (frontend.buildbarn.svc:8980, plain gRPC) is reached via kubectl
+# port-forward, so compile actions run on the cluster workers, NOT on this
+# machine. Exceptions:
+#   - BST_LOCAL=1        force local execution (offline, or grid is down)
+#   - CI (GITHUB_ACTIONS) always local: runners build natively per-arch and the
+#     grid is x86_64-only (no aarch64 RE workers yet)
+# If the cluster is unreachable the recipe FAILS (no silent local fallback) —
+# set BST_LOCAL=1 explicitly to build locally. See docs/skills/remote-execution.md.
 [group('dev')]
 bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
+    RE_FLAG=()
+    PF_PID=""
+    cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
+    trap cleanup EXIT
+    if [ "${BST_LOCAL:-0}" != "1" ] && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+        export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/bluespeed.yaml}"
+        if ! kubectl get svc frontend -n buildbarn >/dev/null 2>&1; then
+            echo "ERROR: ghost cluster BuildBarn frontend unreachable (KUBECONFIG=$KUBECONFIG)." >&2
+            echo "       Builds must run on the cluster. If it is down, rerun with BST_LOCAL=1." >&2
+            exit 1
+        fi
+        kubectl port-forward -n buildbarn svc/frontend 18980:8980 >/dev/null 2>&1 &
+        PF_PID=$!
+        for _ in $(seq 1 20); do
+            (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null && break
+            sleep 0.5
+        done
+        cat > .bst-re.conf <<'EOF'
+    remote-execution:
+      execution-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+      storage-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+      action-cache-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+    EOF
+        RE_FLAG=(--config /src/.bst-re.conf)
+        echo "==> BuildStream remote execution: ghost cluster BuildBarn grid (via port-forward :18980). Set BST_LOCAL=1 for local builds." >&2
+    else
+        echo "==> BuildStream LOCAL execution" >&2
+    fi
     # shellcheck disable=SC2086
     {{sudo_cmd}} podman run --rm \
         --privileged \
@@ -40,7 +97,7 @@ bst *ARGS:
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
         -w /src \
         "{{bst2_image}}" \
-        bash -c 'bst --colors "$@"' -- --no-interactive ${BST_FLAGS:-} {{ARGS}}
+        bash -c 'bst --colors "$@"' -- --no-interactive "${RE_FLAG[@]}" ${BST_FLAGS:-} {{ARGS}}
 
 # Print the tag set derived from the FSDK release: latest, minor line, point release.
 [group('info')]

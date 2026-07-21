@@ -86,6 +86,11 @@ inside the FSDK `bst2` container -- nothing to install.
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 
+By default `just bst` submits build actions to the ghost cluster's BuildBarn
+remote-execution grid instead of building on your machine (and fails loudly if
+the cluster is unreachable). Use `BST_LOCAL=1 just build` for explicit local
+execution — see [docs/skills/remote-execution.md](docs/skills/remote-execution.md).
+
 ## Homebrew systemd-nspawn container
 
 For a full developer environment container booted by `systemd-nspawn` instead of a distroless OCI image, we provide the `brew` machine image.
