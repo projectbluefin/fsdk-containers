@@ -37,7 +37,6 @@ official upstream distroless equivalent.
 | `registry.k8s.io/pause`, `metrics-server` | Official Kubernetes |
 | `quay.io/kubevirt/virt-launcher` | KubeVirt CNCF project |
 | `ghcr.io/project-zot/zot-linux-amd64` | Zot project official |
-| `ghcr.io/flatcar/nebraska` | Flatcar project official |
 | `ghcr.io/actions/actions-runner` | GitHub Actions official |
 | `quay.io/argoproj/argocd`, `workflow-controller` | CNCF Graduated, quay.io/argoproj |
 | `cgr.dev/chainguard/postgres` | FSDK has no postgresql component; no official upstream distroless |
