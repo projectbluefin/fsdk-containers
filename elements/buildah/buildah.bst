@@ -27,7 +27,7 @@ sources:
 - kind: git_repo
   url: github:containers/buildah.git
   # renovate: datasource=github-releases depName=containers/buildah
-  track: v1.36.0
+  track: v1.44.1
   ref: v1.36.0-0-g6ceba8838d331eb26378cb37d9fc8ba98939aa92
 
 config:
