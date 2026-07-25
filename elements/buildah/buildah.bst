@@ -28,13 +28,13 @@ sources:
   url: github:containers/buildah.git
   # renovate: datasource=github-releases depName=containers/buildah
   track: v1.44.1
-  ref: v1.36.0-0-g6ceba8838d331eb26378cb37d9fc8ba98939aa92
+  ref: v1.44.1-0-gb459120c69f877227039ca6ddb8131c11f6e641d
 
 config:
   build-commands:
-    - |
-      make buildah PREFIX="/usr"
+  - |
+    make buildah PREFIX="/usr"
 
   install-commands:
-    - |
-      install -D -m 755 bin/buildah "%{install-root}/usr/bin/buildah"
+  - |
+    install -D -m 755 bin/buildah "%{install-root}/usr/bin/buildah"
