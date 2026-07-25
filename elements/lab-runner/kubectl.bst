@@ -14,10 +14,10 @@ sources:
     (?):
       - arch == "x86_64":
           url: "k8s-bin:release/%{kubectl_version}/bin/linux/amd64/kubectl"
-          ref: 1e9045ec32bea85da43de85f0065358529ea7c7a152eca78154fba5b58c27d82
+          ref: ebbd080e7c2e275093b55915722043257eb24004363e20acb3c4d71919f88336
       - arch == "aarch64":
           url: "k8s-bin:release/%{kubectl_version}/bin/linux/arm64/kubectl"
-          ref: c957eb8c4bea27a3bb35b269edd9082e27f027f7b76b20b5bf4afebc726c6d3e
+          ref: 3d86f24401c41ae5a46ac50eef8865fe891d3647d324a0836f6c63757a126e62
     filename: kubectl
 
 config:
