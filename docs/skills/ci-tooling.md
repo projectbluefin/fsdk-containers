@@ -150,6 +150,7 @@ Manual elements run their `config.install-commands` inside a minimal BuildStream
 ```yaml
 build-depends:
   - freedesktop-sdk.bst:components/gzip.bst
+  - freedesktop-sdk.bst:components/tar.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
 ```
 
