@@ -74,7 +74,7 @@ jobs:
     needs: build
     # repository_dispatch is verification-only for an unmerged FSDK bump;
     # never publish branch content to production tags.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -120,13 +120,26 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ matrix.image }}"
-          echo "Processing SBOM and manifest for ${IMAGE}"
-
           REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
           
+          # Check which per-architecture images were successfully built and published
+          POINT_TAG="$(just tags | tail -1)"
+          AVAIL_ARCHS=()
+          for arch in x86_64 aarch64; do
+            if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
+              AVAIL_ARCHS+=("${arch}")
+            fi
+          done
+
+          if [ ${#AVAIL_ARCHS[@]} -eq 0 ]; then
+            echo "==> WARNING: No per-architecture images found for ${REPO} at tag ${POINT_TAG}. Skipping manifest assembly."
+            exit 0
+          fi
+
+          echo "==> Assembling manifest list for ${IMAGE} with architectures: ${AVAIL_ARCHS[*]}"
+
           # Step 1: Create, annotate, and push all tags.
           # The FSDK point-release tag is immutable: skip it if already published.
-          POINT_TAG="$(just tags | tail -1)"
           FIRST_TAG=""
           while read -r t; do
             if [[ -z "${FIRST_TAG}" ]]; then
@@ -137,11 +150,12 @@ jobs:
               continue
             fi
             podman manifest create "${REPO}:${t}"
-            podman manifest add "${REPO}:${t}" "docker://${REPO}-x86_64:${t}"
-            podman manifest add "${REPO}:${t}" "docker://${REPO}-aarch64:${t}"
+            for arch in "${AVAIL_ARCHS[@]}"; do
+              podman manifest add "${REPO}:${t}" "docker://${REPO}-${arch}:${t}"
+            done
 
             podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
-            echo "==> published ${REPO}:${t} (multi-arch)"
+            echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
           done < <(just tags)
 
           # Step 2: Resolve canonical manifest list digest exactly once
@@ -180,6 +194,7 @@ jobs:
           fi
 
       - name: Generate GitHub artifact attestation
+        if: steps.resolve-digest.outputs.digest != ''
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
