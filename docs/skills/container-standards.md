@@ -20,7 +20,7 @@ metadata:
 ### 1. The FSDK Quality Contract
 
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
-- **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`).
+- **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). In FSDK 25.08, `runtime-minimal` carries `bash` which is stripped by the SLIM recipe; in FSDK 26.08+, `runtime-minimal` is purely minimal (no `bash`/`coreutils`), while shell-enabled images explicitly pull `public-stacks/runtime-gnu.bst`.
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
 
 ---
@@ -52,14 +52,14 @@ No version pins may be static or unmonitored.
 
 ## 4. SRE-Reliable Tagging Strategy
 
-Every OCI image is published with three tiers of tags derived dynamically from the pinned FSDK release in `freedesktop-sdk.bst`:
+Every OCI image is published with tags derived dynamically from the pinned FSDK release in `freedesktop-sdk.bst`:
 
 1. **`:latest` (Rolling Dev)**  
    Tracks the current rolling FSDK branch builds. Best for dev/testing lanes.
-2. **`:25.08` (Stable Minor Line)**  
+2. **`:25.08` / `:26.08` (Stable Minor Line)**  
    e.g. `:25.08`. Tracks patch updates to that minor line. Balances security patches with high stability.
-3. **`:25.08.13` (Immutable Pin)**  
-   e.g. `:25.08.13`. A point release corresponding to an exact, immutable FSDK release. **Recommended for SRE production environments to guarantee 100% reproducible deployments.**
+3. **`:25.08.14` / `:26.08beta.1` (Immutable Point / Pre-release Tag)**  
+   e.g. `:25.08.14` or `:26.08beta.1`. Point releases and upstream pre-releases/betas/RCs are tagged automatically, ensuring every upstream development and beta line is published. **Recommended for SRE production environments to guarantee 100% reproducible deployments.**
 
 ### Dynamic Metadata Labeling
 Every image must be self-declaring and embed OCI labels for easy auditing by SRE cluster checkers:

@@ -15,7 +15,9 @@ Use when an image is too large, or when extending the shared SLIM recipe.
 FSDK split-rule domains only cover:
 `devel, debug, doc, sysconf, tests, shells, static-blocklist, license, locale,
 vm-only, zoneinfo`. The largest **runtime-domain** bloat has *no domain* to exclude
-it, so it must be removed explicitly with `rm` — the same pattern used for bash.
+it, so it must be removed explicitly with `rm` (in FSDK 25.08, this includes bash,
+which lives in the `runtime` split domain; in FSDK 26.08+, `runtime-minimal` drops bash
+and coreutils, moving them to `runtime-gnu`).
 The shared commands live in `include/slim.yml` as BuildStream variables. Each
 OCI element includes that fragment with `variables: (@): include/slim.yml` and
 references either `%{slim-distroless-commands}` or

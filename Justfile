@@ -18,8 +18,8 @@ export OCI_IMAGE_REVISION := env("OCI_IMAGE_REVISION", "")
 sudo_cmd := if `podman info >/dev/null 2>&1 && echo 1 || echo 0` == "1" { "" } else { "sudo" }
 
 # FSDK release parsed from the pinned junction ref — the single source of truth
-# for image versioning. e.g. "25.08.13".
-export fsdk_version := `grep -oE 'freedesktop-sdk-[0-9]+\.[0-9]+\.[0-9]+' elements/freedesktop-sdk.bst | head -1 | sed 's/freedesktop-sdk-//'`
+# for image versioning. e.g. "25.08.14", "26.08beta.1", or "26.08.0".
+export fsdk_version := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/.*freedesktop-sdk-//; s/-[0-9]+-g[0-9a-f]+$//'`
 # Exact junction commit ref (full ref: value), for provenance.
 export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/^\s*ref:\s*//'`
 
@@ -99,14 +99,18 @@ bst *ARGS:
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- --no-interactive "${RE_FLAG[@]}" ${BST_FLAGS:-} {{ARGS}}
 
-# Print the tag set derived from the FSDK release: latest, minor line, point release.
+# Print the tag set derived from the FSDK release: latest, minor line, point release/beta tag.
 [group('info')]
 tags:
     #!/usr/bin/env bash
     set -euo pipefail
     V="{{fsdk_version}}"
-    MINOR="$(echo "$V" | cut -d. -f1,2)"
-    printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+    MINOR="$(echo "$V" | grep -oE '^[0-9]+\.[0-9]+')"
+    if [ "$V" = "$MINOR" ]; then
+        printf '%s\n%s\n' latest "$V"
+    else
+        printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+    fi
 
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
