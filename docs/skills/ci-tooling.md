@@ -143,6 +143,18 @@ verify it with `gh attestation verify oci://IMAGE:TAG -R ORG/REPO`.
 
 Source-verified via Context7: `/websites/github_en_actions`.
 
+## Build-time utility dependencies
+
+Manual elements run their `config.install-commands` inside a minimal BuildStream sandbox. Declare every command used by those commands in `build-depends`; transitive availability from another element is not a contract. In particular, `gzip.bst` provides `gunzip`, while `bootstrap/coreutils.bst` provides `install`:
+
+```yaml
+build-depends:
+  - freedesktop-sdk.bst:components/gzip.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
+```
+
+Keep this explicit for downloaded binary elements such as the lab-runner CLI tools so both architectures build from a clean cache.
+
 ## Manifest Annotation Compatibility (GitHub Runners)
 
 Runner podman versions vary, and both `podman manifest annotate --index` and

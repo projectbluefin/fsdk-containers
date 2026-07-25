@@ -15,5 +15,7 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  - lab-runner/argo.bst
+  - lab-runner/just.bst
   - lab-runner/kubectl.bst
   - lab-runner/nginx.bst
