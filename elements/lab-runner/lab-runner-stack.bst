@@ -7,6 +7,9 @@ description: |
 
 depends:
   - base/base-stack.bst
+  # Note: On FSDK 26.08+, runtime-minimal in base-stack no longer includes
+  # bash or coreutils. Upon upgrading to FSDK 26.08+, add:
+  # - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/curl.bst
   - freedesktop-sdk.bst:components/git.bst
   - freedesktop-sdk.bst:components/jq.bst
@@ -15,3 +18,4 @@ depends:
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
+  - lab-runner/nginx.bst

@@ -18,19 +18,76 @@ export OCI_IMAGE_REVISION := env("OCI_IMAGE_REVISION", "")
 sudo_cmd := if `podman info >/dev/null 2>&1 && echo 1 || echo 0` == "1" { "" } else { "sudo" }
 
 # FSDK release parsed from the pinned junction ref — the single source of truth
-# for image versioning. e.g. "25.08.13".
-export fsdk_version := `grep -oE 'freedesktop-sdk-[0-9]+\.[0-9]+\.[0-9]+' elements/freedesktop-sdk.bst | head -1 | sed 's/freedesktop-sdk-//'`
+# for image versioning. e.g. "25.08.14", "26.08beta.1", or "26.08.0".
+export fsdk_version := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/.*freedesktop-sdk-//; s/-[0-9]+-g[0-9a-f]+$//'`
 # Exact junction commit ref (full ref: value), for provenance.
 export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/^\s*ref:\s*//'`
 
 # -- BuildStream wrapper ------------------------------------------------------
 # Runs any bst command inside the bst2 container via podman.
 # Baseline x86_64 (no x86_64_v3) so the base image runs on the widest CPU set.
+#
+# Builds are submitted to the ghost cluster's BuildBarn remote-execution grid
+# by default for local/agent builds: the in-cluster frontend
+# (frontend.buildbarn.svc:8980, plain gRPC) is reached via kubectl
+# port-forward, so compile actions run on the cluster workers, NOT on this
+# machine. Exceptions:
+#   - BST_LOCAL=1        force local execution (offline, or grid is down)
+#   - CI (GITHUB_ACTIONS) always local: runners build natively per-arch and the
+#     grid is x86_64-only (no aarch64 RE workers yet)
+# If the cluster is unreachable the recipe FAILS (no silent local fallback) —
+# set BST_LOCAL=1 explicitly to build locally. See docs/skills/remote-execution.md.
 [group('dev')]
 bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
+    RE_FLAG=()
+    PF_PID=""
+    cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
+    trap cleanup EXIT
+    if [ "${BST_LOCAL:-0}" != "1" ] && [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+        export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/bluespeed.yaml}"
+        if ! kubectl get svc frontend -n buildbarn >/dev/null 2>&1; then
+            echo "ERROR: ghost cluster BuildBarn frontend unreachable (KUBECONFIG=$KUBECONFIG)." >&2
+            echo "       Builds must run on the cluster. If it is down, rerun with BST_LOCAL=1." >&2
+            exit 1
+        fi
+        kubectl port-forward -n buildbarn svc/frontend 18980:8980 >/dev/null 2>&1 &
+        PF_PID=$!
+        for _ in $(seq 1 20); do
+            (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null && break
+            sleep 0.5
+        done
+        cat > .bst-re.conf <<'EOF'
+    remote-execution:
+      execution-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+      storage-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+      action-cache-service:
+        url: grpc://127.0.0.1:18980
+        connection-config:
+          keepalive-time: 60
+          retry-limit: 8
+          retry-delay: 1000
+          request-timeout: 1800
+    EOF
+        RE_FLAG=(--config /src/.bst-re.conf)
+        echo "==> BuildStream remote execution: ghost cluster BuildBarn grid (via port-forward :18980). Set BST_LOCAL=1 for local builds." >&2
+    else
+        echo "==> BuildStream LOCAL execution" >&2
+    fi
     # shellcheck disable=SC2086
     {{sudo_cmd}} podman run --rm \
         --privileged \
@@ -40,21 +97,25 @@ bst *ARGS:
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
         -w /src \
         "{{bst2_image}}" \
-        bash -c 'bst --colors "$@"' -- --no-interactive ${BST_FLAGS:-} {{ARGS}}
+        bash -c 'bst --colors "$@"' -- --no-interactive "${RE_FLAG[@]}" ${BST_FLAGS:-} {{ARGS}}
 
-# Print the tag set derived from the FSDK release: latest, minor line, point release.
+# Print the tag set derived from the FSDK release: latest, minor line, point release/beta tag.
 [group('info')]
 tags:
     #!/usr/bin/env bash
     set -euo pipefail
     V="{{fsdk_version}}"
-    MINOR="$(echo "$V" | cut -d. -f1,2)"
-    printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+    MINOR="$(echo "$V" | grep -oE '^[0-9]+\.[0-9]+')"
+    if [ "$V" = "$MINOR" ]; then
+        printf '%s\n%s\n' latest "$V"
+    else
+        printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+    fi
 
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -88,6 +149,7 @@ export:
         lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
+        qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -108,6 +170,8 @@ export:
     echo "==> Built ${FINAL_REF}"
 
 # Push the locally built :latest under all derived tags to a given repo ref.
+# The FSDK point-release tag (e.g. :25.08.13) is treated as immutable: if it
+# already exists at the destination it is skipped, never overwritten.
 # Usage: just tag-push ghcr.io/projectbluefin/base
 [group('build')]
 tag-push REPO:
@@ -115,6 +179,10 @@ tag-push REPO:
     set -euo pipefail
     SRC="{{image_registry}}/{{image_name}}:latest"
     while read -r t; do
+        if [ "$t" = "{{fsdk_version}}" ] && skopeo inspect --no-tags "docker://{{REPO}}:$t" >/dev/null 2>&1; then
+            echo "==> skipping {{REPO}}:$t (point-release tag already published, immutable)"
+            continue
+        fi
         {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
         {{sudo_cmd}} podman push "{{REPO}}:$t"
         echo "==> pushed {{REPO}}:$t"
@@ -145,6 +213,25 @@ verify:
     REF="{{image_registry}}/{{image_name}}:latest"
     IMG="{{image_name}}"
 
+    # Guard against silent size creep. These are uncompressed local Podman
+    # sizes (not registry transfer sizes), with headroom for FSDK growth.
+    case "$IMG" in
+        base)       MAX_BYTES=$((64 * 1024 * 1024)) ;;
+        static)     MAX_BYTES=$((80 * 1024 * 1024)) ;;
+        skopeo)     MAX_BYTES=$((224 * 1024 * 1024)) ;;
+        python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
+        qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
+        buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
+        lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
+        *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
+    esac
+    SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
+    if ! [[ "$SIZE_BYTES" =~ ^[0-9]+$ ]] || [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
+        echo "FAIL: $IMG image size ${SIZE_BYTES} bytes exceeds ${MAX_BYTES} bytes" >&2
+        exit 1
+    fi
+    echo "OK: image size ${SIZE_BYTES} bytes (limit ${MAX_BYTES})"
+
     {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT
     LISTING="$(mktemp)"
@@ -166,7 +253,7 @@ verify:
         done
         echo "OK: argo, just, and kubectl present"
     else
-        TOTAL=4
+        TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
         if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
             echo "FAIL: a shell binary is present in the rootfs"; exit 1
@@ -190,6 +277,12 @@ verify:
             echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: slim bloat removed"
+
+        echo "==> [5/${TOTAL}] slim: locale/build-tool bloat must NOT be present"
+        if grep -qE 'usr/lib(/[^/]*)?/locale/locale-archive$|usr/share/i18n/charmaps/|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$|libpcre2-(16|32|posix)\.so' "$LISTING"; then
+            echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
+        fi
+        echo "OK: locale/build-tool bloat removed"
     fi
 
     echo "==> smoke test (executing binary)"
@@ -356,6 +449,7 @@ sbom variant="base":
         lab-runner) ELEMENT="oci/lab-runner.bst";  SPDX_NAME="lab-runner" ;;
         python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
         buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
+        qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -420,7 +514,7 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah; do
+            for img in base static skopeo lab-runner python buildah qemu-img; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
@@ -428,6 +522,7 @@ sboms:
                     lab-runner) ELEMENT="oci/lab-runner.bst" ;;
                     python)     ELEMENT="oci/python.bst" ;;
                     buildah)    ELEMENT="oci/buildah.bst" ;;
+                    qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \

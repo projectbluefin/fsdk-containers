@@ -8,15 +8,19 @@ out only the runtime, strip the bloat, ship slim by default — so you get a fre
 OSS distroless suite that **inherits FSDK's CVE patching** instead of maintaining
 a separate package set.
 
-These containers are maintained for projectblufin/fsdk usage for cluster ops, etc. Digital sovereignty isn't just for nations, this controls our supply chain. 
+These containers are maintained for projectbluefin/fsdk usage for cluster ops, etc. Digital sovereignty isn't just for nations, this controls our supply chain. 
 
 ## Images
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/static` | — | Static tier for compiled Go/Rust binaries (`CGO_ENABLED=0`): CA certificates + tzdata only, no libc. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, python3, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 
 ### Machine images (not distroless)
 
@@ -38,17 +42,39 @@ set, CA certificates — so `datetime`/TLS work out of the box without the wheel
 gymnastics other distroless suites push onto you.
 
 Pipeline: `stack` (deps) -> `compose` (chisel) -> `script` (slim + oci-builder).
-See [`docs/skills/slim-an-image.md`](docs/skills/slim-an-image.md) for the recipe.
+See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
+
+## Verify signatures
+
+All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
+and ship an attached SPDX SBOM. Verify a main-branch build with:
+
+    cosign verify ghcr.io/projectbluefin/base:latest \
+      --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/build.yml@refs/heads/main" \
+      --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+
+(Builds triggered from other refs, e.g. dispatch test builds, are signed with the
+corresponding branch ref in the certificate identity.)
+
+GitHub also publishes a registry-backed build provenance attestation for each
+image. Verify it with the GitHub CLI:
+
+    gh attestation verify oci://ghcr.io/projectbluefin/base:latest \
+      -R projectbluefin/fsdk-containers
+
+For reproducible audits, replace `:latest` with the exact manifest digest.
 
 ## Versioning
 
 There is no application version for a base image, so the version axis is the
-FSDK release. Tags are derived from the pinned junction ref in
-`elements/freedesktop-sdk.bst`:
+FSDK release. We track upstream FSDK releases and active development/beta branches
+so users can test upcoming FSDK features early. Tags are derived automatically from
+the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
 - `:latest` -- rolling
-- `:25.08` -- FSDK minor line
-- `:25.08.13` -- FSDK point release (treated immutable)
+- `:25.08` or `:26.08` -- FSDK minor line
+- `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
+- `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
 
 Every image self-declares its base via `io.projectbluefin.fsdk.version` and
 `io.projectbluefin.fsdk.ref` labels.
@@ -62,6 +88,11 @@ inside the FSDK `bst2` container -- nothing to install.
     just build           # build + load ghcr.io/projectbluefin/base:latest
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
+
+By default `just bst` submits build actions to the ghost cluster's BuildBarn
+remote-execution grid instead of building on your machine (and fails loudly if
+the cluster is unreachable). Use `BST_LOCAL=1 just build` for explicit local
+execution — see [docs/skills/remote-execution.md](docs/skills/remote-execution.md).
 
 ## Homebrew systemd-nspawn container
 

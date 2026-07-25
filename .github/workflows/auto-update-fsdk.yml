@@ -43,10 +43,23 @@ jobs:
         run: |
           just validate
 
+      # PATs are banned org-wide; the default GITHUB_TOKEN cannot trigger
+      # downstream workflows. Use a Mergeraptor App installation token so the
+      # repository_dispatch actually starts the build workflow (see
+      # docs/skills/ci-tooling.md). Requires MERGERAPTOR_APP_ID and
+      # MERGERAPTOR_PRIVATE_KEY repository secrets to be configured.
+      - name: Get mergeraptor token
+        if: steps.check_changes.outputs.changes == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
       - name: Create PR and Trigger Dispatch
         if: steps.check_changes.outputs.changes == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           BRANCH="auto/update-fsdk"

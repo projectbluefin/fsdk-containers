@@ -22,6 +22,7 @@ load the focused skill for your task.
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
+| Run local/agent builds on the ghost cluster (remote execution) | [remote-execution.md](remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
 | Container quality standards and SRE tagging | [container-standards.md](container-standards.md) |
@@ -37,6 +38,9 @@ Workflow knowledge and operational runbooks any agent needs to work in this repo
 
 - BuildStream runs in the FSDK `bst2` container via `just bst`. Nothing to install
   but `podman` + `just`.
+- Local/agent builds execute on the ghost cluster's BuildBarn grid by default
+  (`just bst` injects remote-execution config); `BST_LOCAL=1` is the explicit
+  opt-out. CI runners build locally per-arch.
 - Compose from FSDK `components/*`, never `platform.bst`.
 - Slim by default; keep tzdata + common charsets + CA certs.
 - `just verify` (4 gates) is the merge contract.

@@ -7,41 +7,12 @@ build-depends:
     config:
       location: /layer
 
+variables:
+  (@): include/slim.yml
+
 config:
   commands:
-    - |
-      set -eu
-      L=/layer
-
-      # Partial SLIM recipe: remove bloat but KEEP shells (bash is intentional here).
-      rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset \
-             "$L"/etc/terminfo "$L"/lib/terminfo
-
-      rm -f "$L"/usr/lib/*/libasan.so*  "$L"/usr/lib/*/libtsan.so* \
-            "$L"/usr/lib/*/liblsan.so*  "$L"/usr/lib/*/libubsan.so* \
-            "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
-
-      for g in "$L"/usr/lib/*/gconv; do
-        [ -d "$g" ] || continue
-        for f in "$g"/*; do
-          [ -f "$f" ] || continue
-          case "${f##*/}" in
-            gconv-modules*|UTF*|UNICODE*|ISO8859-1.so|ISO8859-15.so|CP1252.so|ANSI_X3.110.so) : ;;
-            *) rm -f "$f" ;;
-          esac
-        done
-      done
-
-      rm -f  "$L"/usr/lib/locale/locale-archive
-      rm -rf "$L"/usr/share/i18n/charmaps
-
-      rm -f "$L"/usr/bin/localedef "$L"/usr/bin/sln "$L"/usr/bin/iconvconfig \
-            "$L"/usr/bin/ldconfig "$L"/usr/sbin/ldconfig \
-            "$L"/usr/bin/pcre2test "$L"/usr/bin/pcre2grep
-
-      rm -f "$L"/usr/lib/*/libpcre2-16.so* "$L"/usr/lib/*/libpcre2-32.so* \
-            "$L"/usr/lib/*/libpcre2-posix.so*
-
+    - "%{slim-shell-enabled-commands}"
     - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do
