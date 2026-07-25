@@ -67,13 +67,14 @@ For reproducible audits, replace `:latest` with the exact manifest digest.
 ## Versioning
 
 There is no application version for a base image, so the version axis is the
-FSDK release. Tags are derived from the pinned junction ref in
-`elements/freedesktop-sdk.bst`:
+FSDK release. We track upstream FSDK releases and active development/beta branches
+so users can test upcoming FSDK features early. Tags are derived automatically from
+the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
 - `:latest` -- rolling
-- `:25.08` -- FSDK minor line
-- `:25.08.13` -- FSDK point release (immutable: once published, CI never
-  overwrites a point-release tag)
+- `:25.08` or `:26.08` -- FSDK minor line
+- `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
+- `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
 
 Every image self-declares its base via `io.projectbluefin.fsdk.version` and
 `io.projectbluefin.fsdk.ref` labels.
