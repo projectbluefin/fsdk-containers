@@ -1,0 +1,62 @@
+kind: manual
+description: Build nginx from source for the lab-runner utility image.
+
+sources:
+  - kind: tar
+    url: https://nginx.org/download/nginx-1.27.5.tar.gz
+    ref: e96acebb9c2a6db8a000c3dd1b32ecba1b810f0cd586232d4d921e376674dd0e
+
+build-depends:
+  - freedesktop-sdk.bst:components/gcc.bst
+  - freedesktop-sdk.bst:components/make.bst
+  - freedesktop-sdk.bst:bootstrap/pcre2.bst
+  - freedesktop-sdk.bst:components/openssl.bst
+  - freedesktop-sdk.bst:components/zlib.bst
+
+variables:
+  strip-binaries: ""
+
+config:
+  configure-commands:
+    - |
+      ./configure \
+        --prefix=/usr \
+        --sbin-path=/usr/sbin/nginx \
+        --conf-path=/etc/nginx/nginx.conf \
+        --pid-path=/run/nginx.pid \
+        --lock-path=/run/nginx.lock \
+        --error-log-path=/dev/stderr \
+        --http-log-path=/dev/stdout \
+        --http-client-body-temp-path=/var/cache/nginx/client_temp \
+        --http-proxy-temp-path=/var/cache/nginx/proxy_temp \
+        --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp \
+        --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp \
+        --http-scgi-temp-path=/var/cache/nginx/scgi_temp \
+        --with-http_ssl_module \
+        --with-http_v2_module \
+        --with-pcre-jit \
+        --with-threads \
+        --with-compat \
+        --without-http_autoindex_module \
+        --without-http_ssi_module \
+        --without-http_userid_module
+
+  build-commands:
+    - make -j%{max-jobs}
+
+  install-commands:
+    - make install DESTDIR="%{install-root}"
+    - mkdir -p "%{install-root}/var/cache/nginx" "%{install-root}/etc/nginx"
+    - |
+      cat > "%{install-root}/etc/nginx/nginx.conf" <<'EOF'
+      worker_processes auto;
+      error_log /dev/stderr;
+      events { worker_connections 1024; }
+      http {
+        access_log /dev/stdout;
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        sendfile on;
+        server { listen 8080; root /usr/share/nginx/html; }
+      }
+      EOF

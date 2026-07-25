@@ -18,12 +18,14 @@ release. Tags are derived from the pinned junction ref in
 `freedesktop-sdk-25.08.13-...`):
 
 - `:latest` — rolling, every publish
-- `:25.08` — FSDK minor line (moves within the line)
-- `:25.08.13` — FSDK point release, treated **immutable**
+- `:25.08` or `:26.08` — FSDK minor line (moves within the line)
+- `:25.08.14` — FSDK point release, treated **immutable**
+- `:26.08beta.1` / `:26.08rc.1` — pre-release/beta/RC release tag (published whenever tracking upstream dev/beta branches)
 
 `just tags` parses these from the ref. Provenance labels
 `io.projectbluefin.fsdk.version` / `io.projectbluefin.fsdk.ref` are applied at
-export so every image self-declares its base.
+export so every image self-declares its base. We aim to track every upstream development
+and beta branch, ensuring images are continuously built and published for early testing.
 
 ## Procedure
 
@@ -59,9 +61,11 @@ Before merging a bump:
 - [ ] `just build && just verify` — all 4 gates pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
-- Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components.
-  Re-confirm `components/*` names against the staged junction before assuming a
-  dep still exists.
+- Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components or restructure runtime stacks:
+  - **FSDK 26.08 Stack Refactoring:** In Freedesktop-SDK 26.08 (`26.08beta.1`+), `public-stacks/runtime-minimal.bst` no longer includes `bash` or `coreutils`. Those GNU tools moved to `public-stacks/runtime-gnu.bst`.
+  - Distroless images (`base-stack.bst`) using `runtime-minimal` become even leaner by default upstream (no need to rely solely on manual `rm -f /usr/bin/bash` in `include/slim.yml`).
+  - Shell-enabled stacks (`lab-runner-stack.bst`, `brew-deps.bst`) must explicitly depend on `freedesktop-sdk.bst:public-stacks/runtime-gnu.bst` when updating to FSDK 26.08+.
+  - Re-confirm `components/*` and `public-stacks/*` names against the staged junction before assuming a dep still exists.
 - A point-release tag is immutable: once `:25.08.13` is published, never republish
   different bits under it.
 - **Only the systemd-* overrides and two CAS-config patches remain.** When Dakota
