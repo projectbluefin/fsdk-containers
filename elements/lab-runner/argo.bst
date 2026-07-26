@@ -8,7 +8,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=argoproj/argo-workflows
-  argo_version: v4.0.7
+  argo_version: v4.0.8
 
 sources:
   - kind: remote
