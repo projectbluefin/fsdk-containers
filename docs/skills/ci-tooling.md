@@ -90,9 +90,9 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | `validate` | `pull_request` only | `bst show` element graph resolution, no build |
 | `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
 | `manifest` | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
-| `build-podman-vm` | not on `pull_request` | matrix arch (x86_64 + aarch64), builds the `podman-vm-efi.bst` VM guest disk (not an OCI image), uploads the QCOW2 + checksum manifest as a workflow artifact per arch |
-| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that artifact, runs the `tests/podman-vm.sh` QEMU/Lima boot + Cloud-init + rootless-podman integration test |
-| `publish-podman-vm` | after `build-podman-vm` **and a passing** `test-podman-vm`, only `push`/`workflow_dispatch` | matrix arch (x86_64 + aarch64), uploads the QCOW2 + checksum manifest as immutable GitHub Release assets under the `v<fsdk_version>` tag — never a mutable `latest` URL |
+| `build-podman-vm` | not on `pull_request` | matrix arch (x86_64 + aarch64), builds the `podman-vm-efi.bst` VM guest disk (not an OCI image), uploads the raw disk + checksum manifest as a workflow artifact per arch |
+| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that raw disk and runs the `tests/podman-vm.sh` QEMU/Lima boot integration test |
+| `publish-podman-vm` | after `build-podman-vm` **and a passing** `test-podman-vm`, only `push`/`workflow_dispatch` | matrix arch (x86_64 + aarch64), uploads the raw disk + checksum manifest as immutable GitHub Release assets under the `v<fsdk_version>` tag — never a mutable `latest` URL |
 
 `repository_dispatch` (used by the automated FSDK bump PR check) is
 **verification-only**: it checks out the payload branch and runs both native

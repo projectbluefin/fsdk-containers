@@ -11,7 +11,7 @@ metadata:
 ## When to Use
 
 Use for the bootable guest disk artifact consumed by donate-clanker. The target
-is `podman-vm/podman-vm-efi.bst`; it is a raw EFI disk, not an OCI image.
+is `podman-vm/podman-vm-efi.bst`; it is a raw GPT/EFI disk, not an OCI image.
 
 ## When NOT to Use
 
@@ -25,10 +25,9 @@ The target reuses the FSDK VM graph:
 `vm/minimal/deps.bst` → `podman-vm/podman-vm-deps.bst` →
 `podman-vm/podman-vm-filesystem.bst` → `podman-vm/podman-vm-efi.bst`.
 
-The guest includes FSDK's minimal systemd/linux/dracut userspace, networking,
-DNS/certificates, uutils, git, the pinned worker, `/sbin/init`, empty
-machine-id, and the EFI system partition. It does not include Podman, SSH, or
-cloud-init. The final
+The guest is the full FSDK VM/uutils base plus networking, certificates, git,
+the pinned worker, `/sbin/init`, an empty machine-id, and the EFI system
+partition. It does not include Podman, SSH, cloud-init, or `qemu-img`. The final
 install-root contains exactly:
 
 ```text
@@ -36,30 +35,29 @@ donate-clanker-vm-<fsdk-version>-<arch>.raw
 donate-clanker-vm-<fsdk-version>-<arch>.raw.sha256
 ```
 
-BuildStream element outputs are filesystem trees, not disk images. Therefore
 `podman-vm/podman-vm-efi.bst` assembles the full rootfs plus EFI tree with
-`genimage` and copies the raw GPT image as the VM artifact. QEMU boots raw
-disks directly, so no conversion tool is required.
+`genimage` and copies the resulting raw GPT disk to the install root. QEMU
+boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
 systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
 `projectbluefin/donate-clanker` commit
-`04456aa24b866a7f9ded9397fc4e1b7c0eeb1110`. The consumer reads the
+`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer reads the
 virtio-serial envelope, validates it, sends `control_ack`, keeps credentials in
 memory, and execs `/usr/libexec/donate-clanker-worker`.
 
 `podman-vm/donate-clanker-worker.bst` compiles `cmd/contributor` with the FSDK
 Go toolchain, `CGO_ENABLED=0`, `GOPROXY=off`, and a separately pinned
-`gorilla/websocket` source tree wired with a local `go.mod` replacement. The
-source commit is not yet published on GitHub, so BuildStream currently fails
-at source fetch with `...7f16610... not found in remote`; publish that commit
-before enabling remote builds. No binary or digest is fabricated.
+`gorilla/websocket` source tree wired with a local `go.mod` replacement.
+
+An observed x86_64 local build took approximately 10 minutes and produced a
+2.2G raw disk. This is a local benchmark, not a size or duration guarantee.
 
 ## Common Rationalizations
 
 | Rationalization | Reality |
 |---|---|
-| "Publish qemu-img as the guest." | The guest must be a bootable disk assembled by `vm/prepare-image.bst` and `genimage`. |
+| "Publish qemu-img as the guest." | `qemu-img` is not in this VM; publish the raw disk assembled by `vm/prepare-image.bst` and `genimage`. |
 | "Use an OCI rootfs instead." | The launcher consumes a filesystem image with EFI/kernel boot content, not an OCI layer. |
 
 ## Red Flags
@@ -72,6 +70,6 @@ before enabling remote builds. No binary or digest is fabricated.
 
 - [ ] `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
 - [ ] `just export-podman-vm` checks out only the raw disk and `.sha256`.
+- [ ] The dependency graph contains no Podman, SSH, cloud-init, or `qemu-img`.
 - [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
-- [ ] `podman-vm/donate-clanker-worker.bst` builds after the pinned source is
-      published.
+- [ ] `podman-vm/donate-clanker-worker.bst` builds from the pinned source.
