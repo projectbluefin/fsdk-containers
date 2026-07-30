@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, donate-clanker-vm-runner, donate-clanker-guest]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -84,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, donate-clanker-vm-runner, donate-clanker-guest]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

@@ -1,6 +1,6 @@
 ---
 name: donate-clanker-vm-artifacts
-description: Build and publish the donate-clanker QEMU runner and guest rootfs first slice.
+description: Build the bootable donate-clanker VM guest from the FSDK VM graph.
 metadata:
   context7-sources:
     - /apache/buildstream
@@ -10,51 +10,48 @@ metadata:
 
 ## When to Use
 
-Use when adding or changing the donate-clanker QEMU runner or guest artifact
-targets in `fsdk-containers`.
+Use for the bootable guest disk artifact consumed by donate-clanker. The target
+is `podman-vm/podman-vm-efi.bst`; it is a QCOW2/EFI disk, not an OCI image.
 
 ## When NOT to Use
 
-Do not use for launcher, guest bootstrap, or release-gate changes in
-`donate-clanker`; those belong to that repository.
+Do not use for the host launcher, QEMU runner container, or release validation
+in `donate-clanker`.
 
 ## Core Process
 
-The producer publishes two multi-architecture OCI images:
+The target reuses the FSDK VM graph:
 
-- `donate-clanker-vm-runner`: a headless, host-architecture QEMU system emulator
-  with KVM support. The launcher invokes `qemu-system-x86_64` on amd64 and
-  `qemu-system-aarch64` on arm64.
-- `donate-clanker-guest`: an FSDK runtime rootfs carrying
-  `/etc/donate-clanker/guest-artifact.json`.
+`vm/minimal/deps.bst` → `podman-vm/podman-vm-deps.bst` →
+`podman-vm/podman-vm-filesystem.bst` → `podman-vm/podman-vm-efi.bst`.
 
-The guest image is intentionally the first slice of the contract. Its manifest
-declares `format=donate-clanker-guest-rootfs-v1`, `rootfs=/`, and that kernel
-and initramfs are external inputs. It does not invent references for those
-inputs; a later guest-kernel producer must publish them as separate immutable
-artifacts before the full VM release gate can pass.
+The guest includes the full systemd/linux/dracut userspace, networking, SSH,
+cloud-init, Podman runtime, and the EFI system partition. The final
+install-root contains exactly:
 
-Both images use the normal FSDK release tag matrix, BuildStream-native SBOM,
-keyless Cosign signature, and GitHub provenance attestation. Validate the graph
-with `just validate`; build and inspect a target with
-`BUILD_IMAGE_NAME=donate-clanker-vm-runner just build` and `just verify`.
+```text
+podman-vm-<fsdk-version>-<arch>.qcow2
+podman-vm-<fsdk-version>-<arch>.qcow2.sha256
+```
+
+`qemu-img/qemu-img.bst` is used only as the conversion tool from the generated
+raw GPT disk to QCOW2; it is not the VM artifact.
 
 ## Common Rationalizations
 
 | Rationalization | Reality |
 |---|---|
-| "A qemu-img image is close enough." | The launcher requires a QEMU system emulator with microVM support. |
-| "Use placeholder artifact digests for the missing boot payload." | Never publish fake references; keep kernel/initramfs explicitly external. |
+| "Publish qemu-img as the guest." | The guest must be a bootable disk assembled by `vm/prepare-image.bst` and `genimage`. |
+| "Use an OCI rootfs instead." | The launcher consumes a filesystem image with EFI/kernel boot content, not an OCI layer. |
 
 ## Red Flags
 
-- The runner target contains `qemu-img` instead of `qemu-system-*`.
-- Kernel or initramfs references are invented in this repository.
-- A new target is missing from validation, SBOM, or both architecture matrices.
+- The requested target is an OCI `qemu-system` or `qemu-img` image.
+- `vm/minimal/deps.bst` and `vm/boot/efi.bst` are bypassed.
+- The output lacks both the QCOW2 and binary checksum manifest.
 
 ## Verification
 
-- [ ] `BST_LOCAL=1 just bst show --deps all oci/donate-clanker-vm-runner.bst oci/donate-clanker-guest.bst`
-- [ ] `git diff --check`
-- [ ] `just test-tags`
-- [ ] Both targets are present in the build and manifest matrices.
+- [ ] `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
+- [ ] `just export-podman-vm` checks out only the QCOW2 and `.sha256`.
+- [ ] `qemu-img` appears only as a build-time conversion dependency.
