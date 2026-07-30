@@ -93,6 +93,18 @@ variables:
   # probability). This is independent of the VM's *runtime* identity:
   # Cloud-init's NoCloud datasource supplies a fresh Lima instance-id at
   # every boot regardless of this build-time seed.
+  #
+  # `prepare-image.sh --seed` is a second, distinct derivation: that script
+  # treats its `--seed` value as a *namespace* of its own, deriving the
+  # root filesystem UUID and EFI volume ID via
+  # `uuidgen -s --namespace "${seed}" --name root|efi` internally. Passing
+  # this element's own `%{uuidnamespace}` there directly would make those
+  # two identities collide across every (version, arch) build the same way
+  # the disk/partition UUIDs did before this fix. config.commands below
+  # instead computes a per-artifact seed —
+  # `uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}"` —
+  # and passes *that* to `--seed`, so prepare-image.sh's own internal
+  # root/EFI derivations inherit the full (version, arch) identity too.
   uuidnamespace: 4cff3586-cb73-555e-aad2-8e3e9a23a69c
   build-root: /genimage
 
@@ -112,9 +124,19 @@ config:
   - mkdir -p /fakecap
   - mkdir -p %{build-root}
   - |
+    # `prepare-image.sh --seed` is used internally as a *namespace* (not a
+    # name) for its own `uuidgen -s --namespace "${seed}" --name root|efi|salt`
+    # derivations (see freedesktop-sdk.bst's files/vm/prepare-image.sh) — so
+    # passing the fixed "%{uuidnamespace}" directly would make its root
+    # filesystem UUID and EFI volume ID identical across every FSDK point
+    # release and architecture, exactly the collision this element's other
+    # UUIDs already avoid. Derive an artifact-specific seed first (folding in
+    # the full identity), and pass *that* as the seed instead.
+    artifact_id="podman-vm-%{fsdk-version}-%{arch}"
+    artifact_seed="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}")"
     prepare-image.sh \
        --sysroot /sysroot \
-       --seed "%{uuidnamespace}" \
+       --seed "${artifact_seed}" \
        --rootpasswd "root" > "%{build-root}/vars"
 
   - |
