@@ -33,6 +33,7 @@ def main():
     os.environ["DONATE_CLANKER_REGISTRATION_TOKEN"] = envelope["registration_token"]
     os.environ["DONATE_CLANKER_BACKEND"] = envelope["backend"]
     os.environ["DONATE_CLANKER_RUN_ID"] = envelope["run_id"]
+    os.environ.setdefault("GOOSE_PROVIDER", "github_copilot")
     os.execv(WORKER, [WORKER])
 
 

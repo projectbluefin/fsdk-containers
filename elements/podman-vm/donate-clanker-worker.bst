@@ -6,7 +6,7 @@ description: |
 sources:
   - kind: git_repo
     url: github:projectbluefin/donate-clanker.git
-    ref: 04456aa24b866a7f9ded9397fc4e1b7c0eeb1110
+    ref: 96cc69f5779d63b908d5f53957287b7ef6bda7fa
     directory: donate-clanker
   - kind: git_repo
     url: github:gorilla/websocket.git
