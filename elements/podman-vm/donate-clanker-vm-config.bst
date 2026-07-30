@@ -22,9 +22,8 @@ variables:
 config:
   install-commands:
     - |
-      mkdir -p "%{install-root}/etc/systemd/network" "%{install-root}/sbin"
+      mkdir -p "%{install-root}/etc/systemd/network"
       : > "%{install-root}/etc/machine-id"
-      ln -sf /usr/lib/systemd/systemd "%{install-root}/sbin/init"
       printf '%s\n' \
         '[Match]' \
         'Name=eth0' \
