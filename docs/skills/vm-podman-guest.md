@@ -137,6 +137,27 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   repeated runs of the same pair reproduce identical UUIDs, and (b) every
   pair produces UUIDs that are pairwise distinct from every other pair,
   per role.
+  **This full-identity rule also applies to any upstream helper script
+  that takes a `--seed`-style argument and internally treats it as a
+  UUIDv5 *namespace*** — e.g. freedesktop-sdk.bst's own
+  `files/vm/prepare-image.sh` takes `--seed` and uses it directly as
+  `uuidgen -s --namespace "${seed}" --name root|efi|salt` to derive the
+  ext4 root filesystem UUID, EFI volume ID, and root password salt.
+  Passing a fixed, artifact-family-wide namespace straight through as
+  that `--seed` reproduces the exact same collision bug one level deeper
+  (every point release/arch gets the identical root/EFI/salt identity)
+  even after the disk/partition UUIDs above are fixed correctly — read
+  any such script's own source to see what it does with `--seed`/similar
+  flags before assuming a fixed namespace value is safe to hand it
+  directly. The fix is the same shape: derive a
+  per-artifact seed first
+  (`uuidgen -s --namespace <fixed-ns> --name "<id>-<version>-<arch>"`)
+  and pass *that* as the `--seed` value, so the script's own internal
+  namespace-based derivations inherit the full identity too. Verify by
+  reproducing the script's exact internal formula (namespace = computed
+  artifact seed, name = whatever the script itself uses, e.g. `root`/
+  `efi`/`salt`) across the same (version, arch) matrix and checking both
+  properties again.
 - **FSDK exact point release, reused from the Justfile, not
   re-parsed**: the Justfile's `fsdk_version` (git-describe parse of
   `elements/freedesktop-sdk.bst`'s `ref:`, e.g. `25.08.14`) is this repo's
@@ -208,6 +229,17 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   (version, arch) pairs, checked programmatically for (a) reproducibility
   of repeated runs and (b) pairwise distinctness across pairs, per role —
   proves the UUID-uniqueness property statically without a full build.
+- A second local matrix reproducing `prepare-image.sh`'s own internal
+  formula (`artifact_seed = uuidgen(fixed-ns, "<artifact-id>")`, then
+  `uuid_root = uuidgen(artifact_seed, "root")`,
+  `id_efi/uuid_efi = uuidgen(artifact_seed, "efi")`,
+  `salt = uuidgen(artifact_seed, "salt")`) across the same (version, arch)
+  pairs — checked programmatically for the same two properties — proves
+  the ext4 root UUID / EFI volume ID / root-password-salt identities
+  (derived by the upstream script from the `--seed` argument, not
+  visible to this element's own `uuidgen` calls) are also reproducible
+  per-build and collision-free across distinct FSDK point releases and
+  architectures.
 - `just validate` (the repo's existing 7-OCI-image graph check) still
   resolves cleanly after the shared `Justfile`/`.gitignore` changes — no
   regression to the unrelated OCI image elements.
