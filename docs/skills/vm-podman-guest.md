@@ -117,21 +117,53 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   output, a Podman-VM-style element that must emit a qcow2 should redirect
   `genimage.cfg`'s `outputpath` to `%{build-root}`, keeping `install-root`
   limited to the final `<name>-<version>-<arch>.qcow2` + `.sha256`.
-- **Fixed UUID namespace for reproducibility**: derive disk/partition UUIDs
-  from a UUIDv5 generated once and hardcoded (e.g.
+- **Fixed UUID namespace for reproducibility, with full artifact identity
+  folded into every derived name**: derive disk/partition/filesystem UUIDs
+  from a UUIDv5 namespace generated once and hardcoded (e.g.
   `uuidgen -s --namespace @url --name "https://github.com/<org>/<repo>/<image-name>"`),
-  not from `uuidgen` at build time, so the same inputs always produce the
-  same disk UUIDs.
-- **FSDK version granularity gap (open, unresolved by this task)**: the
-  Justfile's `fsdk_version` (used for OCI image tags) is parsed via shell
-  from `elements/freedesktop-sdk.bst`'s git-describe `ref:` (point-release
-  precision, e.g. `25.08.14`). A BuildStream element has no shell-level
-  access to that file from inside the sandbox; reading
-  `/sysroot/etc/os-release`'s `VERSION_ID` instead only yields FSDK's
-  minor-branch precision (e.g. `25.08`). Both derive from the same pinned
-  junction ref, so this is not a correctness bug, but a later task that
-  needs point-release-precise artifact names should reconcile this rather
-  than assume `VERSION_ID` alone is sufficient.
+  **but never derive a UUID from the namespace alone** — every
+  `uuidgen -s --namespace "%{uuidnamespace}" --name "..."` call must fold
+  the exact artifact identity (point release + arch + role, e.g.
+  `podman-vm-25.08.14-x86_64-disk`) into the `--name` string. UUIDv5 is a
+  deterministic hash of `namespace + name`: identical inputs always
+  reproduce the identical UUID (safe for repeatable builds), but if two
+  different (version, arch) builds pass the *same* name string, they get
+  the *same* disk/partition/hash-seed UUID — a real bug (silently
+  colliding GPT disk UUIDs are a genuine hazard for tooling that
+  identifies disks by UUID, e.g. `libvirt`/`blkid`/`fstab`). Verify this
+  statically without a full build: compute the same `uuidgen -s
+  --namespace <ns> --name <id>-<role>` formula for a matrix of
+  (version, arch) pairs with plain shell + `uuidgen`, and confirm (a)
+  repeated runs of the same pair reproduce identical UUIDs, and (b) every
+  pair produces UUIDs that are pairwise distinct from every other pair,
+  per role.
+- **FSDK exact point release, reused from the Justfile, not
+  re-parsed**: the Justfile's `fsdk_version` (git-describe parse of
+  `elements/freedesktop-sdk.bst`'s `ref:`, e.g. `25.08.14`) is this repo's
+  established single source of truth for FSDK versioning (already used
+  for OCI image labels/tags). A BuildStream element has no shell-level
+  access to that file from inside the sandbox, and reading
+  `/sysroot/etc/os-release`'s `VERSION_ID` only yields FSDK's coarser
+  minor-branch precision (e.g. `25.08`) — **do not use `VERSION_ID`** if
+  the element needs the exact pinned point release. Instead, reuse the
+  Justfile's own parser: have the `just bst` wrapper recipe regenerate a
+  small, gitignored include file (e.g. `include/fsdk-version.yml`,
+  containing just `fsdk-version: "<value>"`) from `{{fsdk_version}}` on
+  every invocation, then pull it into the element's own `variables:`
+  block with `(@): include/fsdk-version.yml` (BuildStream's per-element
+  include composition — same mechanism this repo already uses for
+  `include/slim.yml`). This guarantees the value can never drift from the
+  Justfile's parse, without adding a second parser. Note: BuildStream
+  project options have **no free-form string type** (only `bool`, `enum`,
+  `flags`, `arch`, `os`, `element-mask` — confirmed against BuildStream's
+  own `_options/` source), so `--option` cannot carry an arbitrary
+  point-release string; the include-file-regenerated-by-Justfile pattern
+  above is the correct alternative. Verify with
+  `bst show --deps none --format '%{vars}' <element>.bst | grep fsdk-version`
+  (note: `bst show --format` only expands a handful of built-in fields
+  like `%{name}`/`%{state}`/`%{vars}` — arbitrary `%{my-var}` placeholders
+  are **not** substituted directly in `--format` strings; dump `%{vars}`
+  and grep it instead).
 - **Go-toolchain components can fail to build under this repo's
   remote-execution (BuildBarn/RBE) cluster** with
   `go: cannot find GOROOT directory: 'go' binary is trimmed and GOROOT is
@@ -167,6 +199,18 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   because of the upstream `podman.bst`/Go-toolchain RBE failure above — this
   is expected BuildStream dependency-failure propagation, not a graph or
   composition defect in this task's own elements.
+- `just bst show --deps none --format '%{vars}' podman-vm/podman-vm-efi.bst`
+  — confirms `fsdk-version` resolves to the exact pinned point release
+  (matches the Justfile's `fsdk_version` byte-for-byte), proving the
+  exact-version property statically without a full build.
+- A local `uuidgen -s --namespace <fixed-ns> --name <artifact-id>-<role>`
+  matrix (same formula as the element's own shell commands) across several
+  (version, arch) pairs, checked programmatically for (a) reproducibility
+  of repeated runs and (b) pairwise distinctness across pairs, per role —
+  proves the UUID-uniqueness property statically without a full build.
+- `just validate` (the repo's existing 7-OCI-image graph check) still
+  resolves cleanly after the shared `Justfile`/`.gitignore` changes — no
+  regression to the unrelated OCI image elements.
 - **Not done, and not claimed**: a completed `podman-vm-efi.bst` artifact
   checkout, a genimage/qemu-img conversion run, or any VM boot. Do not claim
   these until the upstream Go-toolchain/RBE gap above is resolved in this
