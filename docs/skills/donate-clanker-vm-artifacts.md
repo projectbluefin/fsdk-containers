@@ -26,16 +26,26 @@ The target reuses the FSDK VM graph:
 `podman-vm/podman-vm-filesystem.bst` → `podman-vm/podman-vm-efi.bst`.
 
 The guest includes the full systemd/linux/dracut userspace, networking, SSH,
-cloud-init, Podman runtime, and the EFI system partition. The final
+cloud-init, Podman runtime, `/sbin/init`, empty machine-id, and the EFI system
+partition. The final
 install-root contains exactly:
 
 ```text
-podman-vm-<fsdk-version>-<arch>.qcow2
-podman-vm-<fsdk-version>-<arch>.qcow2.sha256
+donate-clanker-vm-<fsdk-version>-<arch>.qcow2
+donate-clanker-vm-<fsdk-version>-<arch>.qcow2.sha256
 ```
 
 `qemu-img/qemu-img.bst` is used only as the conversion tool from the generated
 raw GPT disk to QCOW2; it is not the VM artifact.
+
+BuildStream element outputs are filesystem trees, not disk images. Therefore
+`podman-vm/podman-vm-efi.bst` assembles the full rootfs plus EFI tree with
+`genimage`, then converts the raw GPT image to QCOW2.
+
+The remaining producer input is the donate-clanker guest worker executable and
+its Goose/runtime payload. The current donate-clanker repository has no
+guest-specific binary or vendored Go dependency payload that this repository
+can build hermetically, so the VM target does not claim that worker is present.
 
 ## Common Rationalizations
 

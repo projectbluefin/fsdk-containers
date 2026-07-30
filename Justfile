@@ -324,8 +324,8 @@ verify:
 
     echo "==> verify passed (${IMG})"
 
-# -- Podman VM guest disk image ----------------------------------------------
-# Generic, shell-enabled bootable EFI/QCOW2 Podman VM guest (see
+# -- Donate-clanker VM guest disk image --------------------------------------
+# Full-OS, shell-enabled bootable EFI/QCOW2 donate-clanker guest (see
 # docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
@@ -364,7 +364,7 @@ publish-podman-vm:
     set -euo pipefail
     TAG="v{{fsdk_version}}"
     shopt -s nullglob
-    qcow2s=(dist-vm/podman-vm-*.qcow2)
+    qcow2s=(dist-vm/donate-clanker-vm-*.qcow2)
     shopt -u nullglob
     if [ "${#qcow2s[@]}" -ne 1 ]; then
         echo "FAIL: expected exactly one QCOW2 in dist-vm/ (run 'just export-podman-vm' first), found ${#qcow2s[@]}" >&2
@@ -607,5 +607,4 @@ sboms:
                     --output "/src/${img}.spdx.json"
             done
         '
-
 

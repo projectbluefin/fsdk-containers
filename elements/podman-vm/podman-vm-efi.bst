@@ -1,6 +1,6 @@
 kind: script
 description: |
-  Assemble the generic, shell-enabled Podman VM guest disk image.
+  Assemble the full-OS donate-clanker VM guest disk image.
 
   Stages `podman-vm-filesystem.bst` at `/sysroot` (root partition content)
   and freedesktop-sdk.bst's own `vm/boot/efi.bst` at `/sysroot/efi` (EFI
@@ -14,9 +14,9 @@ description: |
   `qemu-img/qemu-img-stack.bst` into a compressed QCOW2, and a binary
   SHA-256 manifest is generated beside it.
 
-  Artifact interface for later publication (Task 3): this element's
+  Artifact interface: this element's
   install-root contains exactly two files —
-  `podman-vm-<fsdk-version>-<arch>.qcow2` and
+  `donate-clanker-vm-<fsdk-version>-<arch>.qcow2` and
   `podman-vm-<fsdk-version>-<arch>.qcow2.sha256` (`sha256sum --binary`
   output for that exact file). `<fsdk-version>` is the exact pinned FSDK
   point release (e.g. "25.08.14") — the identical string the Justfile's
@@ -132,7 +132,7 @@ config:
     # release and architecture, exactly the collision this element's other
     # UUIDs already avoid. Derive an artifact-specific seed first (folding in
     # the full identity), and pass *that* as the seed instead.
-    artifact_id="podman-vm-%{fsdk-version}-%{arch}"
+    artifact_id="donate-clanker-vm-%{fsdk-version}-%{arch}"
     artifact_seed="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}")"
     prepare-image.sh \
        --sysroot /sysroot \
@@ -140,7 +140,7 @@ config:
        --rootpasswd "root" > "%{build-root}/vars"
 
   - |
-    artifact_id="podman-vm-%{fsdk-version}-%{arch}"
+    artifact_id="donate-clanker-vm-%{fsdk-version}-%{arch}"
     efi_part_uuid="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}-partition-efi")"
     root_part_uuid="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}-partition-root")"
     disk_uuid="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}-disk")"
@@ -193,7 +193,7 @@ config:
   - du -BM "%{build-root}/disk.img"
 
   - |
-    qcow2_name="podman-vm-%{fsdk-version}-%{arch}.qcow2"
+    qcow2_name="donate-clanker-vm-%{fsdk-version}-%{arch}.qcow2"
     /opt/qemu-img/usr/bin/qemu-img convert -f raw -O qcow2 -o compat=1.1 \
       "%{build-root}/disk.img" "%{install-root}/${qcow2_name}"
     cd "%{install-root}"

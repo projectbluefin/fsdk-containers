@@ -47,3 +47,4 @@ depends:
 - freedesktop-sdk.bst:components/iptables.bst
 - freedesktop-sdk.bst:components/shadow.bst
 - podman-vm/podman-vm-config.bst
+- podman-vm/donate-clanker-vm-config.bst
