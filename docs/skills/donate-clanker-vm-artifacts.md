@@ -25,9 +25,9 @@ The target reuses the FSDK VM graph:
 `vm/minimal/deps.bst` → `podman-vm/podman-vm-deps.bst` →
 `podman-vm/podman-vm-filesystem.bst` → `podman-vm/podman-vm-efi.bst`.
 
-The guest includes the full systemd/linux/dracut userspace, networking, SSH,
-cloud-init, Podman runtime, `/sbin/init`, empty machine-id, and the EFI system
-partition. The final
+The guest includes FSDK's minimal systemd/linux/dracut userspace, networking,
+DNS/certificates, git, the pinned worker, `/sbin/init`, empty machine-id, and
+the EFI system partition. It does not include Podman, SSH, or cloud-init. The final
 install-root contains exactly:
 
 ```text

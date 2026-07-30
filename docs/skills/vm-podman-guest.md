@@ -14,7 +14,7 @@ Use when the deliverable is a **standalone bootable VM disk image** — a
 and not an `systemd-nspawn` tarball (`nspawn-machine-image.md`). Reference
 implementation: `elements/podman-vm/*`, built from FSDK's own
 `vm/minimal/efi.bst` reference chain plus this project's own
-`elements/qemu-img/qemu-img-stack.bst` and `elements/cloud-init/*`.
+`elements/qemu-img/qemu-img-stack.bst`.
 
 ## When NOT to use
 
@@ -26,31 +26,15 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
 
 ## Element chain (mirrors upstream `vm/minimal/*`, do not reinvent it)
 
-1. `podman-vm-config.bst` (`manual`) — the *only* genuinely new "guest
-   defaults" logic: installs `*.preset` and `tmpfiles.d` files from
-   `kind: local` sources. **`kind: local` paths are relative to the
-   project root, not the element's directory** — write
-   `path: elements/podman-vm/files/podman-vm-config/foo` even from inside
-   `elements/podman-vm/podman-vm-config.bst`. Local sources flatten to
-   basename at sandbox root with no `directory:` override, so give every
-   source file a distinct name even if their installed names differ.
-2. `podman-vm-deps.bst` (`stack`) — depends on
+1. `podman-vm-deps.bst` (`stack`) — depends on
    `freedesktop-sdk.bst:vm/minimal/deps.bst` (the base VM contract: systemd,
    linux, dracut, networking, journald, useradd-default, shadow, dbus,
-   os-release, tzdata, base-filesystem) plus the Podman runtime component set
-   (`podman`, `conmon`, `crun`, `fuse-overlayfs`, `slirp4netns`, `passt`,
-   `netavark`, `iptables`, `shadow`), `openssh-systemd`, this project's
-   `cloud-init/cloud-init-stack.bst`, and `podman-vm-config.bst`.
-3. `podman-vm-filesystem.bst` (`compose`) — chisel step, mirrors upstream
+   os-release, tzdata, base-filesystem) plus git and the pinned worker.
+2. `podman-vm-filesystem.bst` (`compose`) — chisel step, mirrors upstream
    `vm/minimal/filesystem.bst`'s `exclude: [debug, devel, doc, tests, shells]`.
-   The `shells` domain does **not** remove `bash` (AGENTS.md rule 4: `bash`
-   lives in the `runtime` split domain) — this is a VM guest, not a
-   distroless image, so a shell is expected and required.
-4. `podman-vm-initial-scripts.bst` (`collect_initial_scripts`) — collects
-   `public.initial-script` hooks (e.g. shadow's `setcap` for
-   `newuidmap`/`newgidmap`) from the full deps graph. Required for rootless
-   Podman.
-5. `podman-vm-efi.bst` (`script`) — the assembly element. Stage
+3. `podman-vm-initial-scripts.bst` (`collect_initial_scripts`) — collects
+   any FSDK initial-script hooks required by the VM stack.
+4. `podman-vm-efi.bst` (`script`) — the assembly element. Stage
    `podman-vm-filesystem.bst` at `/sysroot`, reuse
    `freedesktop-sdk.bst:vm/boot/efi.bst` byte-for-byte at `/sysroot/efi`,
    stage `qemu-img/qemu-img-stack.bst` at an **isolated** location (e.g.

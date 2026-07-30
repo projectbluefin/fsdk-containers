@@ -13,7 +13,8 @@ sources:
     path: elements/podman-vm/files/donate-clanker-worker.source
 
 build-depends:
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+  - freedesktop-sdk.bst:bootstrap/bash.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
   strip-binaries: ""

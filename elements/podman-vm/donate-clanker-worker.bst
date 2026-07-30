@@ -16,7 +16,6 @@ sources:
 
 build-depends:
   - freedesktop-sdk.bst:components/go.bst
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 
 variables:
   strip-binaries: ""
