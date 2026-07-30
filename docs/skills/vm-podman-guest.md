@@ -4,6 +4,7 @@ description: Build a generic, shell-enabled bootable EFI/QCOW2 VM guest (Podman 
 metadata:
   context7-sources:
     - /apache/buildstream
+    - /lima-vm/lima
 ---
 
 # VM Podman Guest (bootable EFI/QCOW2 disk image)
@@ -204,6 +205,110 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   (`(<):` composition over the upstream element) scoped to just the
   consuming stack, if a real build is ever required in this environment.
 
+## Publication contract (Task 3)
+
+Registration, export, and release-asset publication for the built artifact
+— separate from the OCI image pipeline, since this is a bootable disk, not
+a container layer:
+
+- **`just validate`** includes `podman-vm/podman-vm-efi.bst` in its
+  `bst show --deps all` graph-resolution list (cheap, no build). This is
+  the only place the element appears alongside the 7 OCI images — it does
+  **not** appear in the OCI `image` matrix, `just build`/`just verify`, or
+  `just sbom`/`sboms`, because it is never loaded into Podman as an OCI
+  image.
+- **`just build-podman-vm`** — `bst build` only, no export.
+- **`just export-podman-vm`** — builds, then checks out *only* the
+  element's install-root (the `.qcow2` + its `.sha256` manifest) into
+  `dist-vm/`, mirroring the existing `export-brew` pattern
+  (`bst artifact checkout ... --directory <dir>`), never a Podman
+  pull/squash like the OCI `export` recipe.
+- **`just publish-podman-vm`** — uploads whatever is already in `dist-vm/`
+  to a GitHub Release tagged `v<fsdk_version>` (creating the release if it
+  doesn't exist yet) via `gh release upload`. Deliberately does **not**
+  depend on `export-podman-vm` (unlike an earlier draft of this recipe) —
+  it mirrors the OCI `tag-push` recipe's own separation of build/export
+  from publish, so CI can build once per arch and hand the artifact to a
+  separate publish job via `actions/upload-artifact`/`download-artifact`
+  rather than rebuilding on every publish invocation. Mirrors `tag-push`'s
+  immutability guard too: an asset name that already exists on the release
+  is skipped, never overwritten. **Never publishes a mutable `latest`
+  URL** — GitHub Release assets are inherently versioned per tag, and this
+  recipe only ever targets the exact `v<fsdk_version>` tag, matching the
+  hard requirement that launcher consumers only ever see immutable,
+  versioned QCOW2 downloads plus their checksum manifest.
+- `gh release upload` runs with the workflow's default `GITHUB_TOKEN`
+  (`contents: write`). This is a same-repo release write, not a cross-repo
+  operation, so it is **not** subject to the org's PAT ban / Mergeraptor
+  requirement (docs/skills/ci-tooling.md) — that requirement is specifically
+  about triggering workflows or writing to other repos.
+- **CI wiring** (`.github/workflows/build.yml`): three new jobs mirror the
+  existing OCI `build`/`manifest` split —
+  `build-podman-vm` (matrix `x86_64`/`aarch64`, gated like `build`: not on
+  `pull_request`) builds + exports + uploads a workflow artifact per arch;
+  `test-podman-vm` (x86_64 only — no verified aarch64 nested-virt on GitHub
+  Linux runners) downloads that artifact and runs `tests/podman-vm.sh`;
+  `publish-podman-vm` (matrix `x86_64`/`aarch64`, gated like `manifest`:
+  only `push`/`workflow_dispatch`, never `repository_dispatch` — same
+  "don't publish an unmerged FSDK bump" caution) needs **both**
+  `build-podman-vm` and a **passing** `test-podman-vm`
+  (`needs.test-podman-vm.result == 'success'`) before it uploads anything —
+  a failed boot test blocks publication for both architectures, even if
+  only the x86_64 leg was actually booted, because both architectures share
+  the identical software stack.
+
+## Integration test (`tests/podman-vm.sh`)
+
+QEMU/Lima boot test for a *supplied* artifact (a path argument, `$PODMAN_VM_QCOW2`,
+or a single `dist-vm/podman-vm-*.qcow2` match) — it does not build one
+itself (`just export-podman-vm` does that). Hard contract: **never claim a
+successful boot when the artifact cannot be built or found** — a missing
+artifact, a checksum mismatch, missing `limactl`, a boot/provision timeout,
+or a failed in-guest check are all hard failures (`exit 1` with an
+actionable diagnostic on stderr), never a silent skip or false pass.
+
+- **Checksum first**: `sha256sum -c` against the artifact's `.sha256`
+  manifest before ever booting it — catches download corruption or
+  tampering before QEMU touches the file.
+- **Lima "plain" mode** (`plain: true` in the generated `lima.yaml`) is the
+  correct mode for this generic, non-Ubuntu, non-Lima-guest-agent image:
+  per Lima's own docs, plain mode disables mounts/port-forwarding/
+  containerd/the guest agent, but "the base guest setup, including user
+  configuration and SSH keys, remains intact" — exactly the Cloud-init
+  NoCloud user/SSH-key provisioning this project's own
+  `elements/cloud-init/*` stack relies on, without requiring the guest to
+  run Lima's own guest agent daemon.
+  Source-verified via Context7: `/lima-vm/lima`.
+- **`LIMA_HOME` must NOT be nested under the repo checkout.** Reproduced
+  directly: pointing `LIMA_HOME` at `<repo>/.cache/podman-vm-test.XXXXXX`
+  made `limactl start` fail with `must be less than UNIX_PATH_MAX=108
+  characters` for the per-instance SSH control-socket path
+  (`LIMA_HOME/<instance>/ssh.sock.<port>`) — a deep checkout path (CI
+  runner work dirs, this project's own worktree layout) plus an instance
+  name blows the 108-byte budget. Fixed by using the system temp dir
+  (`mktemp -d -t podman-vm-test.XXXXXX`, matching this repo's own existing
+  `verify-brew` recipe's unqualified `mktemp` precedent) instead of a
+  project-relative path.
+- **`limactl shell ... -- <cmd>` does not go through a remote shell**:
+  arguments are passed to the remote command directly, so a single-quoted
+  `'$HOME/...'` argument is passed *literally* (unexpanded) to a bare `test`/
+  `ls` — reproduced directly (`test -s '$HOME/.ssh/authorized_keys'` failed
+  even though the file existed). Any check needing guest-side variable
+  expansion must wrap in an explicit `bash -c '...'` (with the expression
+  itself inside the single-quoted string) so expansion happens in the
+  guest's own shell, not the host's.
+- Guest Cloud-init user verification checks `id` output for
+  `uid=<host-uid>(<host-username>)` and a non-empty
+  `$HOME/.ssh/authorized_keys` — generic checks that don't assume any
+  specific SSH key content (Lima injects its own auto-generated identity
+  when the host has no `~/.ssh/*.pub`, alongside any that do exist).
+- On any failure, `serial*.log`, `ha.stderr.log`, and a best-effort
+  `journalctl -u cloud-init -u cloud-final` from inside the guest are
+  copied to `tests/artifacts/<instance>/` (gitignored) *before* the
+  instance is torn down in an `EXIT`/`INT`/`TERM` trap — CI uploads that
+  directory as a workflow artifact on every run (`if: always()`) so a
+  failure is diagnosable without re-running.
+
 ## Verification performed
 
 - `just bst show --deps none podman-vm/podman-vm-efi.bst` — single-element
@@ -248,3 +353,51 @@ implementation: `elements/podman-vm/*`, built from FSDK's own
   these until the upstream Go-toolchain/RBE gap above is resolved in this
   environment (or the build is run with `BST_LOCAL=1`, untested here due to
   cost).
+
+### Task 3 (publish/test wiring) verification
+
+- `just --justfile Justfile --list` — the new `[group('vm')]` recipes
+  (`build-podman-vm`, `export-podman-vm`, `publish-podman-vm`) parse and
+  list correctly.
+- `shellcheck` — clean on `tests/podman-vm.sh` and on the embedded bash
+  bodies of the new `export-podman-vm`/`publish-podman-vm` Justfile recipes.
+- `just validate` (`BST_LOCAL=1`) — full graph resolution including the
+  newly-registered `podman-vm/podman-vm-efi.bst` alongside the 7 OCI images
+  completes with exit 0, confirming the registration itself introduces no
+  regression to the existing OCI validation.
+- `actionlint` and `git diff --check` — clean on the modified
+  `.github/workflows/build.yml`; pre-existing `yamllint` line-length/
+  trailing-space findings in that file predate this change (confirmed via
+  `git show HEAD:.github/workflows/build.yml | yamllint`) and were not
+  introduced or worsened by it.
+- **`tests/podman-vm.sh` was run for real, end-to-end, against a real
+  bootable QCOW2** — the actual `podman-vm-efi.bst` artifact cannot be
+  built in this environment (the upstream Go/RBE gap above), so the script
+  was validated unmodified against a substitute: the official Fedora 44
+  Cloud Base `x86_64` QCOW2 (downloaded, `sha256sum`-verified against
+  Fedora's own published digest, renamed to the
+  `podman-vm-<version>-<arch>.qcow2` convention with a matching
+  `sha256sum --binary` manifest generated alongside it). This proves the
+  harness mechanics — checksum verification, Lima "plain"-mode boot,
+  Cloud-init user/UID/SSH-key verification, rootless `podman run`, log
+  preservation, and cleanup — actually work end-to-end in this environment
+  (real KVM-accelerated QEMU boot, real network egress for the `podman run`
+  pull), not just that the script parses. It does **not** prove the actual
+  FSDK-built podman-vm image boots or provisions correctly — that remains
+  unverified pending the upstream fix.
+- Negative-path verification (never a false pass): running the script with
+  no artifact present exits 1 with an actionable message
+  (`no QCOW2 artifact supplied...`); running it against a QCOW2 whose
+  `.sha256` manifest doesn't match (both a malformed manifest and a
+  manifest that was correct until the file was corrupted afterward) exits 1
+  at the checksum-verification step, before any QEMU/Lima invocation.
+- Two real bugs were found and fixed by this real Lima run (not caught by
+  shellcheck or reasoning alone) — see "Hard-won gotchas" above: the
+  `LIMA_HOME`-under-repo-path `UNIX_PATH_MAX` overflow, and
+  `limactl shell`'s non-shell argument passing breaking `$HOME` expansion
+  in the SSH-key check.
+- **Not done, and not claimed**: the actual FSDK `podman-vm-efi.bst`
+  artifact was still not built or booted in this session (same upstream
+  blocker as Task 2); the `build-podman-vm`/`test-podman-vm`/
+  `publish-podman-vm` CI jobs were validated with `actionlint` and manual
+  review only, not by an actual GitHub Actions run.

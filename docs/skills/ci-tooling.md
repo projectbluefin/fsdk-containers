@@ -90,26 +90,46 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | `validate` | `pull_request` only | `bst show` element graph resolution, no build |
 | `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
 | `manifest` | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+| `build-podman-vm` | not on `pull_request` | matrix arch (x86_64 + aarch64), builds the `podman-vm-efi.bst` VM guest disk (not an OCI image), uploads the QCOW2 + checksum manifest as a workflow artifact per arch |
+| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that artifact, runs the `tests/podman-vm.sh` QEMU/Lima boot + Cloud-init + rootless-podman integration test |
+| `publish-podman-vm` | after `build-podman-vm` **and a passing** `test-podman-vm`, only `push`/`workflow_dispatch` | matrix arch (x86_64 + aarch64), uploads the QCOW2 + checksum manifest as immutable GitHub Release assets under the `v<fsdk_version>` tag — never a mutable `latest` URL |
 
 `repository_dispatch` (used by the automated FSDK bump PR check) is
 **verification-only**: it checks out the payload branch and runs both native
 architecture builds plus `just verify`, but it must not log in, push per-arch
 images, assemble manifests, sign, or publish attestations. This prevents
-unreviewed bump branches from moving `latest` or minor production tags.
+unreviewed bump branches from moving `latest` or minor production tags. The
+same caution applies to `publish-podman-vm`: it only runs on `push`/
+`workflow_dispatch`, never `repository_dispatch`.
 
 The container matrix is the publishing contract: every OCI image in
 `elements/oci/` that ships to GHCR must appear in **both** matrices, in
 `just validate`, and in the `just sbom`/`sboms` case lists. `brew-nspawn`
-(machine tarball) is deliberately excluded from the OCI publishing matrix.
+(machine tarball) and `podman-vm` (bootable VM disk) are deliberately
+excluded from the OCI publishing matrix — see docs/skills/vm-podman-guest.md
+for the VM guest's own separate publish/test pipeline.
 
 ### Point-release tag immutability
 
 FSDK point-release tags (e.g. `:25.08.13`) are immutable once published. Both
 the Justfile `tag-push` recipe and the workflow manifest loop guard this with
 a `skopeo inspect --no-tags docker://REPO:TAG` existence check and skip the
-push if the tag exists. `latest` and the minor-line tag are rolling and always
-pushed — the manifest job resolves the signing digest from `latest`
-(`FIRST_TAG`), so signing is unaffected when the point tag is skipped.
+push if the tag exists.
+
+`latest` and the minor-line tag are rolling, but the manifest job only
+assembles and pushes them when **both** required architectures (`x86_64` and
+`aarch64`) were successfully built and published. If one architecture failed,
+the rolling/minor-line tags are skipped so a single-arch manifest cannot
+overwrite the existing multi-arch manifest. The manifest job resolves the
+signing digest from the first tag it actually publishes, so signing is skipped
+entirely when no tags are pushed.
+
+The `podman-vm` release asset follows the same immutability shape one level
+up: there is no rolling `latest` equivalent at all (GitHub Release assets
+are inherently tied to their tag), and `just publish-podman-vm` guards
+re-uploads with a `gh release view --json assets` existence check, skipping
+an asset name that's already published on that tag instead of overwriting
+it. See docs/skills/vm-podman-guest.md.
 
 Set `fail-fast: false` on the multi-dimensional matrices to prevent a single container build failure from canceling the other container builds.
 
