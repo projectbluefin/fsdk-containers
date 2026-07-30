@@ -325,7 +325,7 @@ verify:
     echo "==> verify passed (${IMG})"
 
 # -- Donate-clanker VM guest disk image --------------------------------------
-# Full-OS, shell-enabled bootable EFI/QCOW2 donate-clanker guest (see
+# Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
 # docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
@@ -334,7 +334,7 @@ verify:
 build-podman-vm:
     just bst build podman-vm/podman-vm-efi.bst
 
-# Check out ONLY the element's install-root -- the QCOW2 plus its .sha256
+# Check out ONLY the element's install-root -- the raw disk plus its .sha256
 # manifest -- into dist-vm/. Deliberately does NOT load it into Podman as an
 # OCI image (this is a bootable VM disk, not a container layer).
 [group('vm')]
@@ -345,7 +345,7 @@ export-podman-vm: build-podman-vm
     just bst artifact checkout podman-vm/podman-vm-efi.bst --directory dist-vm
     echo "==> wrote:" && ls -lh dist-vm/
 
-# Upload the built VM guest artifact (QCOW2 + SHA-256 manifest) as immutable
+# Upload the built VM guest artifact (raw disk + SHA-256 manifest) as immutable
 # GitHub Release assets under the current FSDK point-release tag (vX.Y.Z).
 # Mirrors the OCI `tag-push` recipe: operates on whatever is already in
 # dist-vm/ (from `just export-podman-vm`, run separately -- e.g. once per
@@ -364,14 +364,14 @@ publish-podman-vm:
     set -euo pipefail
     TAG="v{{fsdk_version}}"
     shopt -s nullglob
-    qcow2s=(dist-vm/donate-clanker-vm-*.qcow2)
+    raws=(dist-vm/donate-clanker-vm-*.raw)
     shopt -u nullglob
-    if [ "${#qcow2s[@]}" -ne 1 ]; then
-        echo "FAIL: expected exactly one QCOW2 in dist-vm/ (run 'just export-podman-vm' first), found ${#qcow2s[@]}" >&2
+    if [ "${#raws[@]}" -ne 1 ]; then
+        echo "FAIL: expected exactly one raw VM disk in dist-vm/ (run 'just export-podman-vm' first), found ${#raws[@]}" >&2
         exit 1
     fi
-    qcow2="${qcow2s[0]}"
-    sum="${qcow2}.sha256"
+    raw="${raws[0]}"
+    sum="${raw}.sha256"
     [ -f "$sum" ] || { echo "FAIL: $sum not found" >&2; exit 1; }
 
     if ! gh release view "$TAG" >/dev/null 2>&1; then
@@ -380,11 +380,11 @@ publish-podman-vm:
             --notes "Freedesktop-SDK {{fsdk_version}} container image release."
     fi
 
-    name="$(basename "$qcow2")"
+    name="$(basename "$raw")"
     if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
         echo "==> skipping ${name} (point-release asset already published, immutable)"
     else
-        gh release upload "$TAG" "$qcow2" "$sum"
+        gh release upload "$TAG" "$raw" "$sum"
         echo "==> uploaded ${name} + checksum to release ${TAG}"
     fi
 
@@ -607,4 +607,3 @@ sboms:
                     --output "/src/${img}.spdx.json"
             done
         '
-

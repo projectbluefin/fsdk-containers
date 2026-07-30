@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tests/podman-vm.sh -- QEMU/Lima integration test for the podman-vm guest.
 #
-# Boots a checked-out/downloaded podman-vm QCOW2 artifact under Lima's QEMU
+# Boots a checked-out/downloaded podman-vm raw artifact under Lima's QEMU
 # driver in "plain" mode (see docs/skills/vm-podman-guest.md), verifies
 # Cloud-init created the Lima user with the injected SSH key and host UID,
 # then runs a rootless `podman run` smoke image inside the guest.
@@ -13,7 +13,7 @@
 # does not build one itself (see `just export-podman-vm`).
 #
 # Usage:
-#   tests/podman-vm.sh [path/to/podman-vm-<version>-<arch>.qcow2]
+#   tests/podman-vm.sh [path/to/donate-clanker-vm-<version>-<arch>.raw]
 #
 # The QCOW2's sibling "<file>.sha256" (a `sha256sum --binary` manifest, as
 # produced by elements/podman-vm/podman-vm-efi.bst) must sit next to it and
@@ -36,25 +36,25 @@ log() { printf '==> %s\n' "$*" >&2; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
 # 1. Resolve the artifact ----------------------------------------------
-QCOW2="${1:-${PODMAN_VM_QCOW2:-}}"
-if [ -z "$QCOW2" ]; then
+RAW="${1:-${PODMAN_VM_RAW:-}}"
+if [ -z "$RAW" ]; then
     shopt -s nullglob
-    candidates=("${REPO_ROOT}"/dist-vm/podman-vm-*.qcow2)
+    candidates=("${REPO_ROOT}"/dist-vm/donate-clanker-vm-*.raw)
     shopt -u nullglob
     if [ "${#candidates[@]}" -eq 1 ]; then
-        QCOW2="${candidates[0]}"
+        RAW="${candidates[0]}"
     else
         fail "no QCOW2 artifact supplied and dist-vm/ does not contain exactly one (found ${#candidates[@]}). Build one first with 'just export-podman-vm', or pass the path explicitly: tests/podman-vm.sh /path/to/podman-vm-<version>-<arch>.qcow2"
     fi
 fi
-[ -f "$QCOW2" ] || fail "artifact not found: $QCOW2 -- this test never treats a missing artifact as a pass"
-QCOW2="$(cd "$(dirname "$QCOW2")" && pwd)/$(basename "$QCOW2")"
-SUM="${QCOW2}.sha256"
+[ -f "$RAW" ] || fail "artifact not found: $RAW -- this test never treats a missing artifact as a pass"
+RAW="$(cd "$(dirname "$RAW")" && pwd)/$(basename "$RAW")"
+SUM="${RAW}.sha256"
 [ -f "$SUM" ] || fail "checksum manifest not found: $SUM -- every published podman-vm artifact ships a 'sha256sum --binary' manifest beside it"
 
 # 2. Verify integrity (catches download corruption) ---------------------
-log "verifying checksum manifest for $(basename "$QCOW2")"
-if ! ( cd "$(dirname "$QCOW2")" && sha256sum -c "$(basename "$SUM")" ); then
+log "verifying checksum manifest for $(basename "$RAW")"
+if ! ( cd "$(dirname "$RAW")" && sha256sum -c "$(basename "$SUM")" ); then
     fail "checksum mismatch -- artifact is corrupt or was tampered with, refusing to boot it"
 fi
 log "OK: checksum verified"
@@ -109,14 +109,14 @@ cat > "${WORKDIR}/lima.yaml" <<EOF
 plain: true
 vmType: "qemu"
 images:
-- location: "${QCOW2}"
+- location: "${RAW}"
   arch: "${HOST_ARCH}"
 cpus: 2
 memory: "2GiB"
 EOF
 
 # 5. Boot and wait for SSH -------------------------------------------------
-log "starting instance '${INSTANCE}' from $(basename "$QCOW2") (timeout ${BOOT_TIMEOUT}s)"
+log "starting instance '${INSTANCE}' from $(basename "$RAW") (timeout ${BOOT_TIMEOUT}s)"
 if ! LIMA_HOME="$WORKDIR" limactl start --tty=false --timeout "${BOOT_TIMEOUT}s" \
         --name "$INSTANCE" "${WORKDIR}/lima.yaml"; then
     fail "instance failed to boot/provision within ${BOOT_TIMEOUT}s -- see preserved logs"

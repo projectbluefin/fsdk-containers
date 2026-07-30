@@ -246,7 +246,7 @@ jobs:
           tool: just
       - name: Build and export the podman-vm guest disk image
         run: just export-podman-vm
-      - name: Upload podman-vm artifact (QCOW2 + checksum manifest)
+      - name: Upload podman-vm artifact (raw disk + checksum manifest)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.1
         with:
           name: podman-vm-${{ matrix.arch }}
@@ -289,7 +289,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Publish the QCOW2 + checksum manifest as versioned (immutable) GitHub
+  # Publish the raw disk + checksum manifest as versioned (immutable) GitHub
   # Release assets. repository_dispatch is verification-only for an
   # unmerged FSDK bump (mirrors the `manifest` job above): never publish
   # branch content to production release assets. Requires the boot test to
@@ -318,7 +318,7 @@ jobs:
         with:
           name: podman-vm-${{ matrix.arch }}
           path: dist-vm/
-      - name: Publish QCOW2 + checksum manifest as a GitHub Release asset
+      - name: Publish raw disk + checksum manifest as a GitHub Release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: just publish-podman-vm
