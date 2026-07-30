@@ -1,0 +1,12 @@
+# Override FSDK's desktop-oriented components/openssh-systemd.bst preset
+# (files/openssh-systemd/openssh.preset: "disable sshd.service" — sshd is
+# opt-in on a desktop). A generic Podman VM guest is headless and reached
+# over SSH/Cloud-init, so it must start with sshd reachable by default.
+#
+# systemd merges every *.preset file across /etc, /run, and
+# /usr/lib/systemd/system-preset into one alphabetically sorted list; the
+# first file whose pattern matches a unit wins, regardless of which
+# directory it came from. This file is installed as
+# 00-podman-vm.preset, which sorts before openssh.preset, so this line
+# takes precedence over FSDK's own disable rule.
+enable sshd.service
