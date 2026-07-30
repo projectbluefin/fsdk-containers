@@ -45,14 +45,16 @@ BuildStream element outputs are filesystem trees, not disk images. Therefore
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
 systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
 `projectbluefin/donate-clanker` commit
-`33ec8c4145ae3ee641dee1fa6e1d43da9cec8574`. The consumer reads the
+`7f16610ead3d82826ca4f662a7c1d1624415f43a`. The consumer reads the
 virtio-serial envelope, validates it, sends `control_ack`, keeps credentials in
 memory, and execs `/usr/libexec/donate-clanker-worker`.
 
-The pinned commit does not yet provide that guest worker binary or a vendored
-Go dependency payload. The disk target therefore defines the exact input path
-and fails closed until a producer supplies `/usr/libexec/donate-clanker-worker`;
-it does not fabricate a binary or digest.
+`podman-vm/donate-clanker-worker.bst` compiles `cmd/contributor` with the FSDK
+Go toolchain, `CGO_ENABLED=0`, `GOPROXY=off`, and a separately pinned
+`gorilla/websocket` source tree wired with a local `go.mod` replacement. The
+source commit is not yet published on GitHub, so BuildStream currently fails
+at source fetch with `...7f16610... not found in remote`; publish that commit
+before enabling remote builds. No binary or digest is fabricated.
 
 ## Common Rationalizations
 
@@ -73,3 +75,5 @@ it does not fabricate a binary or digest.
 - [ ] `just export-podman-vm` checks out only the QCOW2 and `.sha256`.
 - [ ] `qemu-img` appears only as a build-time conversion dependency.
 - [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
+- [ ] `podman-vm/donate-clanker-worker.bst` builds after the pinned source is
+      published.
