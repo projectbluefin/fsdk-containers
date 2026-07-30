@@ -33,13 +33,15 @@ jobs:
           tool: just
       - name: Resolve element graph
         run: just validate
+      - name: Check RamaLama wiring
+        run: ./.github/workflows/ramalama-workflow-check.sh
 
   build:
     if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, ramalama]
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -84,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, ramalama]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

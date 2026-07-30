@@ -69,3 +69,14 @@ does not replicate the minimal container rootfs. A binary might link inside the 
 but fail to run in the final OCI image because a shared library was stripped by the
 `compose` element. The only way to prove all dynamic dependencies made it into the image
 is to execute the binary.
+
+### RamaLama-specific expectations
+
+The RamaLama helper adds one more distroless rule set on top of the generic
+checks:
+
+- `podman run --rm ghcr.io/projectbluefin/ramalama:latest version` must succeed;
+- `usr/share/ramalama/shortnames.conf` and `usr/share/ramalama/ramalama.conf`
+  must survive pruning;
+- `pip`, `setuptools`, wheel metadata, shell completions, and manpages must be
+  absent from the final image.

@@ -115,7 +115,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst oci/ramalama.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -150,6 +150,7 @@ export:
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
+        ramalama)   DESC="Distroless RamaLama helper image built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -221,6 +222,7 @@ verify:
         skopeo)     MAX_BYTES=$((224 * 1024 * 1024)) ;;
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
+        ramalama)   MAX_BYTES=$((160 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
@@ -283,6 +285,23 @@ verify:
             echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: locale/build-tool bloat removed"
+
+        if [ "$IMG" = "ramalama" ]; then
+            echo "==> RamaLama-specific payload checks"
+            if ! grep -qE '^usr/bin/ramalama$' "$LISTING"; then
+                echo "FAIL: /usr/bin/ramalama missing from image"; exit 1
+            fi
+            if ! grep -qE '^usr/share/ramalama/shortnames\.conf$' "$LISTING"; then
+                echo "FAIL: /usr/share/ramalama/shortnames.conf missing from image"; exit 1
+            fi
+            if ! grep -qE '^usr/share/ramalama/ramalama\.conf$' "$LISTING"; then
+                echo "FAIL: /usr/share/ramalama/ramalama.conf missing from image"; exit 1
+            fi
+            if grep -qE '(^|/)pip(3(\.[0-9]+)?)?$|site-packages/(pip|setuptools|wheel|pkg_resources|distlib)' "$LISTING"; then
+                echo "FAIL: package-manager payload present in RamaLama image"; exit 1
+            fi
+            echo "OK: RamaLama payload present and pip/setuptools removed"
+        fi
     fi
 
     echo "==> smoke test (executing binary)"
@@ -306,6 +325,11 @@ verify:
             echo "FAIL: qemu-img failed to execute"; exit 1
         fi
         echo "OK: qemu-img executes successfully"
+    elif [ "$IMG" = "ramalama" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" version >/dev/null; then
+            echo "FAIL: ramalama failed to execute"; exit 1
+        fi
+        echo "OK: ramalama executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
@@ -450,6 +474,7 @@ sbom variant="base":
         python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
         buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
         qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
+        ramalama)   ELEMENT="oci/ramalama.bst";    SPDX_NAME="ramalama" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -514,7 +539,7 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah qemu-img; do
+            for img in base static skopeo lab-runner python buildah qemu-img ramalama; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
@@ -523,6 +548,7 @@ sboms:
                     python)     ELEMENT="oci/python.bst" ;;
                     buildah)    ELEMENT="oci/buildah.bst" ;;
                     qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
+                    ramalama)   ELEMENT="oci/ramalama.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \
@@ -534,5 +560,3 @@ sboms:
                     --output "/src/${img}.spdx.json"
             done
         '
-
-
