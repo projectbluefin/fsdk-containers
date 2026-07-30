@@ -217,3 +217,108 @@ jobs:
           subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
           subject-digest: ${{ steps.resolve-digest.outputs.digest }}
           push-to-registry: true
+
+  # Podman VM guest disk image (elements/podman-vm/*, docs/skills/vm-podman-guest.md).
+  # NOT an OCI image: never loaded into Podman, only checked out and
+  # published as versioned Release assets. Excluded from the `image` matrix
+  # above and from `just validate`'s OCI list on purpose -- it has its own
+  # graph-resolution entry in `just validate` and its own build/test/publish
+  # pipeline below.
+  build-podman-vm:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Build and export the podman-vm guest disk image
+        run: just export-podman-vm
+      - name: Upload podman-vm artifact (QCOW2 + checksum manifest)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.1
+        with:
+          name: podman-vm-${{ matrix.arch }}
+          path: dist-vm/
+          if-no-files-found: error
+          retention-days: 7
+
+  # QEMU/Lima integration boot test (tests/podman-vm.sh). x86_64 only: GitHub
+  # Linux runners have no verified nested-virtualization support on aarch64
+  # runners, and this is the same generic software stack on both
+  # architectures -- see docs/skills/vm-podman-guest.md.
+  test-podman-vm:
+    needs: build-podman-vm
+    if: (always()) && (github.event_name != 'pull_request') && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Download the x86_64 podman-vm artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v8.0.1
+        with:
+          name: podman-vm-x86_64
+          path: dist-vm/
+      - name: Set up Lima
+        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
+      - name: Install QEMU + OVMF firmware
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf
+      - name: Run the podman-vm QEMU/Lima integration test
+        run: tests/podman-vm.sh
+      - name: Upload guest logs (always, for diagnostics)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.1
+        with:
+          name: podman-vm-test-logs
+          path: tests/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Publish the QCOW2 + checksum manifest as versioned (immutable) GitHub
+  # Release assets. repository_dispatch is verification-only for an
+  # unmerged FSDK bump (mirrors the `manifest` job above): never publish
+  # branch content to production release assets. Requires the boot test to
+  # have actually passed -- never publish an artifact that failed
+  # integration testing.
+  publish-podman-vm:
+    needs: [build-podman-vm, test-podman-vm]
+    if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled() && needs.test-podman-vm.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Download the ${{ matrix.arch }} podman-vm artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v8.0.1
+        with:
+          name: podman-vm-${{ matrix.arch }}
+          path: dist-vm/
+      - name: Publish QCOW2 + checksum manifest as a GitHub Release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: just publish-podman-vm

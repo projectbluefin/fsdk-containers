@@ -8,6 +8,8 @@
 *.tar.gz
 *.spdx.json
 dist/
+dist-vm/
+tests/artifacts/
 .build-out
 .worktrees/
 .bst-re.conf
