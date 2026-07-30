@@ -42,6 +42,15 @@ bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
+    # Regenerated on every invocation from {{fsdk_version}} (this Justfile's
+    # own single source of truth, parsed from elements/freedesktop-sdk.bst's
+    # pinned ref) so BuildStream elements can consume the exact point
+    # release via `(@): include/fsdk-version.yml` without re-parsing it
+    # independently. Gitignored; never hand-edited. See
+    # docs/skills/vm-podman-guest.md.
+    cat > include/fsdk-version.yml <<'EOF'
+    fsdk-version: "{{fsdk_version}}"
+    EOF
     RE_FLAG=()
     PF_PID=""
     cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }

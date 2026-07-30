@@ -11,3 +11,4 @@ dist/
 .build-out
 .worktrees/
 .bst-re.conf
+include/fsdk-version.yml
