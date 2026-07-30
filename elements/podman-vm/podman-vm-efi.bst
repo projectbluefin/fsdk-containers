@@ -10,14 +10,13 @@ description: |
   (`vm/deploy-tools.bst` + `vm/prepare-image.bst` + `components/fakecap.bst`)
   to emit a raw disk.img. Unlike upstream's own `vm/minimal/efi.bst` (whose
   install-root *is* the raw disk.img), this element treats disk.img as a
-  build-only intermediate: it is converted with this project's own
-  `qemu-img/qemu-img-stack.bst` into a compressed QCOW2, and a binary
-  SHA-256 manifest is generated beside it.
+  build-only intermediate: it is copied as a raw VM disk, which QEMU boots
+  directly, and a binary SHA-256 manifest is generated beside it.
 
   Artifact interface: this element's
   install-root contains exactly two files —
-  `donate-clanker-vm-<fsdk-version>-<arch>.qcow2` and
-  `podman-vm-<fsdk-version>-<arch>.qcow2.sha256` (`sha256sum --binary`
+  `donate-clanker-vm-<fsdk-version>-<arch>.raw` and
+  `donate-clanker-vm-<fsdk-version>-<arch>.raw.sha256` (`sha256sum --binary`
   output for that exact file). `<fsdk-version>` is the exact pinned FSDK
   point release (e.g. "25.08.14") — the identical string the Justfile's
   `fsdk_version` (git-describe parse of `elements/freedesktop-sdk.bst`'s
@@ -46,9 +45,6 @@ build-depends:
 # own glibc/runtime closure at "/" (see "Configure dependency staging
 # location" in BuildStream's docs) — invoked below by full path instead of
 # relying on PATH.
-- filename: qemu-img/qemu-img-stack.bst
-  config:
-    location: '/opt/qemu-img'
 
 environment:
   E2FSPROGS_FAKE_TIME: '%{source-date-epoch}'
@@ -193,10 +189,9 @@ config:
   - du -BM "%{build-root}/disk.img"
 
   - |
-    qcow2_name="donate-clanker-vm-%{fsdk-version}-%{arch}.qcow2"
-    /opt/qemu-img/usr/bin/qemu-img convert -f raw -O qcow2 -o compat=1.1 \
-      "%{build-root}/disk.img" "%{install-root}/${qcow2_name}"
+    raw_name="donate-clanker-vm-%{fsdk-version}-%{arch}.raw"
+    cp "%{build-root}/disk.img" "%{install-root}/${raw_name}"
     cd "%{install-root}"
-    du -BM "${qcow2_name}"
-    sha256sum --binary "${qcow2_name}" > "${qcow2_name}.sha256"
-    cat "${qcow2_name}.sha256"
+    du -BM "${raw_name}"
+    sha256sum --binary "${raw_name}" > "${raw_name}.sha256"
+    cat "${raw_name}.sha256"

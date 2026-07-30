@@ -1,13 +1,12 @@
 kind: manual
 description: |
   Build the donate-clanker guest worker from the pinned VM bootstrap source.
-  The source commit is currently an unpublished local commit; publication is
-  required before remote BuildStream workers can fetch this element.
+  The source is pinned to the published donate-clanker main commit.
 
 sources:
   - kind: git_repo
     url: github:projectbluefin/donate-clanker.git
-    ref: 7f16610ead3d82826ca4f662a7c1d1624415f43a
+    ref: 04456aa24b866a7f9ded9397fc4e1b7c0eeb1110
     directory: donate-clanker
   - kind: git_repo
     url: github:gorilla/websocket.git
@@ -15,6 +14,7 @@ sources:
     directory: gorilla-websocket
 
 build-depends:
+  - freedesktop-sdk.bst:bootstrap/bash.bst
   - freedesktop-sdk.bst:components/go.bst
 
 variables:
