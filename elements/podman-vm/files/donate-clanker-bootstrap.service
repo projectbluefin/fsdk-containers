@@ -1,0 +1,12 @@
+[Unit]
+Description=Donate-clanker guest bootstrap worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/donate-clanker-bootstrap
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

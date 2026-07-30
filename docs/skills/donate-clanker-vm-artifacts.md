@@ -42,10 +42,17 @@ BuildStream element outputs are filesystem trees, not disk images. Therefore
 `podman-vm/podman-vm-efi.bst` assembles the full rootfs plus EFI tree with
 `genimage`, then converts the raw GPT image to QCOW2.
 
-The remaining producer input is the donate-clanker guest worker executable and
-its Goose/runtime payload. The current donate-clanker repository has no
-guest-specific binary or vendored Go dependency payload that this repository
-can build hermetically, so the VM target does not claim that worker is present.
+`podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
+systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
+`projectbluefin/donate-clanker` commit
+`33ec8c4145ae3ee641dee1fa6e1d43da9cec8574`. The consumer reads the
+virtio-serial envelope, validates it, sends `control_ack`, keeps credentials in
+memory, and execs `/usr/libexec/donate-clanker-worker`.
+
+The pinned commit does not yet provide that guest worker binary or a vendored
+Go dependency payload. The disk target therefore defines the exact input path
+and fails closed until a producer supplies `/usr/libexec/donate-clanker-worker`;
+it does not fabricate a binary or digest.
 
 ## Common Rationalizations
 
@@ -65,3 +72,4 @@ can build hermetically, so the VM target does not claim that worker is present.
 - [ ] `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
 - [ ] `just export-podman-vm` checks out only the QCOW2 and `.sha256`.
 - [ ] `qemu-img` appears only as a build-time conversion dependency.
+- [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
