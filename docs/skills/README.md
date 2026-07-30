@@ -21,6 +21,7 @@ load the focused skill for your task.
 | Move to a new FSDK release / retag | [bump-fsdk-version.md](bump-fsdk-version.md) |
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
+| Add donate-clanker VM artifacts | [donate-clanker-vm-artifacts.md](donate-clanker-vm-artifacts.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
 | Run local/agent builds on the ghost cluster (remote execution) | [remote-execution.md](remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |

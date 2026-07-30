@@ -14,13 +14,23 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
 | `ghcr.io/projectbluefin/static` | — | Static tier for compiled Go/Rust binaries (`CGO_ENABLED=0`): CA certificates + tzdata only, no libc. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/donate-clanker-vm-runner` | — | Headless QEMU/KVM microVM runner for donate-clanker. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/donate-clanker-guest` | — | First guest artifact slice: an FSDK OCI rootfs plus `/etc/donate-clanker/guest-artifact.json`; kernel and initramfs remain external producer inputs. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, python3, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
+
+<a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
+shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
+and coreutils together; the SLIM recipe removes only bash. In FSDK 26.08+, the
+split becomes explicit: `runtime-minimal` drops both bash and coreutils, which move
+to `public-stacks/runtime-gnu`. The distroless `base` image continues to compose
+from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
+(lab-runner, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
 
 ### Machine images (not distroless)
 

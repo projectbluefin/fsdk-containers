@@ -115,7 +115,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst oci/donate-clanker-vm-runner.bst oci/donate-clanker-guest.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -150,6 +150,8 @@ export:
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
+        donate-clanker-vm-runner) DESC="Headless QEMU microVM runner for donate-clanker" ;;
+        donate-clanker-guest) DESC="FSDK guest rootfs first slice for donate-clanker" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -223,6 +225,8 @@ verify:
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
+        donate-clanker-vm-runner) MAX_BYTES=$((256 * 1024 * 1024)) ;;
+        donate-clanker-guest) MAX_BYTES=$((80 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
@@ -246,12 +250,12 @@ verify:
         echo "OK: bash present"
         TOTAL=2
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
-        for tool in argo just kubectl; do
+        for tool in argo just kubectl nginx; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner"; exit 1
             fi
         done
-        echo "OK: argo, just, and kubectl present"
+        echo "OK: argo, just, kubectl, and nginx present"
     else
         TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
@@ -306,14 +310,64 @@ verify:
             echo "FAIL: qemu-img failed to execute"; exit 1
         fi
         echo "OK: qemu-img executes successfully"
+    elif [ "$IMG" = "donate-clanker-vm-runner" ]; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
+            echo "FAIL: QEMU microVM runner failed to execute"; exit 1
+        fi
+        echo "OK: QEMU microVM runner executes successfully"
+    elif [ "$IMG" = "donate-clanker-guest" ]; then
+        if ! grep -qE '^etc/donate-clanker/guest-artifact\.json$' "$LISTING"; then
+            echo "FAIL: guest artifact contract missing"; exit 1
+        fi
+        echo "OK: guest rootfs artifact contract present"
     elif [ "$IMG" = "lab-runner" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version && nginx -v" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi
 
     echo "==> verify passed (${IMG})"
+
+# Unit tests for the FSDK-derived tag set produced by `just tags`.
+# Mirrors the parsing logic in the `tags` recipe and exercises the
+# major.minor / point-release / pre-release boundary cases.
+[group('test')]
+test-tags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    derive_tags() {
+        V="$1"
+        MINOR="$(echo "$V" | grep -oE '^[0-9]+\.[0-9]+')"
+        if [ "$V" = "$MINOR" ]; then
+            printf '%s\n%s\n' latest "$V"
+        else
+            printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+        fi
+    }
+
+    run_case() {
+        INPUT="$1"
+        EXPECTED="$2"
+        ACTUAL="$(derive_tags "$INPUT")"
+        if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "FAIL: tags for '$INPUT'" >&2
+            echo "  expected:" >&2
+            echo "$EXPECTED" >&2
+            echo "  actual:" >&2
+            echo "$ACTUAL" >&2
+            exit 1
+        fi
+        echo "OK: tags for '$INPUT'"
+    }
+
+    run_case '25.08.14'   $'latest\n25.08\n25.08.14'
+    run_case '26.08beta.1' $'latest\n26.08\n26.08beta.1'
+    run_case '26.08rc.1'   $'latest\n26.08\n26.08rc.1'
+    run_case '26.08'       $'latest\n26.08'
+
+    echo "==> test-tags passed"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
@@ -450,6 +504,8 @@ sbom variant="base":
         python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
         buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
         qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
+        donate-clanker-vm-runner) ELEMENT="oci/donate-clanker-vm-runner.bst"; SPDX_NAME="donate-clanker-vm-runner" ;;
+        donate-clanker-guest) ELEMENT="oci/donate-clanker-guest.bst"; SPDX_NAME="donate-clanker-guest" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -514,7 +570,7 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah qemu-img; do
+            for img in base static skopeo lab-runner python buildah qemu-img donate-clanker-vm-runner donate-clanker-guest; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
@@ -523,6 +579,8 @@ sboms:
                     python)     ELEMENT="oci/python.bst" ;;
                     buildah)    ELEMENT="oci/buildah.bst" ;;
                     qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
+                    donate-clanker-vm-runner) ELEMENT="oci/donate-clanker-vm-runner.bst" ;;
+                    donate-clanker-guest) ELEMENT="oci/donate-clanker-guest.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \
@@ -534,5 +592,4 @@ sboms:
                     --output "/src/${img}.spdx.json"
             done
         '
-
 
