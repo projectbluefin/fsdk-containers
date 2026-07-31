@@ -25,7 +25,8 @@ config:
     - |
       cd donate-clanker
       go mod edit -replace=github.com/gorilla/websocket=../gorilla-websocket
-      GOPROXY=off GOSUMDB=off CGO_ENABLED=0 \
+      GOROOT="/usr/lib/%{arch}-linux-gnu/go" \
+        GOPROXY=off GOSUMDB=off CGO_ENABLED=0 \
         go build -mod=mod -trimpath -buildvcs=false \
         -ldflags='-s -w' \
         -o "%{install-root}/usr/libexec/donate-clanker-worker" \
