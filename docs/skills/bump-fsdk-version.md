@@ -17,7 +17,6 @@ release. Tags are derived from the pinned junction ref in
 `elements/freedesktop-sdk.bst` (the `ref:` line, e.g.
 `freedesktop-sdk-25.08.13-...`):
 
-- `:latest` — rolling, every publish
 - `:25.08` or `:26.08` — FSDK minor line (moves within the line)
 - `:25.08.14` — FSDK point release, treated **immutable**
 - `:26.08beta.1` / `:26.08rc.1` — pre-release/beta/RC release tag (published whenever tracking upstream dev/beta branches)
@@ -48,15 +47,15 @@ and beta branch, ensuring images are continuously built and published for early 
    just verify
    ```
 
-5. Follow the FSDK **lifecycle**: track the active minor line; when FSDK EOLs a
-   line, move `:latest` to the next supported minor. Don't pin to an EOL line.
+5. Follow the FSDK **lifecycle**: track the active minor line and stop publishing
+   it when FSDK EOLs that line. Don't pin to an EOL line.
 
 ## Verification
 
 Before merging a bump:
 
 - [ ] `just validate` passes (element graph resolves with new ref)
-- [ ] `just tags` output matches the expected `latest / YY.MM / YY.MM.PP` triple
+- [ ] `just tags` output matches the expected `YY.MM / YY.MM.PP` pair
 - [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
 - [ ] `just build && just verify` — all 4 gates pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
@@ -85,4 +84,3 @@ Point releases are fully automated via the `.github/workflows/auto-update-fsdk.y
 - **Trigger:** Daily cron schedule at `03:00 UTC` and manual `workflow_dispatch`.
 - **Mechanism:** Runs `just bst source track freedesktop-sdk.bst` to check for newer refs on the tracking line. If changed, validates the element graph and commits/pushes the new junction ref directly to `main`.
 - **Build Loop:** The push trigger on `main` kicks off the standard multi-arch build and publish workflow, which rebuilds, verifies, and publishes the new point-release tag and manifests.
-

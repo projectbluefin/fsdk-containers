@@ -41,8 +41,9 @@ Mirror `elements/base/` + `elements/oci/base.bst`:
 
 3. **`elements/oci/<name>.bst`** (`kind: script`) — stage the runtime at `/layer`,
    run the **shared SLIM block** (copy from `oci/base.bst`), then any
-   **per-runtime prune**, then `build-oci`. Set the image title/labels and the
-   `index-annotations` ref.name to `ghcr.io/projectbluefin/<name>:latest`.
+   **per-runtime prune**, then `build-oci`. Set the image title/labels and omit
+   mutable `index-annotations` ref.name values; registry tags are assigned by
+   the publish workflow from the FSDK version.
 
 ### Per-runtime prune (the big win)
 

@@ -95,7 +95,7 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 **verification-only**: it checks out the payload branch and runs both native
 architecture builds plus `just verify`, but it must not log in, push per-arch
 images, assemble manifests, sign, or publish attestations. This prevents
-unreviewed bump branches from moving `latest` or minor production tags.
+unreviewed bump branches from moving production tags.
 
 The container matrix is the publishing contract: every OCI image in
 `elements/oci/` that ships to GHCR must appear in **both** matrices, in
@@ -107,9 +107,9 @@ The container matrix is the publishing contract: every OCI image in
 FSDK point-release tags (e.g. `:25.08.13`) are immutable once published. Both
 the Justfile `tag-push` recipe and the workflow manifest loop guard this with
 a `skopeo inspect --no-tags docker://REPO:TAG` existence check and skip the
-push if the tag exists. `latest` and the minor-line tag are rolling and always
-pushed — the manifest job resolves the signing digest from `latest`
-(`FIRST_TAG`), so signing is unaffected when the point tag is skipped.
+push if the tag exists. The minor-line tag is rolling and always pushed. The
+manifest job resolves the signing digest from the immutable point tag, so
+signing never depends on a floating alias.
 
 Set `fail-fast: false` on the multi-dimensional matrices to prevent a single container build failure from canceling the other container builds.
 

@@ -44,6 +44,4 @@ config:
             'io.artifacthub.package.maintainers': '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]'
             'io.artifacthub.package.keywords': 'distroless,freedesktop-sdk,bluefin,skopeo'
             'io.artifacthub.package.category': 'integration-delivery'
-        index-annotations:
-          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/skopeo:latest'
       EOF

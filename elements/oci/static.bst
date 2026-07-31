@@ -44,6 +44,4 @@ config:
             'io.artifacthub.package.maintainers': '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]'
             'io.artifacthub.package.keywords': 'distroless,freedesktop-sdk,bluefin,static'
             'io.artifacthub.package.category': 'integration-delivery'
-        index-annotations:
-          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/static:latest'
       EOF

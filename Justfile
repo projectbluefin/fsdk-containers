@@ -99,7 +99,8 @@ bst *ARGS:
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- --no-interactive "${RE_FLAG[@]}" ${BST_FLAGS:-} {{ARGS}}
 
-# Print the tag set derived from the FSDK release: latest, minor line, point release/beta tag.
+# Print the registry tag set derived from the FSDK release: minor line plus
+# immutable point-release or pre-release tag.
 [group('info')]
 tags:
     #!/usr/bin/env bash
@@ -107,9 +108,9 @@ tags:
     V="{{fsdk_version}}"
     MINOR="$(echo "$V" | grep -oE '^[0-9]+\.[0-9]+')"
     if [ "$V" = "$MINOR" ]; then
-        printf '%s\n%s\n' latest "$V"
+        printf '%s\n' "$V"
     else
-        printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+        printf '%s\n%s\n' "$MINOR" "$V"
     fi
 
 # ── Validate ──────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ build:
 export:
     #!/usr/bin/env bash
     set -euo pipefail
-    FINAL_REF="{{image_registry}}/{{image_name}}:latest"
+    FINAL_REF="{{image_registry}}/{{image_name}}:build"
 
     echo "==> Exporting OCI image -> ${FINAL_REF}..."
     rm -rf .build-out
@@ -170,7 +171,8 @@ export:
       | {{sudo_cmd}} podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
     echo "==> Built ${FINAL_REF}"
 
-# Push the locally built :latest under all derived tags to a given repo ref.
+# Push the locally built :build image under all derived registry tags to a
+# given repo ref.
 # The FSDK point-release tag (e.g. :25.08.13) is treated as immutable: if it
 # already exists at the destination it is skipped, never overwritten.
 # Usage: just tag-push ghcr.io/projectbluefin/base
@@ -178,7 +180,7 @@ export:
 tag-push REPO:
     #!/usr/bin/env bash
     set -euo pipefail
-    SRC="{{image_registry}}/{{image_name}}:latest"
+    SRC="{{image_registry}}/{{image_name}}:build"
     while read -r t; do
         if [ "$t" = "{{fsdk_version}}" ] && skopeo inspect --no-tags "docker://{{REPO}}:$t" >/dev/null 2>&1; then
             echo "==> skipping {{REPO}}:$t (point-release tag already published, immutable)"
@@ -195,7 +197,7 @@ tag-push REPO:
 push-quay REPO:
     #!/usr/bin/env bash
     set -euo pipefail
-    SRC="{{image_registry}}/{{image_name}}:latest"
+    SRC="{{image_registry}}/{{image_name}}:build"
     while read -r t; do
         echo "==> Tagging $SRC to {{REPO}}:$t..."
         {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
@@ -211,7 +213,7 @@ push-quay REPO:
 verify:
     #!/usr/bin/env bash
     set -euo pipefail
-    REF="{{image_registry}}/{{image_name}}:latest"
+    REF="{{image_registry}}/{{image_name}}:build"
     IMG="{{image_name}}"
 
     # Guard against silent size creep. These are uncompressed local Podman

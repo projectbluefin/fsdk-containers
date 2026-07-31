@@ -50,7 +50,7 @@ See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
 All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
 and ship an attached SPDX SBOM. Verify a main-branch build with:
 
-    cosign verify ghcr.io/projectbluefin/base:latest \
+    cosign verify ghcr.io/projectbluefin/base@sha256:<manifest-digest> \
       --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/build.yml@refs/heads/main" \
       --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 
@@ -60,10 +60,10 @@ corresponding branch ref in the certificate identity.)
 GitHub also publishes a registry-backed build provenance attestation for each
 image. Verify it with the GitHub CLI:
 
-    gh attestation verify oci://ghcr.io/projectbluefin/base:latest \
+    gh attestation verify oci://ghcr.io/projectbluefin/base@sha256:<manifest-digest> \
       -R projectbluefin/fsdk-containers
 
-For reproducible audits, replace `:latest` with the exact manifest digest.
+Always use the exact manifest digest for reproducible audits and deployments.
 
 ## RamaLama helper contract
 
@@ -86,7 +86,7 @@ Consumers should pin everything immutably:
 - helper image: `ghcr.io/projectbluefin/ramalama@sha256:<manifest-digest>`
 - RamaLama runtime-image overrides: digest refs, not floating tags
 - approved model catalog entries: immutable refs or fixed catalog versions, not
-  shortnames or `latest`
+  shortnames or floating tags
 
 Upstream RamaLama defaults to minor-version runtime tags (for example
 `quay.io/ramalama/cuda:<major.minor>`), so strict production reproducibility
@@ -99,7 +99,6 @@ FSDK release. We track upstream FSDK releases and active development/beta branch
 so users can test upcoming FSDK features early. Tags are derived automatically from
 the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
-- `:latest` -- rolling
 - `:25.08` or `:26.08` -- FSDK minor line
 - `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
 - `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
@@ -113,7 +112,7 @@ Requires `podman` and [`just`](https://github.com/casey/just). BuildStream runs
 inside the FSDK `bst2` container -- nothing to install.
 
     just validate        # resolve the element graph
-    just build           # build + load ghcr.io/projectbluefin/base:latest
+    just build           # build + load a local :build image
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 

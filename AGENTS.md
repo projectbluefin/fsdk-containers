@@ -53,7 +53,7 @@ remote-execution grid by default (never built on the local machine);
 
 ```
 just validate   # resolve the element graph (no build)
-just build      # build + load ghcr.io/projectbluefin/base:latest
+just build      # build + load a local :build image
 just verify     # 4 gates: no shell, CA certs, tzdata, slim-bloat-removed
 just tags       # show FSDK-derived tags
 ```
@@ -63,8 +63,7 @@ just tags       # show FSDK-derived tags
 ## Versioning
 
 The version axis is the **FSDK release**, parsed from the pinned junction ref in
-`elements/freedesktop-sdk.bst`: `:latest` (rolling), `:25.08` (FSDK minor line),
-`:25.08.13` (point release, immutable). Every image self-declares its base via
+`elements/freedesktop-sdk.bst`: `:25.08` (FSDK minor line), `:25.08.13` (point release, immutable). Every image self-declares its base via
 `io.projectbluefin.fsdk.version` and `io.projectbluefin.fsdk.ref` labels. Follow
 the FSDK lifecycle — see [docs/skills/bump-fsdk-version.md](docs/skills/bump-fsdk-version.md).
 

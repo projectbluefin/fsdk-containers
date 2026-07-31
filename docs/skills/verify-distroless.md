@@ -9,7 +9,7 @@ metadata:
 # Verify Distroless
 
 `just verify` is the merge contract. It builds nothing — it inspects the loaded
-`ghcr.io/projectbluefin/<name>:latest` image. All gates must pass.
+local `ghcr.io/projectbluefin/<name>:build` image. All gates must pass.
 
 ## The gates
 
@@ -42,7 +42,7 @@ ENTRYPOINT in their OCI config — `podman create` requires a placeholder comman
 to succeed (it does not validate whether the command exists in the image):
 
 ```
-cid=$(podman create ghcr.io/projectbluefin/<name>:latest /nonexistent)
+cid=$(podman create ghcr.io/projectbluefin/<name>:build /nonexistent)
 podman export "$cid" | tar -tf - | grep -E '<thing you expect/don.t expect>'
 podman rm "$cid"
 ```
@@ -51,7 +51,7 @@ A functional smoke test (loader + libc) on a distroless image — run a real bin
 not a shell:
 
 ```
-podman run --rm ghcr.io/projectbluefin/<name>:latest /usr/bin/env
+podman run --rm ghcr.io/projectbluefin/<name>:build /usr/bin/env
 ```
 
 ## Adding a gate
@@ -75,7 +75,7 @@ is to execute the binary.
 The RamaLama helper adds one more distroless rule set on top of the generic
 checks:
 
-- `podman run --rm ghcr.io/projectbluefin/ramalama:latest version` must succeed;
+- `podman run --rm ghcr.io/projectbluefin/ramalama:build version` must succeed;
 - `usr/share/ramalama/shortnames.conf` and `usr/share/ramalama/ramalama.conf`
   must survive pruning;
 - `pip`, `setuptools`, wheel metadata, shell completions, and manpages must be

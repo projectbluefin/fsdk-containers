@@ -53,13 +53,12 @@ No version pins may be static or unmonitored.
 
 ## 4. SRE-Reliable Tagging Strategy
 
-Every OCI image is published with tags derived dynamically from the pinned FSDK release in `freedesktop-sdk.bst`:
+Every OCI image is published with version tags derived dynamically from the
+pinned FSDK release in `freedesktop-sdk.bst`:
 
-1. **`:latest` (Rolling Dev)**  
-   Tracks the current rolling FSDK branch builds. Best for dev/testing lanes.
-2. **`:25.08` / `:26.08` (Stable Minor Line)**  
+1. **`:25.08` / `:26.08` (Stable Minor Line)**
    e.g. `:25.08`. Tracks patch updates to that minor line. Balances security patches with high stability.
-3. **`:25.08.14` / `:26.08beta.1` (Immutable Point / Pre-release Tag)**  
+2. **`:25.08.14` / `:26.08beta.1` (Immutable Point / Pre-release Tag)**
    e.g. `:25.08.14` or `:26.08beta.1`. Point releases and upstream pre-releases/betas/RCs are tagged automatically, ensuring every upstream development and beta line is published. **Recommended for SRE production environments to guarantee 100% reproducible deployments.**
 
 ### Dynamic Metadata Labeling
@@ -78,7 +77,7 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 - Including a shell (`/usr/bin/bash` or similar) in a distroless-tier image.
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
 - A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.
-- Images published to GHCR without point-release tagging (e.g. only `:latest`).
+- Images published to GHCR without an immutable point-release tag.
 
 ---
 
@@ -88,3 +87,12 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 - [ ] Verification test suite passes all image-specific gates (`just verify`), including the `lab-runner` CLI contract check.
 - [ ] Image uncompressed size is under ~150MB.
 - [ ] OCI Labels contain valid Git hashes and FSDK tags.
+
+## Lessons Learned
+
+### Keep local build refs separate from registry tags (2026-07-31)
+
+The local Podman image needs a scratch tag for `just build`, `just verify`, and
+the per-architecture push helpers, but that tag must not become a published
+consumer alias. Use `:build` locally and derive registry tags only from the
+pinned FSDK version; sign and attest the immutable point tag.

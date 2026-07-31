@@ -54,10 +54,10 @@ To verify a published image and its signature/attestation from the command line:
 cosign verify \
   --certificate-identity-regexp="https://github.com/projectbluefin/fsdk-containers/.github/workflows/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/projectbluefin/base:latest
+  ghcr.io/projectbluefin/base@sha256:<manifest-digest>
 
 # Discover and retrieve the attached SBOM
-oras discover ghcr.io/projectbluefin/base:latest
+oras discover ghcr.io/projectbluefin/base@sha256:<manifest-digest>
 ```
 
 ---
@@ -109,4 +109,3 @@ To generate SBOMs for multiple images efficiently and correctly in CI:
 - **Avoid calling `pip install` inside GHA loops.** Running `pip install` inside a loop for each container spins up the container multiple times and repeats dependency resolution.
 - Use `just sboms` (plural) to spin up the BuildStream container **once**, install `buildstream-sbom` **once**, and generate SBOMs for all target images in a single run.
 - **Enforce Unique SPDX Namespaces.** Ensure each image variant receives a unique SPDX document namespace (as required by the SPDX spec) by appending the image name to the namespace URL: `https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}`.
-

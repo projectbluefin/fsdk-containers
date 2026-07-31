@@ -140,13 +140,9 @@ jobs:
 
           echo "==> Assembling manifest list for ${IMAGE} with architectures: ${AVAIL_ARCHS[*]}"
 
-          # Step 1: Create, annotate, and push all tags.
+          # Step 1: Create, annotate, and push all version tags.
           # The FSDK point-release tag is immutable: skip it if already published.
-          FIRST_TAG=""
           while read -r t; do
-            if [[ -z "${FIRST_TAG}" ]]; then
-              FIRST_TAG="${t}"
-            fi
             if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
               echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
               continue
@@ -160,13 +156,13 @@ jobs:
             echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
           done < <(just tags)
 
-          # Step 2: Resolve canonical manifest list digest exactly once
-          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
+          # Step 2: Resolve the immutable point-release manifest digest exactly once
+          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${POINT_TAG}" | jq -r '.Digest')
           if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
-            echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
+            echo "ERROR: Failed to resolve digest for ${REPO}:${POINT_TAG}"
             exit 1
           fi
-          echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
+          echo "==> Canonical digest for ${REPO}:${POINT_TAG}: ${DIGEST}"
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
           # Step 3: Keyless-sign the OCI image manifest list digest exactly once
@@ -191,7 +187,7 @@ jobs:
               echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
               cosign sign -y "${REPO}@${SBOM_DIGEST}"
             else
-              echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
+              echo "WARNING: Failed to capture SBOM digest for ${REPO}:${POINT_TAG}"
             fi
           fi
 

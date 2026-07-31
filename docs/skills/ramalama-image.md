@@ -96,7 +96,7 @@ headroom for normal FSDK/runtime growth.
 Consumers should pin all RamaLama-related artifacts immutably:
 
 1. **Helper image:** use `ghcr.io/projectbluefin/ramalama@sha256:<manifest-digest>`,
-   not `:latest`.
+   not a floating tag.
 2. **Runtime image overrides:** upstream RamaLama defaults to
    `quay.io/ramalama/*:<major.minor>` tags via `version_tagged_image()`. If a
    consumer overrides `image`/`images.*`, prefer digest refs instead of mutable

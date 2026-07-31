@@ -74,6 +74,4 @@ config:
             'io.artifacthub.package.maintainers': '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]'
             'io.artifacthub.package.keywords': 'distroless,freedesktop-sdk,bluefin,ramalama,llm'
             'io.artifacthub.package.category': 'integration-delivery'
-        index-annotations:
-          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/ramalama:latest'
       EOF

@@ -58,7 +58,7 @@ Example `curl` step for the release pipeline:
         "url": "oci://ghcr.io/projectbluefin/base",
         "kind": 12,
         "data": {
-          "tags": [{"name": "latest", "mutable": true}]
+          "tags": [{"name": "25.08.15", "mutable": false}]
         }
       }'
 ```

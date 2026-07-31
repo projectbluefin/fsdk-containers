@@ -27,6 +27,7 @@ in `docs/skills/`, or reviewing a branch before handoff.
 - A build sandbox constraint (e.g. "`find` is not available in the oci-builder
   sandbox — use shell globs").
 - A versioning / lifecycle fact about tracking FSDK releases.
+- A publication policy change that affects how consumers pin image references.
 
 ## What does NOT belong here
 
