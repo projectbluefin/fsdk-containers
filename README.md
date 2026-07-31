@@ -14,14 +14,21 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
 | `ghcr.io/projectbluefin/static` | — | Static tier for compiled Go/Rust binaries (`CGO_ENABLED=0`): CA certificates + tzdata only, no libc. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
-| `ghcr.io/projectbluefin/ramalama` | ~100 MB | Distroless RamaLama helper: upstream RamaLama CLI on verified FSDK Python components, no shell, no pip. Ships upstream public runtime/model defaults; consumers must override them for private or pinned sources. Pulls runtime images and model artifacts into a mounted cache at runtime. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, python3, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
+
+<a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
+shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
+and coreutils together; the SLIM recipe removes only bash. In FSDK 26.08+, the
+split becomes explicit: `runtime-minimal` drops both bash and coreutils, which move
+to `public-stacks/runtime-gnu`. The distroless `base` image continues to compose
+from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
+(lab-runner, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
 
 ### Machine images (not distroless)
 
@@ -64,33 +71,6 @@ image. Verify it with the GitHub CLI:
       -R projectbluefin/fsdk-containers
 
 For reproducible audits, replace `:latest` with the exact manifest digest.
-
-## RamaLama helper contract
-
-`ghcr.io/projectbluefin/ramalama` is a helper-only image for consumers such as
-donate-clanker. It ships the RamaLama CLI and shared model metadata, but not
-the model weights or GPU runtimes themselves. At runtime it expects a writable
-RamaLama store mounted at `/var/lib/ramalama` (the upstream root-user default)
-and host Podman/Docker access so RamaLama can pull the accelerator-specific
-`quay.io/ramalama/*` inference images it needs.
-
-The helper image ships upstream `/usr/share/ramalama/ramalama.conf` and
-`/usr/share/ramalama/shortnames.conf`, so its baked-in defaults are public and
-mutable. Consumers that need private endpoints, pinned runtime images, or a
-different store path must supply their own `/etc/ramalama/ramalama.conf` (or
-point `RAMALAMA_CONFIG` at one) instead of relying on the upstream shortnames
-or runtime defaults.
-
-Consumers should pin everything immutably:
-
-- helper image: `ghcr.io/projectbluefin/ramalama@sha256:<manifest-digest>`
-- RamaLama runtime-image overrides: digest refs, not floating tags
-- approved model catalog entries: immutable refs or fixed catalog versions, not
-  shortnames or `latest`
-
-Upstream RamaLama defaults to minor-version runtime tags (for example
-`quay.io/ramalama/cuda:<major.minor>`), so strict production reproducibility
-requires an explicit override in the consuming launcher/config.
 
 ## Versioning
 

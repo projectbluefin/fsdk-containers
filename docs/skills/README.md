@@ -16,12 +16,14 @@ load the focused skill for your task.
 | If your task is... | Load |
 | ------------------ | ---- |
 | Add a new distroless image (python, node, etc.) | [add-new-image.md](add-new-image.md) |
-| Update the RamaLama helper image or its consumer contract | [ramalama-image.md](ramalama-image.md) |
+| Add a component + stack only, no OCI image (e.g. a tool for a future VM image) | [add-fsdk-component.md](add-fsdk-component.md) |
 | Add a non-distroless nspawn machine image (dev env, tarball) | [nspawn-machine-image.md](nspawn-machine-image.md) |
+| Add a bootable EFI/raw VM guest image (QEMU disk) | [vm-podman-guest.md](vm-podman-guest.md) |
 | Make an image smaller / apply the SLIM recipe | [slim-an-image.md](slim-an-image.md) |
 | Move to a new FSDK release / retag | [bump-fsdk-version.md](bump-fsdk-version.md) |
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
+| Add donate-clanker VM artifacts | [donate-clanker-vm-artifacts.md](donate-clanker-vm-artifacts.md) |
 | Write or debug a CI workflow | [ci-tooling.md](ci-tooling.md) |
 | Run local/agent builds on the ghost cluster (remote execution) | [remote-execution.md](remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |

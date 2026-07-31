@@ -42,6 +42,15 @@ bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
+    # Regenerated on every invocation from {{fsdk_version}} (this Justfile's
+    # own single source of truth, parsed from elements/freedesktop-sdk.bst's
+    # pinned ref) so BuildStream elements can consume the exact point
+    # release via `(@): include/fsdk-version.yml` without re-parsing it
+    # independently. Gitignored; never hand-edited. See
+    # docs/skills/vm-podman-guest.md.
+    cat > include/fsdk-version.yml <<'EOF'
+    fsdk-version: "{{fsdk_version}}"
+    EOF
     RE_FLAG=()
     PF_PID=""
     cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
@@ -115,7 +124,7 @@ tags:
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst oci/ramalama.bst
+    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst podman-vm/podman-vm-efi.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -150,7 +159,6 @@ export:
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
-        ramalama)   DESC="Distroless RamaLama helper image built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -222,7 +230,6 @@ verify:
         skopeo)     MAX_BYTES=$((224 * 1024 * 1024)) ;;
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
-        ramalama)   MAX_BYTES=$((160 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
@@ -285,23 +292,6 @@ verify:
             echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: locale/build-tool bloat removed"
-
-        if [ "$IMG" = "ramalama" ]; then
-            echo "==> RamaLama-specific payload checks"
-            if ! grep -qE '^usr/bin/ramalama$' "$LISTING"; then
-                echo "FAIL: /usr/bin/ramalama missing from image"; exit 1
-            fi
-            if ! grep -qE '^usr/share/ramalama/shortnames\.conf$' "$LISTING"; then
-                echo "FAIL: /usr/share/ramalama/shortnames.conf missing from image"; exit 1
-            fi
-            if ! grep -qE '^usr/share/ramalama/ramalama\.conf$' "$LISTING"; then
-                echo "FAIL: /usr/share/ramalama/ramalama.conf missing from image"; exit 1
-            fi
-            if grep -qE '(^|/)pip(3(\.[0-9]+)?)?$|site-packages/(pip|setuptools|wheel|pkg_resources|distlib)' "$LISTING"; then
-                echo "FAIL: package-manager payload present in RamaLama image"; exit 1
-            fi
-            echo "OK: RamaLama payload present and pip/setuptools removed"
-        fi
     fi
 
     echo "==> smoke test (executing binary)"
@@ -325,11 +315,6 @@ verify:
             echo "FAIL: qemu-img failed to execute"; exit 1
         fi
         echo "OK: qemu-img executes successfully"
-    elif [ "$IMG" = "ramalama" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" version >/dev/null; then
-            echo "FAIL: ramalama failed to execute"; exit 1
-        fi
-        echo "OK: ramalama executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
@@ -338,6 +323,70 @@ verify:
     fi
 
     echo "==> verify passed (${IMG})"
+
+# -- Donate-clanker VM guest disk image --------------------------------------
+# Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
+# docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
+# Podman, only checked out and published as versioned GitHub Release assets.
+
+# Build the podman-vm-efi.bst element (BuildStream build only, no export).
+[group('vm')]
+build-podman-vm:
+    just bst build podman-vm/podman-vm-efi.bst
+
+# Check out ONLY the element's install-root -- the raw disk plus its .sha256
+# manifest -- into dist-vm/. Deliberately does NOT load it into Podman as an
+# OCI image (this is a bootable VM disk, not a container layer).
+[group('vm')]
+export-podman-vm: build-podman-vm
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf dist-vm
+    just bst artifact checkout podman-vm/podman-vm-efi.bst --directory dist-vm
+    echo "==> wrote:" && ls -lh dist-vm/
+
+# Upload the built VM guest artifact (raw disk + SHA-256 manifest) as immutable
+# GitHub Release assets under the current FSDK point-release tag (vX.Y.Z).
+# Mirrors the OCI `tag-push` recipe: operates on whatever is already in
+# dist-vm/ (from `just export-podman-vm`, run separately -- e.g. once per
+# arch in CI, artifact handed off between jobs) rather than forcing a
+# rebuild on every publish. Also mirrors `tag-push`'s immutability guard: an
+# asset that already exists on the release is never overwritten. Never
+# publishes a mutable "latest" URL for launcher consumption -- see
+# docs/skills/vm-podman-guest.md. Requires `gh` authenticated with
+# `contents: write` on THIS repo (the workflow's default GITHUB_TOKEN is
+# sufficient -- this is a same-repo release upload, not a cross-repo write,
+# so the org's PAT ban / Mergeraptor requirement does not apply; see
+# docs/skills/ci-tooling.md).
+[group('vm')]
+publish-podman-vm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    TAG="v{{fsdk_version}}"
+    shopt -s nullglob
+    raws=(dist-vm/donate-clanker-vm-*.raw)
+    shopt -u nullglob
+    if [ "${#raws[@]}" -ne 1 ]; then
+        echo "FAIL: expected exactly one raw VM disk in dist-vm/ (run 'just export-podman-vm' first), found ${#raws[@]}" >&2
+        exit 1
+    fi
+    raw="${raws[0]}"
+    sum="${raw}.sha256"
+    [ -f "$sum" ] || { echo "FAIL: $sum not found" >&2; exit 1; }
+
+    if ! gh release view "$TAG" >/dev/null 2>&1; then
+        echo "==> creating release $TAG (none exists yet)"
+        gh release create "$TAG" --title "Release ${TAG}" \
+            --notes "Freedesktop-SDK {{fsdk_version}} container image release."
+    fi
+
+    name="$(basename "$raw")"
+    if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+        echo "==> skipping ${name} (point-release asset already published, immutable)"
+    else
+        gh release upload "$TAG" "$raw" "$sum"
+        echo "==> uploaded ${name} + checksum to release ${TAG}"
+    fi
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
@@ -474,7 +523,6 @@ sbom variant="base":
         python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
         buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
         qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
-        ramalama)   ELEMENT="oci/ramalama.bst";    SPDX_NAME="ramalama" ;;
         *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
     esac
     OUTFILE="${SPDX_NAME}.spdx.json"
@@ -539,7 +587,7 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah qemu-img ramalama; do
+            for img in base static skopeo lab-runner python buildah qemu-img; do
                 case "$img" in
                     base)       ELEMENT="oci/base.bst" ;;
                     static)     ELEMENT="oci/static.bst" ;;
@@ -548,7 +596,6 @@ sboms:
                     python)     ELEMENT="oci/python.bst" ;;
                     buildah)    ELEMENT="oci/buildah.bst" ;;
                     qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
-                    ramalama)   ELEMENT="oci/ramalama.bst" ;;
                 esac
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \
