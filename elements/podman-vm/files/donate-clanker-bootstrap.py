@@ -11,14 +11,15 @@ WORKER = "/usr/libexec/donate-clanker-worker"
 def main():
     for _ in range(120):
         try:
-            channel = open(CHANNEL, "r+", encoding="utf-8")
+            fd = os.open(CHANNEL, os.O_RDWR | os.O_CLOEXEC)
+            channel = os.fdopen(fd, "r+b", buffering=0)
             break
         except FileNotFoundError:
             time.sleep(1)
     else:
         raise FileNotFoundError(CHANNEL)
     with channel:
-        envelope = json.loads(channel.readline(65536))
+        envelope = json.loads(channel.readline(65536).decode("utf-8"))
         if set(envelope) != {"version", "hive_endpoint", "registration_token", "backend", "run_id"}:
             raise ValueError("invalid bootstrap envelope")
         if envelope["version"] != 1:
@@ -27,8 +28,9 @@ def main():
             raise ValueError("invalid bootstrap endpoint")
         if not all(envelope[key] for key in ("registration_token", "backend", "run_id")):
             raise ValueError("incomplete bootstrap envelope")
-        channel.write(json.dumps({"version": 1, "type": "control_ack"}) + "\n")
-        channel.flush()
+        channel.write(
+            (json.dumps({"version": 1, "type": "control_ack"}) + "\n").encode("utf-8")
+        )
     os.environ["DONATE_CLANKER_HIVE_ENDPOINT"] = envelope["hive_endpoint"]
     os.environ["DONATE_CLANKER_REGISTRATION_TOKEN"] = envelope["registration_token"]
     os.environ["DONATE_CLANKER_BACKEND"] = envelope["backend"]

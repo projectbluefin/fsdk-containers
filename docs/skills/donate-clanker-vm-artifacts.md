@@ -42,9 +42,16 @@ boots the raw disk directly.
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
 systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
 `projectbluefin/donate-clanker` commit
-`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer reads the
-virtio-serial envelope, validates it, sends `control_ack`, keeps credentials in
-memory, and execs `/usr/libexec/donate-clanker-worker`.
+`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
+virtio-serial channel as an unbuffered binary stream because virtio ports are
+non-seekable; it decodes the envelope line, validates it, encodes
+`control_ack`, keeps credentials in memory, and execs
+`/usr/libexec/donate-clanker-worker`.
+
+The EFI tree is staged separately from the root filesystem. Before `genimage`
+copies it into the disk, `podman-vm-efi.bst` rewrites each loader entry's
+`root=UUID=` to the UUID emitted by the same `prepare-image.sh` invocation that
+creates the ext4 root filesystem.
 
 `podman-vm/donate-clanker-worker.bst` compiles `cmd/contributor` with the FSDK
 Go toolchain, `CGO_ENABLED=0`, `GOPROXY=off`, and a separately pinned

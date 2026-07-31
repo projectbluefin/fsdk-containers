@@ -33,6 +33,11 @@ donate-clanker-vm-<fsdk-version>-<arch>.raw.sha256
 The raw disk is booted directly by QEMU. `qemu-img` is not a build or runtime
 dependency.
 
+The FSDK EFI tree is built separately from this element's root filesystem.
+`podman-vm-efi.bst` therefore rewrites each staged loader entry's
+`root=UUID=` value from the `prepare-image.sh` output before `genimage`; never
+reuse an EFI tree byte-for-byte without checking it against the ext4 root UUID.
+
 ## Verification
 
 - `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
