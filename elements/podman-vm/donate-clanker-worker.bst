@@ -20,13 +20,15 @@ build-depends:
 variables:
   strip-binaries: ""
 
+environment:
+  GOROOT: /usr/lib/%{arch}-linux-gnu/go
+
 config:
   build-commands:
     - |
       cd donate-clanker
       go mod edit -replace=github.com/gorilla/websocket=../gorilla-websocket
-      GOROOT="/usr/lib/%{arch}-linux-gnu/go" \
-        GOPROXY=off GOSUMDB=off CGO_ENABLED=0 \
+      GOPROXY=off GOSUMDB=off CGO_ENABLED=0 \
         go build -mod=mod -trimpath -buildvcs=false \
         -ldflags='-s -w' \
         -o "%{install-root}/usr/libexec/donate-clanker-worker" \
