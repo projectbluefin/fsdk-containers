@@ -33,15 +33,13 @@ jobs:
           tool: just
       - name: Resolve element graph
         run: just validate
-      - name: Check RamaLama wiring
-        run: ./.github/workflows/ramalama-workflow-check.sh
 
   build:
     if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, ramalama]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -86,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img, ramalama]
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -123,9 +121,10 @@ jobs:
           set -euo pipefail
           IMAGE="${{ matrix.image }}"
           REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
-          
+
           # Check which per-architecture images were successfully built and published
           POINT_TAG="$(just tags | tail -1)"
+          MINOR_TAG="$(just tags | sed -n '2p')"
           AVAIL_ARCHS=()
           for arch in x86_64 aarch64; do
             if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
@@ -138,18 +137,29 @@ jobs:
             exit 0
           fi
 
-          echo "==> Assembling manifest list for ${IMAGE} with architectures: ${AVAIL_ARCHS[*]}"
+          echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
 
-          # Step 1: Create, annotate, and push all tags.
-          # The FSDK point-release tag is immutable: skip it if already published.
+          # Rolling/minor-line tags must remain multi-arch: only update them when
+          # both required architectures were successfully built and published.
+          BOTH_ARCHS_AVAILABLE=false
+          if [ ${#AVAIL_ARCHS[@]} -eq 2 ]; then
+            BOTH_ARCHS_AVAILABLE=true
+          fi
+
+          # Step 1: Create, annotate, and push tags.
+          # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
           while read -r t; do
-            if [[ -z "${FIRST_TAG}" ]]; then
-              FIRST_TAG="${t}"
+            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
+              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
+              continue
             fi
             if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
               echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
               continue
+            fi
+            if [[ -z "${FIRST_TAG}" ]]; then
+              FIRST_TAG="${t}"
             fi
             podman manifest create "${REPO}:${t}"
             for arch in "${AVAIL_ARCHS[@]}"; do
@@ -159,6 +169,11 @@ jobs:
             podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
             echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
           done < <(just tags)
+
+          if [[ -z "${FIRST_TAG}" ]]; then
+            echo "==> No tags were published for ${IMAGE}; skipping signing and attestation."
+            exit 0
+          fi
 
           # Step 2: Resolve canonical manifest list digest exactly once
           DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
@@ -202,3 +217,63 @@ jobs:
           subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
           subject-digest: ${{ steps.resolve-digest.outputs.digest }}
           push-to-registry: true
+
+  # Podman VM guest disk image (elements/podman-vm/*, docs/skills/vm-podman-guest.md).
+  # NOT an OCI image: each matrix leg builds, validates, and publishes only
+  # its own architecture. Keeping these steps in the same matrix job is
+  # intentional: a job-level `needs` on another matrix would wait for every
+  # architecture before any publish could start.
+  build-podman-vm:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Build and export the ${{ matrix.arch }} podman-vm guest disk image
+        run: just export-podman-vm
+      - name: Verify checksum
+        run: |
+          set -euo pipefail
+          raw=(dist-vm/donate-clanker-vm-*.raw)
+          test "${#raw[@]}" -eq 1
+          sha256sum -c "${raw[0]}.sha256"
+
+      # Linux arm runners do not have verified nested virtualization support.
+      # The native build plus checksum validation is the architecture gate for
+      # aarch64; x86_64 additionally runs the boot/in-guest smoke test.
+      - name: Set up Lima
+        if: matrix.arch == 'x86_64'
+        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
+      - name: Install QEMU + OVMF firmware
+        if: matrix.arch == 'x86_64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf
+      - name: Run x86_64 QEMU/Lima integration test
+        if: matrix.arch == 'x86_64'
+        run: tests/podman-vm.sh
+
+      # repository_dispatch is verification-only and must never publish branch
+      # content. Point-release assets are immutable: the recipe skips an asset
+      # if another architecture or an earlier run already uploaded it.
+      - name: Publish ${{ matrix.arch }} raw disk and checksum
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: just publish-podman-vm
