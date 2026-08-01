@@ -73,6 +73,14 @@ The workflows are pre-configured to dynamically detect the repository owner and 
 ### 2. Speeding Up Builds with GitHub Actions Local Cache
 By default, the workflow does not cache the local build artifacts produced by BuildStream because they can be large. However, for active development branches, you can speed up builds by adding GHA's `actions/cache` to cache BuildStream's local directory (`~/.cache/buildstream`).
 
+The production image matrix intentionally relies on the shared BuildStream
+pull caches above instead: a GitHub Actions cache becomes available only after
+its job finishes, so it cannot make concurrent image matrix siblings faster,
+and repository cache quota is limited. Prefer a remote CAS for artifacts that
+must be shared across CI targets; use a local Actions cache only for
+short-lived, measured branch workflows and partition its key by architecture
+and BuildStream descriptors.
+
 Add the following step in `.github/workflows/build.yml` before the build steps (e.g., after checkout):
 
 ```yaml
