@@ -85,6 +85,14 @@ FSDK release version parsed from the pinned junction ref in
 `elements/freedesktop-sdk.bst`. Tags: `:latest`, `:<minor>`, `:<point>`.
 Loki image additionally labeled with the Loki upstream version.
 
+> **Superseded (2026-08-01) — historical record above.** The `:latest` tag was
+> removed in PR #34 (issue #23). The published set is now `:<minor>` (the FSDK
+> minor line — the most permissive tag published), `:<point>` (immutable once
+> published), and pre-release/beta tags. There is deliberately no `:latest`: a
+> rolling alias lets a consumer deploy an unpinned image and have it change
+> underneath them with no signal, so every consumer must state how much drift
+> it accepts. See [README.md](../../../README.md#versioning).
+
 
 ## Summary
 
@@ -229,6 +237,10 @@ release. We follow the FSDK lifecycle directly.
 
 - **Tags**: `:latest` (rolling) + `:25.08` (FSDK minor/branch line) +
   `:25.08.13` (FSDK point release, treated immutable).
+  > **Superseded (2026-08-01):** `:latest` was removed in PR #34 (issue #23).
+  > `:25.08` (the minor line) is now the most permissive published tag,
+  > `:25.08.NN` stays immutable, and pre-release/beta tags are published for
+  > upstream dev/beta branches. There is deliberately no `:latest`.
 - **Source of truth**: the junction `ref` in `elements/freedesktop-sdk.bst`. A
   small script parses the FSDK version (e.g. `25.08.13`) out of that ref — no
   separate version file to drift.
@@ -267,6 +279,8 @@ Custom provenance labels (every image self-declares its FSDK base):
 5. Push per-arch tags.
 6. `podman manifest create` + push the multi-arch `:latest` / `:25.08` /
    `:25.08.13` manifest.
+   *(2026-08-01: `:latest` is no longer part of that set — see the Versioning
+   note above.)*
 
 Justfile recipes are adapted from dakota where they apply (build, checkout,
 squash, push) to keep local and CI builds identical.

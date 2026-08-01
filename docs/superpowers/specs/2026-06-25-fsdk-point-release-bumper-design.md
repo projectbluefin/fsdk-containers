@@ -79,6 +79,10 @@ jobs:
 When a point-release bump is successfully pushed to `main`:
 1. The standard `.github/workflows/build.yml` push trigger fires.
 2. The dynamic tags (like `:latest`, `:25.08`, and the new point-release tag `:25.08.NN`) are auto-calculated from the updated `elements/freedesktop-sdk.bst`.
+   > **Superseded (2026-08-01):** `:latest` was removed in PR #34 (issue #23).
+   > The auto-calculated set is now the minor line (`:25.08` — the most
+   > permissive published tag), the immutable point release (`:25.08.NN`), and
+   > pre-release/beta tags. There is deliberately no `:latest`.
 3. New container images are built, verified, and pushed to GHCR end-to-end.
 
 ## Verification

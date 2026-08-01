@@ -5,6 +5,19 @@
 > completed. Delta from plan: element and image names use `base-*` not `static-*`;
 > the dakota-copied GNOME overrides and unrelated patches were trimmed post-delivery.
 
+> **Superseded in part (2026-08-01) — tagging.** Everything below records the
+> plan as executed in June 2026, including the `:latest` tag it shipped.
+> `:latest` was removed in PR #34 (issue #23). The published set is now the FSDK
+> minor line (`:25.08` — the most permissive published tag), the immutable point
+> release (`:25.08.NN`), and pre-release/beta tags; the local build/verify/push
+> recipes hand the image between each other via a private, never-published
+> `build` tag. There is deliberately no `:latest`: a rolling alias lets a
+> consumer deploy an unpinned image and have it change underneath them with no
+> signal, so every consumer must state how much drift it accepts. Justfile,
+> `Containerfile` and workflow snippets quoted below are historical records of
+> what was written at the time — read the live `Justfile` and
+> [README.md](../../../README.md#versioning) for current behaviour.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and publish a distroless `base` OCI image carved from freedesktop-sdk (FSDK) components via BuildStream, multi-arch, pushed to `ghcr.io/projectbluefin/base`.
@@ -22,7 +35,7 @@
 - Distroless-only (no `-dev`/shell variant in this plan).
 - **Base image targets baseline `x86_64` — do NOT enable `x86_64_v3`** (broad CPU compat for a base layer). This diverges from dakota's Justfile default.
 - All FSDK element references use the junction prefix `freedesktop-sdk.bst:` (e.g. `freedesktop-sdk.bst:components/glibc-gconv-cache.bst`). `oci-builder` is referenced as `freedesktop-sdk.bst:components/oci-builder.bst`.
-- Tags derive from the FSDK release parsed out of `elements/freedesktop-sdk.bst` (`:latest`, `:25.08`, `:25.08.13`). No separate version file.
+- Tags derive from the FSDK release parsed out of `elements/freedesktop-sdk.bst` (`:latest`, `:25.08`, `:25.08.13`). No separate version file. *(2026-08-01: `:latest` removed in PR #34 / issue #23 — see the note at the top.)*
 - No emojis in any committed file, commit message, README, or workflow.
 - Reference (read-only, do not modify): dakota repo at `/var/home/jorge/src/dakota`. Its staged FSDK source (for verifying element/domain names) is under `/var/home/jorge/src/dakota/.bst/staged-junctions/freedesktop-sdk.bst/<hash>/elements/`.
 
@@ -383,6 +396,10 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 ### Task 3: Local build + distroless verification
 
+> **Superseded in part (2026-08-01):** the recipes below tagged the local image
+> `:latest`; the live `Justfile` uses a private, never-published `build` tag
+> (`ghcr.io/projectbluefin/base:build`). PR #34 / issue #23.
+
 Add Justfile `build`/`export` recipes and prove the image is distroless and correct. Deliverable: `just build` produces `ghcr.io/projectbluefin/static:latest` in local podman; shell is absent; certs + tzdata present.
 
 **Files:**
@@ -486,6 +503,10 @@ If `/bin/sh` runs: the `shells` exclude is not stripping it — inspect the comp
 
 - [ ] **Step 5: Write `Containerfile` (lint helper only)**
 
+> **Historical record (2026-08-01).** Do not run this as written: the base ref
+> below names `static:latest`, a tag this project no longer publishes. The
+> equivalent today is `FROM ghcr.io/projectbluefin/base:25.08` (or a digest).
+
 ```dockerfile
 # Lint helper for an already-built static image. Image contents come from
 # BuildStream elements + OCI assembly .bst files, not from this file.
@@ -508,12 +529,18 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 Derive image tags from the pinned FSDK ref and stamp provenance labels. Deliverable: `just tags` prints the three tags; `just export` applies FSDK provenance labels.
 
+> **Superseded in part (2026-08-01):** the `tags` and `tag-push` recipes below
+> emit and push `latest`. Both were changed in PR #34 (issue #23): `just tags`
+> now prints the minor line, the point release, and any pre-release/beta tag,
+> and `tag-push` pushes from the private `build` tag. There is deliberately no
+> `:latest`.
+
 **Files:**
 - Modify: `Justfile` (add `fsdk_version`/`fsdk_ref` vars, `tags` recipe; extend `export` labels; add `tag-push` recipe)
 
 **Interfaces:**
 - Consumes: `elements/freedesktop-sdk.bst` `ref:` line; `image_registry`/`image_name`.
-- Produces: `just tags` → newline list `latest 25.08 25.08.13`; `just tag-push REGISTRY_REF` applied by CI in Task 5. Labels `io.projectbluefin.fsdk.version` + `io.projectbluefin.fsdk.ref` on the image.
+- Produces: `just tags` → newline list `latest 25.08 25.08.13`; `just tag-push REGISTRY_REF` applied by CI in Task 5. Labels `io.projectbluefin.fsdk.version` + `io.projectbluefin.fsdk.ref` on the image. *(2026-08-01: `just tags` no longer emits `latest` — PR #34 / issue #23.)*
 
 - [ ] **Step 1: Add version-derivation vars + `tags` recipe to `Justfile`**
 
@@ -581,8 +608,11 @@ tag-push REPO:
 
 - [ ] **Step 5: Re-export and confirm labels**
 
-Run: `OCI_IMAGE_REVISION=test just export && sudo podman inspect ghcr.io/projectbluefin/static:latest --format '{{ "{{" }} index .Config.Labels "io.projectbluefin.fsdk.version" {{ "}}" }}'`
+Run: `OCI_IMAGE_REVISION=test just export && sudo podman inspect ghcr.io/projectbluefin/base:build --format '{{ "{{" }} index .Config.Labels "io.projectbluefin.fsdk.version" {{ "}}" }}'`
 Expected: PASS — prints the FSDK version (e.g. `25.08.13`).
+*(Command updated 2026-08-01: `just export` now loads `base:build`; the
+original step inspected `static:latest`, a tag this project no longer
+publishes.)*
 
 - [ ] **Step 6: Commit**
 
@@ -604,7 +634,7 @@ Build per-arch on native runners and publish a multi-arch manifest to ghcr. Deli
 
 **Interfaces:**
 - Consumes: `just validate`, `just build`, `just tag-push` recipes; `image_registry`/`image_name`.
-- Produces: pushed images `ghcr.io/<owner>/static:{latest,25.08,25.08.13}` plus per-arch refs, combined into a multi-arch manifest.
+- Produces: pushed images `ghcr.io/<owner>/static:{latest,25.08,25.08.13}` plus per-arch refs, combined into a multi-arch manifest. *(2026-08-01: `latest` is no longer in that set — PR #34 / issue #23.)*
 
 - [ ] **Step 1: Write `.github/workflows/build.yml`**
 
@@ -737,6 +767,10 @@ cp /var/home/jorge/src/dakota/LICENSE LICENSE
 ```
 
 - [ ] **Step 2: Write `README.md`**
+
+> **Historical record (2026-08-01).** The README text quoted below is the June
+> 2026 draft. The live [README.md](../../../README.md) no longer documents a
+> `:latest` tag and the local build loads `ghcr.io/projectbluefin/base:build`.
 
 ```markdown
 # fsdk-containers
