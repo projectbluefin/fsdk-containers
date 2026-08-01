@@ -24,8 +24,12 @@ release. Tags are derived from the pinned junction ref in
 
 `just tags` parses these from the ref. Provenance labels
 `io.projectbluefin.fsdk.version` / `io.projectbluefin.fsdk.ref` are applied at
-export so every image self-declares its base. We aim to track every upstream development
-and beta branch, ensuring images are continuously built and published for early testing.
+export so every image self-declares its base. The
+`org.opencontainers.image.ref.name` index annotation in `elements/oci/*.bst`
+substitutes `%{fsdk-version}` (from the gitignored `include/fsdk-version.yml`
+that `just bst` regenerates), so a bump needs no edit there. We aim to track
+every upstream development and beta branch, ensuring images are continuously
+built and published for early testing.
 
 ## Procedure
 
