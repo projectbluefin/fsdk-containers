@@ -115,7 +115,7 @@ image list.
 **verification-only**: it checks out the payload branch and runs both native
 architecture builds plus `just verify`, but it must not log in, push per-arch
 images, assemble manifests, sign, or publish attestations. This prevents
-unreviewed bump branches from moving `latest` or minor production tags. The
+unreviewed bump branches from moving minor production tags. The
 same caution applies to the VM guest's publish step: it only runs on
 `push`/`workflow_dispatch`, never `repository_dispatch`.
 
@@ -132,7 +132,7 @@ the Justfile `tag-push` recipe and the workflow manifest loop guard this with
 a `skopeo inspect --no-tags docker://REPO:TAG` existence check and skip the
 push if the tag exists.
 
-`latest` and the minor-line tag are rolling, but the manifest job only
+The minor-line tag is rolling, but the manifest job only
 assembles and pushes them when **both** required architectures (`x86_64` and
 `aarch64`) were successfully built and published. If one architecture failed,
 the rolling/minor-line tags are skipped so a single-arch manifest cannot
@@ -141,7 +141,7 @@ signing digest from the first tag it actually publishes, so signing is skipped
 entirely when no tags are pushed.
 
 The `podman-vm` release assets follow the same immutability shape one level
-up: there is no rolling `latest` equivalent at all (GitHub Release assets
+up: there is no rolling equivalent at all (GitHub Release assets
 are inherently tied to their tag), and `just publish-podman-vm` guards
 re-uploads with a `gh release view --json assets` existence check, skipping
 an asset name that's already published on that tag instead of overwriting

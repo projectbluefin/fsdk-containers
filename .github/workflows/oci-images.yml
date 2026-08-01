@@ -145,8 +145,8 @@ jobs:
           # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
           while read -r t; do
-            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
-              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
+            if [[ "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
+              echo "==> skipping ${REPO}:${t} (minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
               continue
             fi
             if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then

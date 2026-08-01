@@ -3,7 +3,7 @@
 ## Supported images
 
 Only images published to `ghcr.io/projectbluefin/*` from the `main` branch of
-this repository are supported. The `:latest` and minor-line tags (e.g.
+this repository are supported. The minor-line tags (e.g.
 `:25.08`) receive rebuilds as freedesktop-sdk ships CVE fixes; point-release
 tags (e.g. `:25.08.13`) are immutable snapshots and are **not** patched —
 consumers pinning point releases should track the minor line for security
