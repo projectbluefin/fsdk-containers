@@ -91,16 +91,17 @@ other in the Actions UI:
 
 | File | Called by | Purpose |
 |---|---|---|
-| `build.yml` | GitHub triggers | `validate` (PR gate), `matrix` (resolves the OCI image list once), calls `oci-images.yml` and `vm-guest.yml`, then a `summary` job |
-| `oci-images.yml` | `build.yml` via `workflow_call`, `images` input | `build` + `manifest` jobs for the OCI distroless image lane |
+| `build.yml` | GitHub triggers | `validate` (PR gate), `matrix` (resolves the OCI image list once), fans out one `oci-images.yml` call per image, calls `vm-guest.yml`, then a `summary` job |
+| `oci-images.yml` | `build.yml` via `workflow_call`, `image` input | `build` + `manifest` jobs for exactly one OCI distroless image |
 | `vm-guest.yml` | `build.yml` via `workflow_call` | `build` job (matrix arch) for the podman-vm guest disk lane |
 
 | Job | Trigger | Purpose |
 |---|---|---|
 | `validate` (`build.yml`) | `pull_request` only | `bst show` element graph resolution, no build |
-| `matrix` (`build.yml`) | not on `pull_request` | reads `elements/targets.json` (`just image-matrix`) once, passes the JSON image list to `oci-images.yml` |
-| `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per container (from the manifest) and arch (x86_64 + aarch64), build + verify + tag-push |
-| `manifest` (`oci-images.yml`) | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+| `matrix` (`build.yml`) | not on `pull_request` | reads `elements/targets.json` (`just image-matrix`) once and optionally narrows it to a validated manual-dispatch image |
+| `oci-images` (`build.yml`) | after `matrix` | matrix-calls `oci-images.yml` once per selected image |
+| `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per architecture (x86_64 + aarch64) for that one image: build + verify + tag-push |
+| `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
 | `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
@@ -118,6 +119,34 @@ images, assemble manifests, sign, or publish attestations. This prevents
 unreviewed bump branches from moving minor production tags. The
 same caution applies to the VM guest's publish step: it only runs on
 `push`/`workflow_dispatch`, never `repository_dispatch`.
+
+### Per-image OCI fan-out
+
+`build.yml` resolves `oci_images` only once, then uses a GitHub Actions matrix
+to call `oci-images.yml` independently for each image. The reusable workflow
+accepts one image name, so its `manifest` job waits only for that image's two
+architecture legs. Never pass the whole target list into a reusable workflow
+whose manifest job has `needs: build`: that makes every image's publication
+wait for the slowest or failed unrelated matrix leg.
+
+Manual `workflow_dispatch` exposes an optional `image` text input. An empty
+value builds the whole canonical manifest; a non-empty value is validated
+against `elements/targets.json` before it is fanned out. Targeted runs use a
+separate parent concurrency group, while `oci-images.yml` serializes only
+conflicting publication for the same ref and image. This lets distinct targets
+run at the same time without racing their tags.
+
+BuildStream's shared artifact and source pull caches in `project.conf` are the
+CI cache layer for this fan-out. They are available to every native runner as
+soon as it starts; a GitHub Actions local cache cannot provide artifacts to
+sibling matrix jobs until the producing job finishes. Use a private remote CAS
+for shared push caching, not a monolithic local cache, when public pull caches
+are insufficient.
+
+Source-verified against GitHub Actions: [Using a matrix strategy with a
+reusable workflow](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#using-a-matrix-strategy-with-a-reusable-workflow)
+and [Control concurrency of workflows and
+jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
 `brew-nspawn` (machine tarball) is not currently wired into any CI workflow
 — see docs/skills/nspawn-machine-image.md. `podman-vm` (bootable VM disk) is
@@ -147,7 +176,8 @@ re-uploads with a `gh release view --json assets` existence check, skipping
 an asset name that's already published on that tag instead of overwriting
 it. See docs/skills/vm-podman-guest.md.
 
-Set `fail-fast: false` on the multi-dimensional matrices to prevent a single container build failure from canceling the other container builds.
+Set `fail-fast: false` on image and architecture matrices to prevent a single
+container build failure from canceling unrelated container builds.
 
 ## Common Rationalizations
 

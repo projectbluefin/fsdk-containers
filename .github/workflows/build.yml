@@ -14,9 +14,17 @@ on:
   repository_dispatch:
     types: [fsdk-updated]
   workflow_dispatch:
+    inputs:
+      image:
+        description: Optional OCI image to build; leave empty to build every manifest target
+        required: false
+        default: ""
+        type: string
 
 concurrency:
-  group: build-${{ github.event.client_payload.ref || github.ref }}
+  # A targeted manual run must not cancel an unrelated image's targeted run.
+  # oci-images.yml independently serializes publication for the same image.
+  group: build-${{ github.event.client_payload.ref || github.ref }}-${{ github.event.inputs.image || 'all' }}
   cancel-in-progress: true
 
 # Ceiling permissions for the whole run. Reusable-workflow calling jobs
@@ -63,11 +71,29 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - id: set
-        run: echo "oci_images=$(jq -c '.oci_images' elements/targets.json)" >> "$GITHUB_OUTPUT"
+        env:
+          SELECTED_IMAGE: ${{ github.event.inputs.image || '' }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${SELECTED_IMAGE}" ]]; then
+            if ! jq -e --arg image "${SELECTED_IMAGE}" \
+              '.oci_images | index($image) != null' elements/targets.json >/dev/null; then
+              echo "ERROR: unknown OCI image '${SELECTED_IMAGE}' (see elements/targets.json)" >&2
+              exit 1
+            fi
+            OCI_IMAGES="$(jq -cn --arg image "${SELECTED_IMAGE}" '[$image]')"
+          else
+            OCI_IMAGES="$(jq -c '.oci_images' elements/targets.json)"
+          fi
+          echo "oci_images=${OCI_IMAGES}" >> "$GITHUB_OUTPUT"
 
   oci-images:
     needs: matrix
     if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.matrix.outputs.oci_images) }}
     uses: ./.github/workflows/oci-images.yml
     permissions:
       contents: read
@@ -75,7 +101,7 @@ jobs:
       attestations: write
       id-token: write
     with:
-      images: ${{ needs.matrix.outputs.oci_images }}
+      image: ${{ matrix.image }}
       ref: ${{ github.event.client_payload.ref || github.ref }}
 
   vm-guest:

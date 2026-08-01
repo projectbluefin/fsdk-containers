@@ -105,6 +105,16 @@ inside the FSDK `bst2` container -- nothing to install.
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 
+All image recipes are independently selectable from the canonical
+`elements/targets.json` manifest; for example:
+
+    BUILD_IMAGE_NAME=python just build
+    BUILD_IMAGE_NAME=python just verify
+
+The manual **Build images** workflow likewise accepts an optional `image`
+input, so one target can fan out to native x86_64 and aarch64 runners without
+building a separate repository or waiting for unrelated image targets.
+
 By default `just bst` submits build actions to the ghost cluster's BuildBarn
 remote-execution grid instead of building on your machine (and fails loudly if
 the cluster is unreachable). Use `BST_LOCAL=1 just build` for explicit local

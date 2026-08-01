@@ -1,27 +1,29 @@
 name: Build OCI images
 
-# Reusable workflow for the OCI distroless image lane only (elements/oci/*,
-# published under `oci_images` in elements/targets.json). Deliberately
-# excludes the podman-vm guest disk (see vm-guest.yml) and the brew-nspawn
-# machine image lane so a failure in one unrelated image never blocks or
-# obscures the other artifact pipelines in the Actions UI. See
+# Reusable workflow for one OCI distroless image target (elements/oci/*,
+# published under `oci_images` in elements/targets.json). build.yml calls this
+# once per target so a slow or failed image never delays another image's
+# manifest, signing, or attestation. Deliberately excludes the podman-vm guest
+# disk (see vm-guest.yml) and the brew-nspawn machine image lane. See
 # docs/skills/ci-tooling.md.
 
 on:
   workflow_call:
     inputs:
-      images:
-        description: >
-          JSON array of image names to build, sourced from the
-          `oci_images` list in elements/targets.json (the single canonical
-          manifest -- see `just image-matrix`). Adding a package requires
-          one entry there, not an edit to this workflow.
+      image:
+        description: OCI image name, validated against elements/targets.json by build.yml
         required: true
         type: string
       ref:
         description: Git ref to check out (supports repository_dispatch client_payload.ref).
         required: true
         type: string
+
+concurrency:
+  # Serialize only conflicting publication for this ref/image; other targets
+  # remain free to build, verify, sign, and publish in parallel.
+  group: oci-image-${{ inputs.ref }}-${{ inputs.image }}
+  cancel-in-progress: true
 
 env:
   BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
@@ -31,7 +33,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ${{ fromJson(inputs.images) }}
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -59,22 +60,20 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build and verify image
         run: |
-          BUILD_IMAGE_NAME=${{ matrix.image }} just build
-          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
+          BUILD_IMAGE_NAME=${{ inputs.image }} just build
+          BUILD_IMAGE_NAME=${{ inputs.image }} just verify
       - name: Publish architecture image
         if: github.event_name != 'repository_dispatch'
-        run: BUILD_IMAGE_NAME=${{ matrix.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ matrix.image }}-${{ matrix.arch }}"
+        run: BUILD_IMAGE_NAME=${{ inputs.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ inputs.image }}-${{ matrix.arch }}"
 
   manifest:
+    # This reusable workflow is invoked once per image, so this only waits for
+    # the x86_64 and aarch64 legs for the matching image.
     needs: build
     # repository_dispatch is verification-only for an unmerged FSDK bump;
     # never publish branch content to production tags.
     if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        image: ${{ fromJson(inputs.images) }}
     permissions:
       contents: read
       packages: write
@@ -108,13 +107,13 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
 
       - name: Generate BuildStream-native SBOM
-        run: just sbom "${{ matrix.image }}"
+        run: just sbom "${{ inputs.image }}"
 
       - name: Assemble multi-arch manifest, sign, and attach SBOM
         id: resolve-digest
         run: |
           set -euo pipefail
-          IMAGE="${{ matrix.image }}"
+          IMAGE="${{ inputs.image }}"
           REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
 
           # Check which per-architecture images were successfully built and published
@@ -209,6 +208,6 @@ jobs:
         if: steps.resolve-digest.outputs.digest != ''
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
-          subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
+          subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ inputs.image }}
           subject-digest: ${{ steps.resolve-digest.outputs.digest }}
           push-to-registry: true

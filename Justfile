@@ -724,6 +724,9 @@ sbom variant="base":
     OUTFILE="${SPDX_NAME}.spdx.json"
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
+    # buildstream-sbom invokes BuildStream directly rather than through `just
+    # bst`, so regenerate the same gitignored version include first.
+    printf 'fsdk-version: "%s"\n' "{{fsdk_version}}" > include/fsdk-version.yml
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
     {{sudo_cmd}} podman run --rm \
@@ -763,6 +766,8 @@ sboms:
     set -euo pipefail
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
+    # Keep direct buildstream-sbom invocation consistent with `just bst`.
+    printf 'fsdk-version: "%s"\n' "{{fsdk_version}}" > include/fsdk-version.yml
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
     # Read the manifest on the host (jq is a GHA-runner/host dependency, not a
     # bst2-container one) so the container loop below never needs its own

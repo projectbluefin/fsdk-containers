@@ -104,6 +104,12 @@ consumer boots it -- `projectbluefin/donate-clanker`'s
   `org.projectbluefin.donate-clanker.bootstrap`,
 - headless, with the serial console captured to a file.
 
+On Ubuntu GitHub runners, install `ipxe-qemu` with the architecture's QEMU
+and UEFI packages: the consumer-compatible `-drive if=virtio` topology makes
+QEMU load `efi-virtio.rom`, which that package supplies. Do not replace the
+topology just to avoid the package; the boot test must exercise the consumer's
+real device layout.
+
 It asserts, in order, that firmware handed off to a bootloader, that the
 Linux kernel started, that the initrd switched into the root filesystem,
 that the serial getty reached the login prompt, and that systemd activated
