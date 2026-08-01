@@ -48,6 +48,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
           tool: just
@@ -83,6 +84,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
           tool: just
@@ -133,8 +135,16 @@ jobs:
 
           echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
 
-          # Rolling/minor-line tags must remain multi-arch: only update them when
-          # both required architectures were successfully built and published.
+          # Rolling and minor-line tags must remain multi-arch: only update
+          # them when both required architectures were successfully built and
+          # published. If one architecture failed, a single-arch manifest
+          # would otherwise silently replace the existing multi-arch one for
+          # every consumer pinned to the minor line. The point-release tag is
+          # still published, because it is immutable and a partial point
+          # release is visibly incomplete rather than a regression of a tag
+          # people already depend on. `just tags` deliberately emits no
+          # `latest` (see the recipe); the check keeps it guarded anyway so
+          # re-introducing a rolling alias cannot quietly bypass this rule.
           BOTH_ARCHS_AVAILABLE=false
           if [ ${#AVAIL_ARCHS[@]} -eq 2 ]; then
             BOTH_ARCHS_AVAILABLE=true
@@ -144,8 +154,8 @@ jobs:
           # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
           while read -r t; do
-            if [[ "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
-              echo "==> skipping ${REPO}:${t} (minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
+            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
+              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
               continue
             fi
             if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
