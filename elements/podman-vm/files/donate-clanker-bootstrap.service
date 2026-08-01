@@ -7,6 +7,9 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=/usr/libexec/donate-clanker-bootstrap
 RemainAfterExit=yes
+# The bootstrap outwaits the host launcher's 180s accept timeout, so systemd
+# must not kill it at the 90s DefaultTimeoutStartSec first.
+TimeoutStartSec=300
 
 [Install]
 WantedBy=multi-user.target

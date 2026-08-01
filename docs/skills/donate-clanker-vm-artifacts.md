@@ -48,9 +48,12 @@ systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
 `projectbluefin/donate-clanker` commit
 `96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
 virtio-serial channel as an unbuffered binary stream because virtio ports are
-non-seekable; it decodes the envelope line, validates it, encodes
-`control_ack`, keeps credentials in memory, and execs
-`/usr/libexec/donate-clanker-worker`.
+non-seekable; it retries until the launcher's version-2 envelope line arrives,
+validates it, encodes a version-2 `control_ack`, keeps credentials in memory,
+and execs `/usr/libexec/donate-clanker-worker` with the `HIVE_*`/`AGENT_*`/
+`GOOSE_*` names that worker actually reads. Both schemas belong to
+donate-clanker -- see "Guest bootstrap contract" in
+docs/skills/vm-podman-guest.md before touching either end.
 
 The EFI tree is staged separately from the root filesystem. Before `genimage`
 copies it into the disk, `podman-vm-efi.bst` rewrites each loader entry's
