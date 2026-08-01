@@ -143,6 +143,78 @@ image-list:
 image-matrix:
     @jq -c '.oci_images' elements/targets.json
 
+# Print the build targets affected by the changes between BASE and HEAD as one
+# JSON object: {"oci_images":[...],"vm_guest":true|false}. This is the
+# pull-request build gate: a PR builds and verifies only what it can break,
+# instead of nothing at all (the previous behaviour, which let broken elements
+# reach main and only fail post-merge) or all seven images times two
+# architectures (not viable per PR). Path ownership lives in
+# elements/targets.json, never in a workflow.
+[group('info')]
+changed-targets BASE HEAD="HEAD":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    MANIFEST=elements/targets.json
+
+    # Compare against the merge base so a PR is judged on its own changes, not
+    # on whatever landed on the base branch since it was opened.
+    MERGE_BASE="$(git merge-base "{{BASE}}" "{{HEAD}}")"
+    mapfile -t FILES < <(git diff --name-only "${MERGE_BASE}" "{{HEAD}}")
+
+    # A prefix ending in '/' matches everything beneath it; anything else must
+    # match the path exactly, so `elements/oci/base.bst` never matches
+    # `elements/oci/base-extra.bst`.
+    matches_any() {
+        local file="$1"; shift
+        local prefix
+        for prefix in "$@"; do
+            case "${prefix}" in
+                */) [[ "${file}" == "${prefix}"* ]] && return 0 ;;
+                *)  [[ "${file}" == "${prefix}" ]] && return 0 ;;
+            esac
+        done
+        return 1
+    }
+
+    mapfile -t SHARED < <(jq -r '.shared_paths[]' "${MANIFEST}")
+    mapfile -t VM_PATHS < <(jq -r '.vm_guest_paths[]' "${MANIFEST}")
+    CANARY="$(jq -r '.canary_image' "${MANIFEST}")"
+
+    SELECTED=()
+    VM_GUEST=false
+    SHARED_HIT=false
+    for file in "${FILES[@]:-}"; do
+        [ -n "${file}" ] || continue
+        if matches_any "${file}" "${VM_PATHS[@]}"; then
+            VM_GUEST=true
+        fi
+        if matches_any "${file}" "${SHARED[@]}"; then
+            SHARED_HIT=true
+        fi
+        while IFS= read -r img; do
+            mapfile -t IMG_PATHS < <(jq -r --arg i "${img}" '.image_paths[$i][]' "${MANIFEST}")
+            if matches_any "${file}" "${IMG_PATHS[@]}"; then
+                SELECTED+=("${img}")
+            fi
+        done < <(jq -r '.oci_images[]' "${MANIFEST}")
+    done
+
+    if [ "${SHARED_HIT}" = true ]; then
+        SELECTED+=("${CANARY}")
+    fi
+
+    # Deduplicate while keeping manifest order, so the matrix is stable.
+    # `grep` legitimately matches nothing when no target is selected, which is
+    # not an error under `set -e`.
+    SELECTED_LINES="$(printf '%s\n' "${SELECTED[@]:-}" | grep -v '^$' || true)"
+    OCI_JSON="$(printf '%s' "${SELECTED_LINES}" \
+        | jq -Rsc --slurpfile m <(jq '{oci_images}' "${MANIFEST}") \
+            'split("\n") | map(select(length > 0)) | unique as $sel
+             | $m[0].oci_images | map(select(. as $i | $sel | index($i)))')"
+
+    jq -cn --argjson oci "${OCI_JSON}" --argjson vm "${VM_GUEST}" \
+        '{oci_images: $oci, vm_guest: $vm}'
+
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
