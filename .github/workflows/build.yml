@@ -24,7 +24,7 @@ on:
 concurrency:
   # A targeted manual run must not cancel an unrelated image's targeted run.
   # oci-images.yml independently serializes publication for the same image.
-  group: build-${{ github.event.client_payload.ref || github.ref }}-${{ inputs.image || 'all' }}
+  group: build-${{ github.event.client_payload.ref || github.ref }}-${{ github.event.inputs.image || 'all' }}
   cancel-in-progress: true
 
 # Ceiling permissions for the whole run. Reusable-workflow calling jobs
@@ -72,7 +72,7 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - id: set
         env:
-          SELECTED_IMAGE: ${{ inputs.image || '' }}
+          SELECTED_IMAGE: ${{ github.event.inputs.image || '' }}
         run: |
           set -euo pipefail
           if [[ -n "${SELECTED_IMAGE}" ]]; then
