@@ -74,6 +74,8 @@ reuse an EFI tree byte-for-byte without checking it against the ext4 root UUID.
 - `just export-podman-vm` checks out the raw disk and checksum manifest.
 - `just export-podman-vm-qcow2` (requires `qemu-img`/`qemu-utils`) additionally
   produces the QCOW2 conversion and its own checksum manifest.
+- `tests/vm-boot.sh [disk.raw]` boots the disk under plain QEMU -- see
+  "Boot test" below.
 - `just compress-podman-vm` (requires `zstd`) produces the `.zst` release
   assets and their checksum manifests, keeping the originals.
 - `just sbom podman-vm` generates the SPDX SBOM for the VM guest element
@@ -84,13 +86,66 @@ reuse an EFI tree byte-for-byte without checking it against the ext4 root UUID.
 - Treat the observed x86_64 local benchmark (~10 minutes, 2.2G raw) as
   indicative only, not a contract.
 
+## Boot test
+
+`tests/vm-boot.sh` is the boot gate. It boots the disk the way the only real
+consumer boots it -- `projectbluefin/donate-clanker`'s
+`just/61-donate-clanker.just`:
+
+- `qemu-system-<arch>` directly, KVM when the host offers a usable
+  `/dev/kvm` for that architecture, otherwise TCG,
+- EDK2/OVMF firmware as a `-drive if=pflash` CODE + writable VARS pair, with
+  a single-blob `-bios` fallback,
+- a per-run QCOW2 overlay, `qemu-img create -f qcow2 -F raw -b <raw>`. The
+  master raw disk is **never** booted directly: writing to it breaks its
+  published checksum. The test re-verifies the master's checksum after the
+  boot to prove the overlay held,
+- user-mode virtio networking and the virtio-serial `virtserialport` named
+  `org.projectbluefin.donate-clanker.bootstrap`,
+- headless, with the serial console captured to a file.
+
+It asserts, in order, that firmware handed off to a bootloader, that the
+Linux kernel started, that the initrd switched into the root filesystem, and
+that the serial getty reached the login prompt.
+
+The switch-root marker is the one that catches this guest's real failure
+mode. The loader entry's `root=UUID=` and the ext4 root UUID come from two
+different BuildStream builds; when they disagree the initrd waits on
+`Expecting device dev-disk-by-uuid-...` forever. Observed on the published
+`donate-clanker-vm-25.08.14-x86_64.raw` (built before the loader-entry
+rewrite in `podman-vm-efi.bst` landed): loader entry
+`root=UUID=9e71ad99-5ddc-5b20-8b9c-f3f6b4e570e1`, actual ext4 root UUID
+`a5e5b74b-7aa6-58b1-8408-e4147a36da17`. The login prompt then proves the
+real root userspace came up. On failure the captured serial log is printed
+to stdout, so a CI failure is diagnosable without downloading an artifact.
+
+`donate-clanker-bootstrap.service` is deliberately **not** asserted on. The
+unit and its `enable` preset ship in the image, but the preset is not
+applied at runtime: booting
+`donate-clanker-vm-25.08.15-aarch64.raw` to a login prompt shows neither
+`donate-clanker-bootstrap.service` nor `systemd-networkd` ever starting.
+That is a real gap in the guest, tracked separately; asserting on it here
+would fail every build for a reason no disk build can fix. Once the preset
+is genuinely applied, tighten the ready marker to that unit -- it is the
+better ready point.
+
+The bootstrap virtio-serial port is wired anyway, so the guest boots against
+the device topology donate-clanker gives it. Nothing is written to it: the
+envelope schema belongs to donate-clanker.
+
+There is deliberately **no Lima**. Lima expects cloud-init, an injected SSH
+key, a guest agent and its own readiness probe; this guest ships none of
+them, so a Lima failure never reliably meant the disk was broken. Do not
+reintroduce it.
+
 ## CI pipeline
 
 See docs/skills/ci-tooling.md for the full workflow structure. In short,
 `.github/workflows/vm-guest.yml` is a reusable workflow (called from
 `build.yml`) with a single matrix job (arch: x86_64, aarch64). Each leg
 builds the raw disk, converts it to QCOW2, verifies both checksums,
-generates the SBOM, boot-tests (x86_64 only, via `tests/podman-vm.sh`), and
+generates the SBOM, boot-tests it under plain QEMU (both architectures, via
+`tests/vm-boot.sh`), and
 -- only on `push`/`workflow_dispatch` -- compresses the disks and publishes
 the compressed disks, checksums, and SBOM as GitHub Release assets, then
 attests them (build provenance + SBOM attestation) via `actions/attest` with

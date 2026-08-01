@@ -86,9 +86,9 @@ variables:
   # architectures never share a disk/partition/filesystem/hash-seed UUID
   # (UUIDv5 is a deterministic hash of namespace+name: same name -> same
   # UUID, different name -> a different UUID with overwhelming
-  # probability). This is independent of the VM's *runtime* identity:
-  # Cloud-init's NoCloud datasource supplies a fresh Lima instance-id at
-  # every boot regardless of this build-time seed.
+  # probability). This is independent of the VM's *runtime* identity: the
+  # guest generates a fresh machine-id on first boot regardless of this
+  # build-time seed.
   #
   # `prepare-image.sh --seed` is a second, distinct derivation: that script
   # treats its `--seed` value as a *namespace* of its own, deriving the
