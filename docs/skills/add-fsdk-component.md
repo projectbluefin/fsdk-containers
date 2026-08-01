@@ -15,7 +15,7 @@ piece that a later VM/appliance task will consume. For the full three-element
 OCI image pattern, see [add-new-image.md](add-new-image.md) instead.
 
 Worked example in this repo: `elements/cloud-init/` (cloud-init 26.2, built
-for a future Lima-accessible QCOW2 that needs the NoCloud datasource).
+for a cloud-image lane that needs the NoCloud datasource).
 
 ## 1. Research with Context7 first
 
@@ -164,7 +164,7 @@ just bst show --deps run cloud-init/cloud-init-stack.bst | grep <shim-element>  
   check upstream's `config/cloud.cfg.tmpl` source directly for whether a
   module is *ever* unconditionally or commonly listed, and test-import it
   regardless of what happens to render in your own build.
-- The NoCloud datasource (needed for Lima's `cidata.iso`) is recognized
+- The NoCloud datasource (needed for a `cidata.iso` seed) is recognized
   without any extra config: it's first in cloud-init's built-in
   `CFG_BUILTIN["datasource_list"]` fallback (`cloudinit/settings.py`), and
   this element's rendered `/etc/cloud/cloud.cfg` does not override
@@ -178,8 +178,8 @@ just bst show --deps run cloud-init/cloud-init-stack.bst | grep <shim-element>  
   `components/util-linux.bst`, which is where `blkid` itself lives, as its
   own runtime-dep, so depending on `util-linux-full` alone is sufficient)
   and `freedesktop-sdk.bst:components/shadow.bst` (provides `useradd`/
-  `usermod`, used by `cc_users_groups` to create/update the user Lima
-  injects dynamically via `--uid`). Both are `runtime-depends` on
+  `usermod`, used by `cc_users_groups` to create/update a user injected
+  dynamically via `--uid`). Both are `runtime-depends` on
   `cloud-init.bst` itself (needed only when cloud-init *runs*, not to build
   it), not stack-level additions — matching how cloud-init's own mandatory
   Python deps are attached directly to the component.
@@ -233,7 +233,7 @@ standalone outside the BuildStream sandbox:
   without requiring root or a real chroot — seed a scratch dir with empty
   `passwd`/`shadow`/`group`/`gshadow`/`subuid`/`subgid` and a minimal
   `login.defs`, then confirm the resulting `passwd` entry has the exact
-  UID requested, simulating Lima's dynamic per-VM user injection.
+  UID requested, simulating dynamic per-VM user injection.
 - An actual `mount -o loop` of a test ISO will fail without root/CAP_SYS_ADMIN
   in a non-VM environment — that's expected and is the real boundary of
   "without a live VM"; use `xorriso -indev <iso> -find /` and `-osirrox on

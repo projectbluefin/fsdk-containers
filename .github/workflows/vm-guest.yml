@@ -7,8 +7,8 @@ name: Build VM guest
 # unrelated OCI image (e.g. lab-runner, static) never blocks or obscures
 # this pipeline, and vice versa.
 #
-# Each matrix leg builds, converts, checksums, SBOMs, (x86_64 only) boot-
-# tests, and publishes only its own architecture's artifacts as steps in a
+# Each matrix leg builds, converts, checksums, SBOMs, boot-tests, and
+# publishes only its own architecture's artifacts as steps in a
 # single job. A separate downstream job with `needs` on this matrix job
 # would wait for every architecture leg before publishing anything -- see
 # docs/skills/ci-tooling.md ("Independent architecture asset publication").
@@ -67,19 +67,46 @@ jobs:
             ( cd dist-vm && sha256sum -c "$(basename "$d").sha256" )
           done
 
-      # Linux arm runners do not have verified nested virtualization support.
-      # The native build plus checksum validation is the architecture gate for
-      # aarch64; x86_64 additionally runs the boot/in-guest smoke test.
-      - name: Set up Lima
-        if: matrix.arch == 'x86_64'
-        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
-      - name: Install QEMU + OVMF firmware
+      # Both architectures are boot-tested, each on its own native runner, so
+      # neither is published on a build-and-checksum gate alone. The disk is
+      # booted the way its only consumer boots it -- plain qemu-system-<arch>
+      # with EDK2/OVMF pflash firmware over a QCOW2 overlay, see
+      # tests/vm-boot.sh -- not under Lima, which this guest ships no
+      # cloud-init, SSH or guest agent to satisfy, so a Lima failure never
+      # reliably meant the disk was broken.
+      - name: Install QEMU and UEFI firmware
+        run: |
+          set -euo pipefail
+          case "${{ matrix.arch }}" in
+            x86_64)  sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf ;;
+            aarch64) sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-efi-aarch64 ;;
+          esac
+
+      # GitHub's x86_64 Linux runners expose /dev/kvm, but only to the kvm
+      # group. Widening it lets the boot test run accelerated instead of
+      # falling back to TCG. Best effort, and deliberately not a gate:
+      # tests/vm-boot.sh detects a usable /dev/kvm itself and raises its own
+      # timeout when it has to fall back to software emulation.
+      - name: Make /dev/kvm usable by the runner user
         if: matrix.arch == 'x86_64'
         run: |
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf
-      - name: Run x86_64 QEMU/Lima integration test
-        if: matrix.arch == 'x86_64'
-        run: tests/podman-vm.sh
+          {
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+              | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+          } || echo "note: could not widen /dev/kvm permissions; the boot test will use TCG"
+
+      # The aarch64 runner is native arm64 but has no nested virtualization,
+      # so this leg boots under TCG on its own architecture -- slow, but not
+      # cross-architecture emulation, and it is a real boot of the real disk.
+      # The alternative, emulating aarch64 on an x86_64 runner, would be
+      # slower still for no extra coverage, and skipping the leg would let an
+      # unbootable aarch64 disk reach a release. tests/vm-boot.sh raises its
+      # own timeout to 1800s when it detects TCG; the job timeout above
+      # accommodates that.
+      - name: Boot-test the ${{ matrix.arch }} disk under QEMU
+        run: tests/vm-boot.sh
 
       - name: Generate BuildStream-native SBOM for the VM guest
         run: just sbom podman-vm
