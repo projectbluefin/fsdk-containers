@@ -398,25 +398,78 @@ export-podman-vm-qcow2: export-podman-vm
     ( cd dist-vm && sha256sum --binary "${qcow2}" > "${qcow2}.sha256" )
     echo "==> wrote:" && ls -lh "dist-vm/${qcow2}" "dist-vm/${qcow2}.sha256"
 
-# Upload the built VM guest artifacts (raw disk + QCOW2, each with its own
-# SHA-256 manifest) as immutable GitHub Release assets under the current
-# FSDK point-release tag (vX.Y.Z). Mirrors the OCI `tag-push` recipe:
-# operates on whatever is already in dist-vm/ (from `just export-podman-vm`
-# and, optionally, `just export-podman-vm-qcow2`, run separately -- e.g.
-# once per arch in CI, artifact handed off between jobs) rather than forcing
-# a rebuild on every publish. Also mirrors `tag-push`'s immutability guard:
-# an asset that already exists on the release is never overwritten. Never
-# publishes a mutable "latest" URL for launcher consumption -- see
-# docs/skills/vm-podman-guest.md. Requires `gh` authenticated with
-# `contents: write` on THIS repo (the workflow's default GITHUB_TOKEN is
-# sufficient -- this is a same-repo release upload, not a cross-repo write,
-# so the org's PAT ban / Mergeraptor requirement does not apply; see
-# docs/skills/ci-tooling.md).
+# Compress the exported disk images with zstd for release publication.
+# GitHub Release assets are hard-capped at 2 GiB each and the raw disk is
+# larger than that (an observed aarch64 build produced a 2.3G raw), so the
+# uncompressed disk can never be an asset: an upload attempt is rejected with
+# `HTTP 422 ... size must be less than 2147483648` AFTER the small checksum
+# sidecar in the same `gh release upload` invocation has already landed. Both
+# originals are kept (--keep) so the boot test, checksum verification, and the
+# artifact attestations still operate on the real disks.
+#
+# The published contract per architecture is therefore:
+#   donate-clanker-vm-<version>-<arch>.raw.zst         (the download)
+#   donate-clanker-vm-<version>-<arch>.raw.zst.sha256  (verifies the download)
+#   donate-clanker-vm-<version>-<arch>.raw.sha256      (verifies the disk after
+#                                                       decompression)
+# and the same three names for .qcow2 when a QCOW2 was exported. This is the
+# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest.md.
+[group('vm')]
+compress-podman-vm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v zstd >/dev/null 2>&1 || { echo "FAIL: zstd not found -- install the 'zstd' package" >&2; exit 1; }
+    shopt -s nullglob
+    disks=(dist-vm/donate-clanker-vm-*.raw dist-vm/donate-clanker-vm-*.qcow2)
+    shopt -u nullglob
+    if [ "${#disks[@]}" -eq 0 ]; then
+        echo "FAIL: no VM disk images in dist-vm/ (run 'just export-podman-vm' first)" >&2
+        exit 1
+    fi
+    for disk in "${disks[@]}"; do
+        echo "==> compressing $(basename "$disk") with zstd..."
+        zstd --quiet --force --keep -T0 -12 "$disk" -o "${disk}.zst"
+        ( cd dist-vm && sha256sum --binary "$(basename "${disk}.zst")" > "$(basename "${disk}.zst").sha256" )
+    done
+    echo "==> wrote:" && ls -lh dist-vm/
+
+# Publish this architecture's VM guest assets to the current FSDK
+# point-release tag (vX.Y.Z) as an all-or-nothing transaction.
+#
+# Publication is per architecture by design (see docs/skills/ci-tooling.md,
+# "Independent architecture asset publication"), so the unit of atomicity is
+# one architecture's complete asset set: the compressed disks, their download
+# checksums, the decompressed-disk checksums, and the SBOM. The rules:
+#
+#   * Preflight. Every file must exist and be under GitHub's 2 GiB per-asset
+#     limit before anything is uploaded. An oversized asset fails here, loudly,
+#     instead of half-way through the upload loop.
+#   * Rollback. Every asset uploaded by this invocation is recorded; any
+#     failure deletes them again before exiting non-zero, so a run can never
+#     leave a checksum on the release without its disk.
+#   * Repair. A release carrying only PART of this architecture's set is the
+#     debris of an earlier failed publish, not a published artifact: the
+#     orphans are deleted and the full set re-uploaded. A COMPLETE set is
+#     immutable and is never overwritten.
+#   * Post-verify. After uploading, the release is re-read and every expected
+#     name must be present with the expected byte size, or the run rolls back
+#     and fails.
+#
+# Operates on whatever is already in dist-vm/ (from `just export-podman-vm`,
+# `just export-podman-vm-qcow2`, and `just compress-podman-vm`) rather than
+# forcing a rebuild. Never publishes a mutable "latest" URL for launcher
+# consumption -- see docs/skills/vm-podman-guest.md. Requires `gh`
+# authenticated with `contents: write` on THIS repo (the workflow's default
+# GITHUB_TOKEN is sufficient -- this is a same-repo release upload, not a
+# cross-repo write, so the org's PAT ban / Mergeraptor requirement does not
+# apply; see docs/skills/ci-tooling.md).
 [group('vm')]
 publish-podman-vm:
     #!/usr/bin/env bash
     set -euo pipefail
     TAG="v{{fsdk_version}}"
+    # GitHub rejects any release asset of 2 GiB or more (HTTP 422).
+    LIMIT=2147483648
     shopt -s nullglob
     raws=(dist-vm/donate-clanker-vm-*.raw)
     qcow2s=(dist-vm/donate-clanker-vm-*.qcow2)
@@ -429,15 +482,35 @@ publish-podman-vm:
         echo "FAIL: expected at most one QCOW2 VM disk in dist-vm/, found ${#qcow2s[@]}" >&2
         exit 1
     fi
-    # Asset pairs: each disk image plus its checksum manifest. QCOW2 is
-    # optional -- callers that only ran `just export-podman-vm` still publish
-    # the raw disk alone.
-    assets=("${raws[0]}" "${raws[0]}.sha256")
-    if [ "${#qcow2s[@]}" -eq 1 ]; then
-        assets+=("${qcow2s[0]}" "${qcow2s[0]}.sha256")
+
+    # The architecture this leg publishes, derived from the disk name
+    # (donate-clanker-vm-<version>-<arch>.raw) so the SBOM asset and the
+    # rollback set can never straddle two architectures.
+    raw_base="$(basename "${raws[0]}")"
+    arch="${raw_base%.raw}"; arch="${arch##*-}"
+    if [ -z "$arch" ]; then
+        echo "FAIL: could not derive architecture from ${raw_base}" >&2
+        exit 1
     fi
+
+    # This architecture's complete asset set. The uncompressed disks are NOT
+    # assets: they exceed GitHub's per-asset limit (see compress-podman-vm).
+    assets=("${raws[0]}.zst" "${raws[0]}.zst.sha256" "${raws[0]}.sha256")
+    if [ "${#qcow2s[@]}" -eq 1 ]; then
+        assets+=("${qcow2s[0]}.zst" "${qcow2s[0]}.zst.sha256" "${qcow2s[0]}.sha256")
+    fi
+    assets+=("dist-vm/podman-vm-${arch}.spdx.json")
+
     for f in "${assets[@]}"; do
-        [ -f "$f" ] || { echo "FAIL: $f not found" >&2; exit 1; }
+        if [ ! -f "$f" ]; then
+            echo "FAIL: $f not found -- run 'just export-podman-vm-qcow2', 'just sbom podman-vm' and 'just compress-podman-vm' first" >&2
+            exit 1
+        fi
+        size="$(stat -c %s "$f")"
+        if [ "$size" -ge "$LIMIT" ]; then
+            echo "FAIL: $f is ${size} bytes; GitHub rejects release assets of ${LIMIT} bytes or more. Increase compression in 'just compress-podman-vm' or shrink the disk." >&2
+            exit 1
+        fi
     done
 
     if ! gh release view "$TAG" >/dev/null 2>&1; then
@@ -447,16 +520,67 @@ publish-podman-vm:
     fi
 
     EXISTING="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
-    for disk in "${raws[0]}" "${qcow2s[@]:-}"; do
-        [ -n "$disk" ] || continue
-        name="$(basename "$disk")"
-        if echo "$EXISTING" | grep -qxF "$name"; then
-            echo "==> skipping ${name} (point-release asset already published, immutable)"
+    present=()
+    missing=()
+    for f in "${assets[@]}"; do
+        name="$(basename "$f")"
+        if printf '%s\n' "$EXISTING" | grep -qxF "$name"; then
+            present+=("$name")
         else
-            gh release upload "$TAG" "$disk" "${disk}.sha256"
-            echo "==> uploaded ${name} + checksum to release ${TAG}"
+            missing+=("$name")
         fi
     done
+
+    if [ "${#missing[@]}" -eq 0 ]; then
+        echo "==> skipping ${arch} (complete point-release asset set already published, immutable)"
+        exit 0
+    fi
+
+    if [ "${#present[@]}" -gt 0 ]; then
+        echo "==> WARNING: release ${TAG} carries a PARTIAL ${arch} asset set from a failed publish:" >&2
+        printf '    %s\n' "${present[@]}" >&2
+        echo "==> deleting the orphans and republishing the complete ${arch} set" >&2
+        for name in "${present[@]}"; do
+            gh release delete-asset "$TAG" "$name" --yes
+        done
+    fi
+
+    # Rollback: anything this invocation uploaded is removed again if any later
+    # step fails, so a partial ${arch} set can never survive a failed run.
+    uploaded=()
+    rollback() {
+        status=$?
+        if [ "${#uploaded[@]}" -gt 0 ]; then
+            echo "==> FAIL: publication of the ${arch} asset set failed; rolling back ${#uploaded[@]} uploaded asset(s)" >&2
+            for name in "${uploaded[@]}"; do
+                gh release delete-asset "$TAG" "$name" --yes || \
+                    echo "==> WARNING: could not delete ${name}; release ${TAG} may need manual cleanup" >&2
+            done
+        fi
+        exit "$status"
+    }
+    trap rollback ERR
+
+    for f in "${assets[@]}"; do
+        name="$(basename "$f")"
+        gh release upload "$TAG" "$f"
+        uploaded+=("$name")
+        echo "==> uploaded ${name} to release ${TAG}"
+    done
+
+    # Post-verify: every asset must be on the release at its full size.
+    PUBLISHED="$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"')"
+    for f in "${assets[@]}"; do
+        name="$(basename "$f")"
+        want="$(stat -c %s "$f")"
+        got="$(printf '%s\n' "$PUBLISHED" | awk -v n="$name" '$1 == n { print $2 }')"
+        if [ "$got" != "$want" ]; then
+            echo "FAIL: ${name} is ${got:-absent} on release ${TAG}, expected ${want} bytes" >&2
+            false
+        fi
+    done
+    trap - ERR
+    echo "==> published the complete ${arch} asset set to release ${TAG}"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /

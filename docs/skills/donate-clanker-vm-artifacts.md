@@ -35,6 +35,10 @@ donate-clanker-vm-<fsdk-version>-<arch>.raw
 donate-clanker-vm-<fsdk-version>-<arch>.raw.sha256
 ```
 
+The release assets are the zstd-compressed disks, not the raw install-root
+files: a GitHub Release asset must be under 2 GiB and the raw disk is larger.
+See "Release asset contract" in docs/skills/vm-podman-guest.md.
+
 `podman-vm/podman-vm-efi.bst` assembles the full rootfs plus EFI tree with
 `genimage` and copies the resulting raw GPT disk to the install root. QEMU
 boots the raw disk directly.
@@ -72,6 +76,9 @@ An observed x86_64 local build took approximately 10 minutes and produced a
 - The requested target is an OCI `qemu-system` or `qemu-img` image.
 - `vm/minimal/deps.bst` and `vm/boot/efi.bst` are bypassed.
 - The output lacks both the raw disk and binary checksum manifest.
+- A release ends up with a checksum sidecar and no disk, or with only one
+  architecture. Publication is all-or-nothing per architecture and the
+  `verify-release` job fails on an incomplete tag.
 
 ## Verification
 
