@@ -105,8 +105,9 @@ consumer boots it -- `projectbluefin/donate-clanker`'s
 - headless, with the serial console captured to a file.
 
 It asserts, in order, that firmware handed off to a bootloader, that the
-Linux kernel started, that the initrd switched into the root filesystem, and
-that the serial getty reached the login prompt.
+Linux kernel started, that the initrd switched into the root filesystem,
+that the serial getty reached the login prompt, and that systemd activated
+`donate-clanker-bootstrap.service`.
 
 The switch-root marker is the one that catches this guest's real failure
 mode. The loader entry's `root=UUID=` and the ext4 root UUID come from two
@@ -119,24 +120,82 @@ rewrite in `podman-vm-efi.bst` landed): loader entry
 real root userspace came up. On failure the captured serial log is printed
 to stdout, so a CI failure is diagnosable without downloading an artifact.
 
-`donate-clanker-bootstrap.service` is deliberately **not** asserted on. The
-unit and its `enable` preset ship in the image, but the preset is not
-applied at runtime: booting
-`donate-clanker-vm-25.08.15-aarch64.raw` to a login prompt shows neither
-`donate-clanker-bootstrap.service` nor `systemd-networkd` ever starting.
-That is a real gap in the guest, tracked separately; asserting on it here
-would fail every build for a reason no disk build can fix. Once the preset
-is genuinely applied, tighten the ready marker to that unit -- it is the
-better ready point.
-
 The bootstrap virtio-serial port is wired anyway, so the guest boots against
 the device topology donate-clanker gives it. Nothing is written to it: the
-envelope schema belongs to donate-clanker.
+envelope schema belongs to donate-clanker, so a schema bump there must not
+turn into a red build here. The bootstrap unit therefore *fails* under the
+boot test after its wait expires, which is why the assertion is on activation
+(the `/dev/kmsg` banner) and not on success.
 
 There is deliberately **no Lima**. Lima expects cloud-init, an injected SSH
 key, a guest agent and its own readiness probe; this guest ships none of
 them, so a Lima failure never reliably meant the disk was broken. Do not
 reintroduce it.
+
+## Getting diagnostics out of this guest
+
+The guest has no SSH, no guest agent, and no cloud-init. The serial console
+is the only channel, and it is narrower than it looks. Measured by booting the
+published `donate-clanker-vm-25.08.15-aarch64.raw` under QEMU:
+
+- `systemd` unit output configured as `StandardOutput=journal+console` does
+  **not** reach the serial console once `serial-getty@ttyAMA0.service` has run
+  its `TTYVHangup=yes`. A marker echoed by such a unit at 90s into the boot was
+  visible in `journalctl` and absent from the captured serial log.
+- A direct write to `/dev/kmsg` from the same boot **did** land on the serial
+  console, timestamped like any kernel message.
+
+So anything a boot test needs to see must go to `/dev/kmsg`. That is why
+`donate-clanker-bootstrap.py` mirrors its progress lines there.
+
+## Guest bootstrap contract
+
+`donate-clanker-bootstrap.service` is the only reason this disk exists. It is
+enabled by `/usr/lib/systemd/system-preset/01-donate-clanker.preset`, which
+FSDK's own `files/vm/prepare-image.sh` applies with
+`systemctl --root "${sysroot}" preset-all` while `podman-vm-efi.bst` assembles
+the image. The enablement symlink
+`/etc/systemd/system/multi-user.target.wants/donate-clanker-bootstrap.service`
+is therefore baked into the published disk -- verified with `debugfs` against
+`donate-clanker-vm-25.08.15-aarch64.raw`. Do not add a second enablement
+mechanism; there is nothing to fix there.
+
+`/usr/libexec/donate-clanker-bootstrap` sits between two schemas, and it has to
+match **both** or the VM boots to an idle login prompt:
+
+| End | Source of truth |
+| --- | --------------- |
+| Envelope in | donate-clanker's `just/61-donate-clanker.just` bootstrap server |
+| Environment out | donate-clanker's `cmd/contributor` + `internal/hive` |
+
+The envelope is protocol **version 2**: required `hive_endpoint`,
+`registration_token`, `backend`, `run_id`; optional `goose_provider`,
+`goose_model`, `provider_secret`. Validate the required keys and ignore
+unknown ones -- an exact key-set comparison rejects every real envelope the
+moment donate-clanker adds an optional field. The acknowledgement must be
+`{"version": 2, "type": "control_ack"}`; the launcher aborts on anything else.
+
+The worker reads its Hive credentials from the environment *first*, using
+these names and no others:
+
+```text
+HIVE_WS_URL / HIVE_HUB     <- hive_endpoint
+HIVE_REGISTRATION_TOKEN    <- registration_token
+AGENT_BACKEND              <- backend
+GOOSE_PROVIDER             <- goose_provider (default: github_copilot)
+GOOSE_MODEL                <- goose_model
+GITHUB_COPILOT_TOKEN       <- provider_secret
+```
+
+Exporting `DONATE_CLANKER_*` equivalents instead leaves the worker with no
+credentials at all. Check `elements/podman-vm/donate-clanker-worker.bst`'s
+pinned ref before changing this table.
+
+Finally, the transport races. QEMU is the chardev *client* of a host-owned
+unix socket, so `/dev/virtio-ports/...` may not exist yet when the unit starts,
+and a read can return EOF before the launcher has written its line. Both must
+be retried; treating either as fatal is what made the whole VM path inert.
+Only one process may hold the port open at a time.
 
 ## CI pipeline
 

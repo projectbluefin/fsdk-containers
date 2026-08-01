@@ -17,7 +17,9 @@
 #   2. the Linux kernel started,
 #   3. the initrd found the root filesystem by UUID and switched into it,
 #   4. the guest reached its ready point: systemd started the serial getty
-#      and the console shows the login prompt.
+#      and the console shows the login prompt,
+#   5. systemd actually activated donate-clanker-bootstrap.service -- the one
+#      unit this whole disk exists to run.
 #
 # Marker 3 is the one that catches the failure mode this guest actually has.
 # The loader entry's `root=UUID=` and the ext4 root UUID are generated in two
@@ -28,11 +30,27 @@
 # reached multi-user.target, and spawned a getty on the serial console.
 #
 # These are markers this image genuinely emits, verified by booting the
-# published donate-clanker-vm-25.08.15-aarch64.raw. Note what is deliberately
-# NOT asserted: donate-clanker-bootstrap.service. The unit and its
-# `enable` preset ship in the image, but the preset is not applied at
-# runtime, so the unit never starts and asserting on it would fail every
-# build for a reason no disk build can fix.
+# published donate-clanker-vm-25.08.15-aarch64.raw.
+#
+# Marker 5 replaces an earlier deliberate omission. The claim it was omitted
+# for -- that the `enable` preset is never applied, so the unit never starts --
+# was wrong: FSDK's own prepare-image.sh runs `systemctl --root preset-all` at
+# image assembly time, the enablement symlink
+# /etc/systemd/system/multi-user.target.wants/donate-clanker-bootstrap.service
+# is baked into the published disk, and the unit does start. It just failed
+# instantly and silently, because its output went only to the journal.
+#
+# Marker 5 asserts on the banner the bootstrap writes to /dev/kmsg before it
+# waits for the host envelope. /dev/kmsg, not the unit's `console` output
+# stream: measured on this same disk, a unit's `journal+console` output stops
+# reaching the serial console once serial-getty has run its TTYVHangup, while a
+# /dev/kmsg write from the same boot still lands. The string can only appear if
+# the unit file shipped, the preset enabled it, systemd activated it, and
+# ExecStart really executed. It does NOT require a successful handshake: no
+# host writes an envelope here (the schema belongs to donate-clanker and a bump
+# there must not turn into a red build here), so the unit will go on to fail
+# its wait. That is expected, and is why the assertion is on activation rather
+# than on success.
 #
 # Nothing here is a skip. A missing artifact, a bad checksum, missing
 # tooling, missing firmware, a boot timeout or a missing marker are all hard
@@ -210,10 +228,10 @@ else
 fi
 
 # The bootstrap virtio-serial port is wired so the guest boots against the
-# same device topology donate-clanker gives it, and so that the port exists
-# if donate-clanker-bootstrap.service is ever actually enabled at runtime.
-# Nothing is written to it: the envelope schema belongs to donate-clanker, so
-# a schema bump there must not turn into a red build here.
+# same device topology donate-clanker gives it. Nothing is written to it: the
+# envelope schema belongs to donate-clanker, so a schema bump there must not
+# turn into a red build here. The port still has to exist, because the guest's
+# bootstrap opens it by name and marker 5 below asserts that it got that far.
 BOOTSTRAP_SOCKET="${WORKDIR}/bootstrap.sock"
 
 log "booting ${ARCH} guest headless (timeout ${BOOT_TIMEOUT}s), serial captured to ${SERIAL_LOG}"
@@ -229,13 +247,18 @@ log "booting ${ARCH} guest headless (timeout ${BOOT_TIMEOUT}s), serial captured 
     -display none -serial "file:${SERIAL_LOG}" -monitor none &
 QEMU_PID=$!
 
-# 7. Wait for the ready marker --------------------------------------------
-# The login prompt the serial getty writes once multi-user.target is up.
+# 7. Wait for the ready markers -------------------------------------------
+# Two independent markers, waited for together under one deadline because
+# their order is not fixed: the serial getty's login prompt and the bootstrap
+# unit's own banner race each other, and which one lands first depends on how
+# long DHCP takes to satisfy network-online.target.
 READY_PATTERN='[[:alnum:]][[:alnum:]_.-]* login:'
+BOOTSTRAP_PATTERN='donate-clanker-bootstrap: waiting for the host bootstrap envelope'
 deadline=$(( $(date +%s) + BOOT_TIMEOUT ))
 ready=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
-    if grep -qaE "$READY_PATTERN" "$SERIAL_LOG" 2>/dev/null; then
+    if grep -qaE "$READY_PATTERN" "$SERIAL_LOG" 2>/dev/null \
+        && grep -qaF "$BOOTSTRAP_PATTERN" "$SERIAL_LOG" 2>/dev/null; then
         ready=1
         break
     fi
@@ -244,7 +267,7 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
     fi
     sleep 2
 done
-[ "$ready" -eq 1 ] || fail "guest did not reach its ready point within ${BOOT_TIMEOUT}s (no serial login prompt on the console)"
+[ "$ready" -eq 1 ] || fail "guest did not reach its ready point within ${BOOT_TIMEOUT}s: the serial console is missing the login prompt, the donate-clanker-bootstrap.service banner, or both (see the captured log below)"
 
 # 8. Assert the whole chain, in order --------------------------------------
 assert_serial() {
@@ -261,6 +284,13 @@ assert_serial "the initrd switched into the root filesystem" \
     'initrd-switch-root|Switching root'
 assert_serial "the serial getty reached the login prompt" \
     "$READY_PATTERN"
+# The point of the whole disk. This banner is the bootstrap's first action, so
+# it proves systemd found the unit enabled, activated it, and successfully
+# executed its ExecStart -- without requiring a handshake nothing here serves.
+# A disk that ships the unit but never enables it, or enables a unit whose
+# interpreter or script is missing, produces no such line and fails here.
+assert_serial "systemd activated donate-clanker-bootstrap.service" \
+    'donate-clanker-bootstrap: waiting for the host bootstrap envelope'
 
 # 9. Prove the master raw disk was not written to --------------------------
 kill "$QEMU_PID" 2>/dev/null || true
