@@ -73,6 +73,11 @@ Every image must be self-declaring and embed OCI labels for easy auditing by SRE
 - `io.projectbluefin.fsdk.version`
 - `io.projectbluefin.fsdk.ref`
 
+The index annotation `org.opencontainers.image.ref.name` is set in each
+`elements/oci/*.bst` to `ghcr.io/projectbluefin/<name>:%{fsdk-version}`, i.e.
+the immutable point-release tag, substituted from the pinned FSDK ref. It must
+never be a hardcoded tag (and never `:latest`, which is no longer published).
+
 ---
 
 ## Red Flags
