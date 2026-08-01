@@ -55,10 +55,13 @@ See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
 ## Verify signatures
 
 All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
-and ship an attached SPDX SBOM. Verify a main-branch build with:
+and ship an attached SPDX SBOM. Signing happens in the `oci-images.yml` reusable
+workflow (called from `build.yml` — see docs/skills/ci-tooling.md), so the
+certificate identity below names that file, not `build.yml`. Verify a
+main-branch build with:
 
     cosign verify ghcr.io/projectbluefin/base:latest \
-      --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/build.yml@refs/heads/main" \
+      --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/oci-images.yml@refs/heads/main" \
       --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 
 (Builds triggered from other refs, e.g. dispatch test builds, are signed with the

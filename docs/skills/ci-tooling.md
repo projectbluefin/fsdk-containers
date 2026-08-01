@@ -85,29 +85,45 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 
 ## Workflow Structure
 
+`build.yml` is a thin orchestrator; the two artifact classes live in their
+own reusable workflows so a failure in one never blocks or obscures the
+other in the Actions UI:
+
+| File | Called by | Purpose |
+|---|---|---|
+| `build.yml` | GitHub triggers | `validate` (PR gate), `matrix` (resolves the OCI image list once), calls `oci-images.yml` and `vm-guest.yml`, then a `summary` job |
+| `oci-images.yml` | `build.yml` via `workflow_call`, `images` input | `build` + `manifest` jobs for the OCI distroless image lane |
+| `vm-guest.yml` | `build.yml` via `workflow_call` | `build` job (matrix arch) for the podman-vm guest disk lane |
+
 | Job | Trigger | Purpose |
 |---|---|---|
-| `validate` | `pull_request` only | `bst show` element graph resolution, no build |
-| `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
-| `manifest` | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
-| `build-podman-vm` | not on `pull_request` | matrix arch (x86_64 + aarch64), builds the `podman-vm-efi.bst` VM guest disk (not an OCI image), uploads the raw disk + checksum manifest as a workflow artifact per arch |
-| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that raw disk and runs the `tests/podman-vm.sh` QEMU/Lima boot integration test |
-| `publish-podman-vm` | after `build-podman-vm` **and a passing** `test-podman-vm`, only `push`/`workflow_dispatch` | matrix arch (x86_64 + aarch64), uploads the raw disk + checksum manifest as immutable GitHub Release assets under the `v<fsdk_version>` tag — never a mutable `latest` URL |
+| `validate` (`build.yml`) | `pull_request` only | `bst show` element graph resolution, no build |
+| `matrix` (`build.yml`) | not on `pull_request` | reads `elements/targets.json` (`just image-matrix`) once, passes the JSON image list to `oci-images.yml` |
+| `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per container (from the manifest) and arch (x86_64 + aarch64), build + verify + tag-push |
+| `manifest` (`oci-images.yml`) | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+| `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, (x86_64 only) runs the `tests/podman-vm.sh` QEMU/Lima boot integration test, then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
+| `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
+
+The **canonical manifest** for the OCI image lane is `elements/targets.json`
+(`oci_images` list). Adding a package means adding one entry there — `just
+image-list`/`just image-matrix` are the only places that read it, and
+`build.yml`'s `matrix` job, `just validate`, and `just sbom`/`sboms` all
+derive their image lists from it. Nothing else hand-maintains a copy of the
+image list.
 
 `repository_dispatch` (used by the automated FSDK bump PR check) is
 **verification-only**: it checks out the payload branch and runs both native
 architecture builds plus `just verify`, but it must not log in, push per-arch
 images, assemble manifests, sign, or publish attestations. This prevents
 unreviewed bump branches from moving `latest` or minor production tags. The
-same caution applies to `publish-podman-vm`: it only runs on `push`/
-`workflow_dispatch`, never `repository_dispatch`.
+same caution applies to the VM guest's publish step: it only runs on
+`push`/`workflow_dispatch`, never `repository_dispatch`.
 
-The container matrix is the publishing contract: every OCI image in
-`elements/oci/` that ships to GHCR must appear in **both** matrices, in
-`just validate`, and in the `just sbom`/`sboms` case lists. `brew-nspawn`
-(machine tarball) and `podman-vm` (bootable VM disk) are deliberately
-excluded from the OCI publishing matrix — see docs/skills/vm-podman-guest.md
-for the VM guest's own separate publish/test pipeline.
+`brew-nspawn` (machine tarball) is not currently wired into any CI workflow
+— see docs/skills/nspawn-machine-image.md. `podman-vm` (bootable VM disk) is
+deliberately excluded from the OCI publishing matrix — see
+docs/skills/vm-podman-guest.md for the VM guest's own build/test/publish
+pipeline.
 
 ### Point-release tag immutability
 
@@ -124,7 +140,7 @@ overwrite the existing multi-arch manifest. The manifest job resolves the
 signing digest from the first tag it actually publishes, so signing is skipped
 entirely when no tags are pushed.
 
-The `podman-vm` release asset follows the same immutability shape one level
+The `podman-vm` release assets follow the same immutability shape one level
 up: there is no rolling `latest` equivalent at all (GitHub Release assets
 are inherently tied to their tag), and `just publish-podman-vm` guards
 re-uploads with a `gh release view --json assets` existence check, skipping
@@ -160,6 +176,14 @@ SHA-pinned ref. It requires `contents: read`, `packages: write`,
 repository name plus the resolved multi-arch `sha256:` digest, and
 `push-to-registry: true` stores the attestation beside the image. Consumers can
 verify it with `gh attestation verify oci://IMAGE:TAG -R ORG/REPO`.
+
+The `podman-vm` guest disk has no OCI registry to attach to, so it uses the
+same `actions/attest` action with `subject-path` (a glob over the `.raw`/
+`.qcow2` files) instead of `subject-name`/`subject-digest`, and
+`push-to-registry: false`. A second `actions/attest` call adds `sbom-path`
+pointing at the `buildstream-sbom`-generated SPDX file to create a proper
+GitHub SBOM attestation for the same subjects. Both are per-arch, matching
+the "Independent architecture asset publication" pattern below.
 
 Source-verified via Context7: `/websites/github_en_actions`.
 

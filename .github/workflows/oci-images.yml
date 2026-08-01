@@ -1,0 +1,214 @@
+name: Build OCI images
+
+# Reusable workflow for the OCI distroless image lane only (elements/oci/*,
+# published under `oci_images` in elements/targets.json). Deliberately
+# excludes the podman-vm guest disk (see vm-guest.yml) and the brew-nspawn
+# machine image lane so a failure in one unrelated image never blocks or
+# obscures the other artifact pipelines in the Actions UI. See
+# docs/skills/ci-tooling.md.
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: >
+          JSON array of image names to build, sourced from the
+          `oci_images` list in elements/targets.json (the single canonical
+          manifest -- see `just image-matrix`). Adding a package requires
+          one entry there, not an edit to this workflow.
+        required: true
+        type: string
+      ref:
+        description: Git ref to check out (supports repository_dispatch client_payload.ref).
+        required: true
+        type: string
+
+env:
+  BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(inputs.images) }}
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Compute OCI Metadata
+        run: |
+          echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
+      - name: Log in to ghcr
+        if: github.event_name != 'repository_dispatch'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and verify image
+        run: |
+          BUILD_IMAGE_NAME=${{ matrix.image }} just build
+          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
+      - name: Publish architecture image
+        if: github.event_name != 'repository_dispatch'
+        run: BUILD_IMAGE_NAME=${{ matrix.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ matrix.image }}-${{ matrix.arch }}"
+
+  manifest:
+    needs: build
+    # repository_dispatch is verification-only for an unmerged FSDK bump;
+    # never publish branch content to production tags.
+    if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(inputs.images) }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write # Required for Sigstore keyless signing
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Restore pip cache for buildstream-sbom
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/pip
+          key: pip-sbom-0706fec3bedf6f73bd9d2fed32c2aed585feef8d
+          restore-keys: pip-sbom-
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+
+      - name: Log in to ghcr
+        run: |
+          mkdir -p ~/.docker
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
+
+      - name: Generate BuildStream-native SBOM
+        run: just sbom "${{ matrix.image }}"
+
+      - name: Assemble multi-arch manifest, sign, and attach SBOM
+        id: resolve-digest
+        run: |
+          set -euo pipefail
+          IMAGE="${{ matrix.image }}"
+          REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
+
+          # Check which per-architecture images were successfully built and published
+          POINT_TAG="$(just tags | tail -1)"
+          MINOR_TAG="$(just tags | sed -n '2p')"
+          AVAIL_ARCHS=()
+          for arch in x86_64 aarch64; do
+            if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
+              AVAIL_ARCHS+=("${arch}")
+            fi
+          done
+
+          if [ ${#AVAIL_ARCHS[@]} -eq 0 ]; then
+            echo "==> WARNING: No per-architecture images found for ${REPO} at tag ${POINT_TAG}. Skipping manifest assembly."
+            exit 0
+          fi
+
+          echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
+
+          # Rolling/minor-line tags must remain multi-arch: only update them when
+          # both required architectures were successfully built and published.
+          BOTH_ARCHS_AVAILABLE=false
+          if [ ${#AVAIL_ARCHS[@]} -eq 2 ]; then
+            BOTH_ARCHS_AVAILABLE=true
+          fi
+
+          # Step 1: Create, annotate, and push tags.
+          # The FSDK point-release/beta tag is immutable: skip it if already published.
+          FIRST_TAG=""
+          while read -r t; do
+            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
+              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
+              continue
+            fi
+            if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
+              echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
+              continue
+            fi
+            if [[ -z "${FIRST_TAG}" ]]; then
+              FIRST_TAG="${t}"
+            fi
+            podman manifest create "${REPO}:${t}"
+            for arch in "${AVAIL_ARCHS[@]}"; do
+              podman manifest add "${REPO}:${t}" "docker://${REPO}-${arch}:${t}"
+            done
+
+            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+            echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
+          done < <(just tags)
+
+          if [[ -z "${FIRST_TAG}" ]]; then
+            echo "==> No tags were published for ${IMAGE}; skipping signing and attestation."
+            exit 0
+          fi
+
+          # Step 2: Resolve canonical manifest list digest exactly once
+          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
+          if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
+            echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
+            exit 1
+          fi
+          echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+          # Step 3: Keyless-sign the OCI image manifest list digest exactly once
+          cosign sign -y "${REPO}@${DIGEST}"
+
+          # Step 4: Attach and sign the SBOM exactly once
+          SBOM_FILE="${IMAGE}.spdx.json"
+          if [[ -f "${SBOM_FILE}" ]]; then
+            echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
+
+            SBOM_REF=$(oras attach \
+              --format json \
+              --no-tty \
+              --artifact-type application/vnd.spdx+json \
+              --annotation "filename=${SBOM_FILE}" \
+              "${REPO}@${DIGEST}" \
+              "${SBOM_FILE}" \
+              | jq -r '.digest')
+
+            if [[ -n "${SBOM_REF}" && "${SBOM_REF}" != "null" ]]; then
+              SBOM_DIGEST="${SBOM_REF#*@}"
+              echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
+              cosign sign -y "${REPO}@${SBOM_DIGEST}"
+            else
+              echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
+            fi
+          fi
+
+      - name: Generate GitHub artifact attestation
+        if: steps.resolve-digest.outputs.digest != ''
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
+          subject-digest: ${{ steps.resolve-digest.outputs.digest }}
+          push-to-registry: true

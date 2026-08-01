@@ -121,10 +121,28 @@ tags:
         printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
     fi
 
+# Print the OCI image names from the canonical manifest (elements/targets.json),
+# one per line. Single source of truth for the GHA build/manifest matrices,
+# `just validate`, and `just sbom`/`sboms` -- add a package here once, nowhere else.
+[group('info')]
+image-list:
+    @jq -r '.oci_images[]' elements/targets.json
+
+# Print the OCI image names as a JSON array, for GitHub Actions `fromJson()` matrices.
+[group('info')]
+image-matrix:
+    @jq -c '.oci_images' elements/targets.json
+
 # ── Validate ──────────────────────────────────────────────────────────
 [group('dev')]
 validate:
-    just bst show --deps all oci/base.bst oci/static.bst oci/skopeo.bst oci/lab-runner.bst oci/python.bst oci/buildah.bst oci/qemu-img.bst podman-vm/podman-vm-efi.bst
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ELEMENTS=()
+    while IFS= read -r img; do
+        ELEMENTS+=("oci/${img}.bst")
+    done < <(just image-list)
+    just bst show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -345,13 +363,39 @@ export-podman-vm: build-podman-vm
     just bst artifact checkout podman-vm/podman-vm-efi.bst --directory dist-vm
     echo "==> wrote:" && ls -lh dist-vm/
 
-# Upload the built VM guest artifact (raw disk + SHA-256 manifest) as immutable
-# GitHub Release assets under the current FSDK point-release tag (vX.Y.Z).
-# Mirrors the OCI `tag-push` recipe: operates on whatever is already in
-# dist-vm/ (from `just export-podman-vm`, run separately -- e.g. once per
-# arch in CI, artifact handed off between jobs) rather than forcing a
-# rebuild on every publish. Also mirrors `tag-push`'s immutability guard: an
-# asset that already exists on the release is never overwritten. Never
+# Convert the exported raw disk to QCOW2 alongside it (requires the
+# `qemu-img` binary from the `qemu-utils` package on the runner/host -- this
+# is a lightweight format conversion, not a BuildStream build, so it is a
+# plain Just recipe rather than its own element). Produces
+# donate-clanker-vm-<version>-<arch>.qcow2 plus its own
+# `sha256sum --binary` manifest, matching the raw disk's checksum shape.
+[group('vm')]
+export-podman-vm-qcow2: export-podman-vm
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v qemu-img >/dev/null 2>&1 || { echo "FAIL: qemu-img not found -- install the 'qemu-utils' package" >&2; exit 1; }
+    shopt -s nullglob
+    raws=(dist-vm/donate-clanker-vm-*.raw)
+    shopt -u nullglob
+    if [ "${#raws[@]}" -ne 1 ]; then
+        echo "FAIL: expected exactly one raw VM disk in dist-vm/ (run 'just export-podman-vm' first), found ${#raws[@]}" >&2
+        exit 1
+    fi
+    raw="$(basename "${raws[0]}")"
+    qcow2="${raw%.raw}.qcow2"
+    echo "==> converting ${raw} -> ${qcow2}..."
+    qemu-img convert -f raw -O qcow2 "dist-vm/${raw}" "dist-vm/${qcow2}"
+    ( cd dist-vm && sha256sum --binary "${qcow2}" > "${qcow2}.sha256" )
+    echo "==> wrote:" && ls -lh "dist-vm/${qcow2}" "dist-vm/${qcow2}.sha256"
+
+# Upload the built VM guest artifacts (raw disk + QCOW2, each with its own
+# SHA-256 manifest) as immutable GitHub Release assets under the current
+# FSDK point-release tag (vX.Y.Z). Mirrors the OCI `tag-push` recipe:
+# operates on whatever is already in dist-vm/ (from `just export-podman-vm`
+# and, optionally, `just export-podman-vm-qcow2`, run separately -- e.g.
+# once per arch in CI, artifact handed off between jobs) rather than forcing
+# a rebuild on every publish. Also mirrors `tag-push`'s immutability guard:
+# an asset that already exists on the release is never overwritten. Never
 # publishes a mutable "latest" URL for launcher consumption -- see
 # docs/skills/vm-podman-guest.md. Requires `gh` authenticated with
 # `contents: write` on THIS repo (the workflow's default GITHUB_TOKEN is
@@ -365,14 +409,26 @@ publish-podman-vm:
     TAG="v{{fsdk_version}}"
     shopt -s nullglob
     raws=(dist-vm/donate-clanker-vm-*.raw)
+    qcow2s=(dist-vm/donate-clanker-vm-*.qcow2)
     shopt -u nullglob
     if [ "${#raws[@]}" -ne 1 ]; then
         echo "FAIL: expected exactly one raw VM disk in dist-vm/ (run 'just export-podman-vm' first), found ${#raws[@]}" >&2
         exit 1
     fi
-    raw="${raws[0]}"
-    sum="${raw}.sha256"
-    [ -f "$sum" ] || { echo "FAIL: $sum not found" >&2; exit 1; }
+    if [ "${#qcow2s[@]}" -gt 1 ]; then
+        echo "FAIL: expected at most one QCOW2 VM disk in dist-vm/, found ${#qcow2s[@]}" >&2
+        exit 1
+    fi
+    # Asset pairs: each disk image plus its checksum manifest. QCOW2 is
+    # optional -- callers that only ran `just export-podman-vm` still publish
+    # the raw disk alone.
+    assets=("${raws[0]}" "${raws[0]}.sha256")
+    if [ "${#qcow2s[@]}" -eq 1 ]; then
+        assets+=("${qcow2s[0]}" "${qcow2s[0]}.sha256")
+    fi
+    for f in "${assets[@]}"; do
+        [ -f "$f" ] || { echo "FAIL: $f not found" >&2; exit 1; }
+    done
 
     if ! gh release view "$TAG" >/dev/null 2>&1; then
         echo "==> creating release $TAG (none exists yet)"
@@ -380,13 +436,17 @@ publish-podman-vm:
             --notes "Freedesktop-SDK {{fsdk_version}} container image release."
     fi
 
-    name="$(basename "$raw")"
-    if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
-        echo "==> skipping ${name} (point-release asset already published, immutable)"
-    else
-        gh release upload "$TAG" "$raw" "$sum"
-        echo "==> uploaded ${name} + checksum to release ${TAG}"
-    fi
+    EXISTING="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+    for disk in "${raws[0]}" "${qcow2s[@]:-}"; do
+        [ -n "$disk" ] || continue
+        name="$(basename "$disk")"
+        if echo "$EXISTING" | grep -qxF "$name"; then
+            echo "==> skipping ${name} (point-release asset already published, immutable)"
+        else
+            gh release upload "$TAG" "$disk" "${disk}.sha256"
+            echo "==> uploaded ${name} + checksum to release ${TAG}"
+        fi
+    done
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
@@ -510,21 +570,23 @@ uninstall-brew:
     sudo rm -f /etc/systemd/nspawn/homebrew.nspawn
     echo "==> Done. Note: /home/linuxbrew is left intact. Remove it manually if desired."
 
-# Generate a BST-native SBOM (SPDX 2.3) using buildstream-sbom.
+# Generate a BST-native SBOM (SPDX 2.3) using buildstream-sbom. `variant` is
+# any name from the elements/targets.json manifest, or the special value
+# "podman-vm" for the VM guest disk (not part of the OCI manifest).
 [group('test')]
 sbom variant="base":
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{variant}}" in
-        base)       ELEMENT="oci/base.bst";        SPDX_NAME="base" ;;
-        static)     ELEMENT="oci/static.bst";      SPDX_NAME="static" ;;
-        skopeo)     ELEMENT="oci/skopeo.bst";      SPDX_NAME="skopeo" ;;
-        lab-runner) ELEMENT="oci/lab-runner.bst";  SPDX_NAME="lab-runner" ;;
-        python)     ELEMENT="oci/python.bst";      SPDX_NAME="python" ;;
-        buildah)    ELEMENT="oci/buildah.bst";     SPDX_NAME="buildah" ;;
-        qemu-img)   ELEMENT="oci/qemu-img.bst";    SPDX_NAME="qemu-img" ;;
-        *) echo "ERROR: unknown variant '{{variant}}'" >&2; exit 1 ;;
-    esac
+    if [ "{{variant}}" = "podman-vm" ]; then
+        ELEMENT="podman-vm/podman-vm-efi.bst"
+        SPDX_NAME="podman-vm"
+    elif jq -e --arg v "{{variant}}" '.oci_images | index($v) != null' elements/targets.json >/dev/null; then
+        ELEMENT="oci/{{variant}}.bst"
+        SPDX_NAME="{{variant}}"
+    else
+        echo "ERROR: unknown variant '{{variant}}' (not in elements/targets.json, not 'podman-vm')" >&2
+        exit 1
+    fi
     OUTFILE="${SPDX_NAME}.spdx.json"
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
@@ -568,6 +630,10 @@ sboms:
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
     GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+    # Read the manifest on the host (jq is a GHA-runner/host dependency, not a
+    # bst2-container one) so the container loop below never needs its own
+    # copy of the image list.
+    IMAGES="$(jq -r '.oci_images | join(" ")' elements/targets.json)"
 
     {{sudo_cmd}} podman run --rm \
         --privileged \
@@ -578,6 +644,7 @@ sboms:
         -v "${HOME}/.cache/pip:/root/.cache/pip:rw" \
         -w /src \
         -e GIT_SHA="${GIT_SHA}" \
+        -e IMAGES="${IMAGES}" \
         "{{bst2_image}}" \
         bash -c '
             for attempt in 1 2 3; do
@@ -587,16 +654,8 @@ sboms:
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            for img in base static skopeo lab-runner python buildah qemu-img; do
-                case "$img" in
-                    base)       ELEMENT="oci/base.bst" ;;
-                    static)     ELEMENT="oci/static.bst" ;;
-                    skopeo)     ELEMENT="oci/skopeo.bst" ;;
-                    lab-runner) ELEMENT="oci/lab-runner.bst" ;;
-                    python)     ELEMENT="oci/python.bst" ;;
-                    buildah)    ELEMENT="oci/buildah.bst" ;;
-                    qemu-img)   ELEMENT="oci/qemu-img.bst" ;;
-                esac
+            for img in ${IMAGES}; do
+                ELEMENT="oci/${img}.bst"
                 echo "==> Generating SBOM for ${img}..."
                 buildstream-sbom "${ELEMENT}" \
                     --spdx-name "${img}" \

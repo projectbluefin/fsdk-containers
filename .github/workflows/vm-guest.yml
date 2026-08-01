@@ -1,0 +1,123 @@
+name: Build VM guest
+
+# Reusable workflow for the podman-vm guest disk (elements/podman-vm/*, see
+# docs/skills/vm-podman-guest.md and docs/skills/donate-clanker-vm-artifacts.md).
+# This is a full-OS bootable EFI/raw disk, NOT an OCI image: it is
+# deliberately excluded from oci-images.yml's manifest so a failure in an
+# unrelated OCI image (e.g. lab-runner, static) never blocks or obscures
+# this pipeline, and vice versa.
+#
+# Each matrix leg builds, converts, checksums, SBOMs, (x86_64 only) boot-
+# tests, and publishes only its own architecture's artifacts as steps in a
+# single job. A separate downstream job with `needs` on this matrix job
+# would wait for every architecture leg before publishing anything -- see
+# docs/skills/ci-tooling.md ("Independent architecture asset publication").
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check out (supports repository_dispatch client_payload.ref).
+        required: true
+        type: string
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write # Required for the GitHub artifact attestation
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Install qemu-img (raw -> QCOW2 conversion)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-utils
+
+      - name: Build and export the ${{ matrix.arch }} podman-vm guest disk (raw + QCOW2)
+        id: export
+        run: |
+          just export-podman-vm-qcow2
+
+      - name: Verify checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          disks=(dist-vm/donate-clanker-vm-*.raw dist-vm/donate-clanker-vm-*.qcow2)
+          shopt -u nullglob
+          test "${#disks[@]}" -eq 2
+          for d in "${disks[@]}"; do
+            ( cd dist-vm && sha256sum -c "$(basename "$d").sha256" )
+          done
+
+      # Linux arm runners do not have verified nested virtualization support.
+      # The native build plus checksum validation is the architecture gate for
+      # aarch64; x86_64 additionally runs the boot/in-guest smoke test.
+      - name: Set up Lima
+        if: matrix.arch == 'x86_64'
+        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
+      - name: Install QEMU + OVMF firmware
+        if: matrix.arch == 'x86_64'
+        run: |
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf
+      - name: Run x86_64 QEMU/Lima integration test
+        if: matrix.arch == 'x86_64'
+        run: tests/podman-vm.sh
+
+      - name: Generate BuildStream-native SBOM for the VM guest
+        run: just sbom podman-vm
+
+      # repository_dispatch is verification-only and must never publish branch
+      # content. Point-release assets are immutable: the recipe skips an asset
+      # if another architecture or an earlier run already uploaded it.
+      - name: Publish ${{ matrix.arch }} raw disk, QCOW2, checksums, and SBOM
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          just publish-podman-vm
+          cp podman-vm.spdx.json "dist-vm/podman-vm-${{ matrix.arch }}.spdx.json"
+          TAG="v$(just --evaluate fsdk_version)"
+          NAME="podman-vm-${{ matrix.arch }}.spdx.json"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$NAME"; then
+            echo "==> skipping ${NAME} (point-release asset already published, immutable)"
+          else
+            gh release upload "$TAG" "dist-vm/${NAME}"
+            echo "==> uploaded ${NAME} to release ${TAG}"
+          fi
+
+      - name: Generate GitHub artifact attestation for the disk images
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            dist-vm/donate-clanker-vm-*.raw
+            dist-vm/donate-clanker-vm-*.qcow2
+          push-to-registry: false
+
+      - name: Attach GitHub SBOM attestation for the disk images
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            dist-vm/donate-clanker-vm-*.raw
+            dist-vm/donate-clanker-vm-*.qcow2
+          sbom-path: podman-vm.spdx.json
+          push-to-registry: false

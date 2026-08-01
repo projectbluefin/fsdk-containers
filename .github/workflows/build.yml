@@ -1,5 +1,12 @@
 name: Build images
 
+# Orchestrator: resolves the canonical OCI image manifest once (see
+# elements/targets.json / just image-matrix), then fans out to the two
+# independent, reusable per-artifact-class workflows -- OCI distroless
+# images (oci-images.yml) and the podman-vm guest disk (vm-guest.yml) -- so
+# a failure in one unrelated image never blocks or obscures the other's
+# status in the Actions UI. See docs/skills/ci-tooling.md.
+
 on:
   pull_request:
   push:
@@ -12,18 +19,23 @@ concurrency:
   group: build-${{ github.event.client_payload.ref || github.ref }}
   cancel-in-progress: true
 
+# Ceiling permissions for the whole run. Reusable-workflow calling jobs
+# (oci-images, vm-guest) cannot be granted more than this; each restricts
+# further to only what its own jobs use. Jobs that don't call a reusable
+# workflow set their own, narrower `permissions:` below.
 permissions:
-  contents: read
+  contents: write
   packages: write
-
-env:
-  BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  attestations: write
+  id-token: write
 
 jobs:
   validate:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -34,246 +46,79 @@ jobs:
       - name: Resolve element graph
         run: just validate
 
-  build:
+  # Resolve the OCI image matrix from the single canonical manifest
+  # (elements/targets.json) once, so oci-images.yml never hand-maintains its
+  # own copy of the image list. Adding a package requires one entry in that
+  # manifest, not an edit to any workflow.
+  matrix:
     if: github.event_name != 'pull_request'
-    strategy:
-      fail-fast: false
-      matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
-        arch: [x86_64, aarch64]
-        include:
-          - arch: x86_64
-            runner: ubuntu-24.04
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      oci_images: ${{ steps.set.outputs.oci_images }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
-      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
-        with:
-          tool: just
-      - name: Compute OCI Metadata
-        run: |
-          echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
-      - name: Log in to ghcr
-        if: github.event_name != 'repository_dispatch'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Build and verify image
-        run: |
-          BUILD_IMAGE_NAME=${{ matrix.image }} just build
-          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
-      - name: Publish architecture image
-        if: github.event_name != 'repository_dispatch'
-        run: BUILD_IMAGE_NAME=${{ matrix.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ matrix.image }}-${{ matrix.arch }}"
+      - id: set
+        run: echo "oci_images=$(jq -c '.oci_images' elements/targets.json)" >> "$GITHUB_OUTPUT"
 
-  manifest:
-    needs: build
-    # repository_dispatch is verification-only for an unmerged FSDK bump;
-    # never publish branch content to production tags.
-    if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
-    runs-on: ubuntu-24.04
+  oci-images:
+    needs: matrix
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/oci-images.yml
     permissions:
       contents: read
       packages: write
       attestations: write
-      id-token: write      # Required for Sigstore keyless signing
-    strategy:
-      fail-fast: false
-      matrix:
-        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.event.client_payload.ref || github.ref }}
-      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
-        with:
-          tool: just
+      id-token: write
+    with:
+      images: ${{ needs.matrix.outputs.oci_images }}
+      ref: ${{ github.event.client_payload.ref || github.ref }}
 
-      - name: Restore pip cache for buildstream-sbom
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/pip
-          key: pip-sbom-0706fec3bedf6f73bd9d2fed32c2aed585feef8d
-          restore-keys: pip-sbom-
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Install ORAS
-        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
-
-      - name: Log in to ghcr
-        run: |
-          mkdir -p ~/.docker
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
-
-      - name: Generate BuildStream-native SBOM
-        run: just sbom "${{ matrix.image }}"
-
-      - name: Assemble multi-arch manifest, sign, and attach SBOM
-        id: resolve-digest
-        run: |
-          set -euo pipefail
-          IMAGE="${{ matrix.image }}"
-          REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
-
-          # Check which per-architecture images were successfully built and published
-          POINT_TAG="$(just tags | tail -1)"
-          MINOR_TAG="$(just tags | sed -n '2p')"
-          AVAIL_ARCHS=()
-          for arch in x86_64 aarch64; do
-            if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
-              AVAIL_ARCHS+=("${arch}")
-            fi
-          done
-
-          if [ ${#AVAIL_ARCHS[@]} -eq 0 ]; then
-            echo "==> WARNING: No per-architecture images found for ${REPO} at tag ${POINT_TAG}. Skipping manifest assembly."
-            exit 0
-          fi
-
-          echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
-
-          # Rolling/minor-line tags must remain multi-arch: only update them when
-          # both required architectures were successfully built and published.
-          BOTH_ARCHS_AVAILABLE=false
-          if [ ${#AVAIL_ARCHS[@]} -eq 2 ]; then
-            BOTH_ARCHS_AVAILABLE=true
-          fi
-
-          # Step 1: Create, annotate, and push tags.
-          # The FSDK point-release/beta tag is immutable: skip it if already published.
-          FIRST_TAG=""
-          while read -r t; do
-            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
-              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
-              continue
-            fi
-            if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
-              echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
-              continue
-            fi
-            if [[ -z "${FIRST_TAG}" ]]; then
-              FIRST_TAG="${t}"
-            fi
-            podman manifest create "${REPO}:${t}"
-            for arch in "${AVAIL_ARCHS[@]}"; do
-              podman manifest add "${REPO}:${t}" "docker://${REPO}-${arch}:${t}"
-            done
-
-            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
-            echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
-          done < <(just tags)
-
-          if [[ -z "${FIRST_TAG}" ]]; then
-            echo "==> No tags were published for ${IMAGE}; skipping signing and attestation."
-            exit 0
-          fi
-
-          # Step 2: Resolve canonical manifest list digest exactly once
-          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
-          if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
-            echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
-            exit 1
-          fi
-          echo "==> Canonical digest for ${REPO}:${FIRST_TAG}: ${DIGEST}"
-          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
-
-          # Step 3: Keyless-sign the OCI image manifest list digest exactly once
-          cosign sign -y "${REPO}@${DIGEST}"
-
-          # Step 4: Attach and sign the SBOM exactly once
-          SBOM_FILE="${IMAGE}.spdx.json"
-          if [[ -f "${SBOM_FILE}" ]]; then
-            echo "==> Attaching SBOM ${SBOM_FILE} to ${REPO}@${DIGEST}..."
-            
-            SBOM_REF=$(oras attach \
-              --format json \
-              --no-tty \
-              --artifact-type application/vnd.spdx+json \
-              --annotation "filename=${SBOM_FILE}" \
-              "${REPO}@${DIGEST}" \
-              "${SBOM_FILE}" \
-              | jq -r '.digest')
-
-            if [[ -n "${SBOM_REF}" && "${SBOM_REF}" != "null" ]]; then
-              SBOM_DIGEST="${SBOM_REF#*@}"
-              echo "==> Signing SBOM artifact ${REPO}@${SBOM_DIGEST}..."
-              cosign sign -y "${REPO}@${SBOM_DIGEST}"
-            else
-              echo "WARNING: Failed to capture SBOM digest for ${REPO}:${FIRST_TAG}"
-            fi
-          fi
-
-      - name: Generate GitHub artifact attestation
-        if: steps.resolve-digest.outputs.digest != ''
-        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
-        with:
-          subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ matrix.image }}
-          subject-digest: ${{ steps.resolve-digest.outputs.digest }}
-          push-to-registry: true
-
-  # Podman VM guest disk image (elements/podman-vm/*, docs/skills/vm-podman-guest.md).
-  # NOT an OCI image: each matrix leg builds, validates, and publishes only
-  # its own architecture. Keeping these steps in the same matrix job is
-  # intentional: a job-level `needs` on another matrix would wait for every
-  # architecture before any publish could start.
-  build-podman-vm:
+  vm-guest:
     if: github.event_name != 'pull_request'
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x86_64, aarch64]
-        include:
-          - arch: x86_64
-            runner: ubuntu-24.04
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    uses: ./.github/workflows/vm-guest.yml
     permissions:
       contents: write
+      attestations: write
+      id-token: write
+    with:
+      ref: ${{ github.event.client_payload.ref || github.ref }}
+
+  # Compact status/duration summary across every target (OCI images x arch,
+  # manifest assembly, and the VM guest x arch) so slow BuildStream legs are
+  # visible at a glance instead of having to open each job individually.
+  # `always()` so this never gates publication -- it is purely informational.
+  summary:
+    needs: [oci-images, vm-guest]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.event.client_payload.ref || github.ref }}
-      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
-        with:
-          tool: just
-      - name: Build and export the ${{ matrix.arch }} podman-vm guest disk image
-        run: just export-podman-vm
-      - name: Verify checksum
-        run: |
-          set -euo pipefail
-          raw=(dist-vm/donate-clanker-vm-*.raw)
-          test "${#raw[@]}" -eq 1
-          sha256sum -c "${raw[0]}.sha256"
-
-      # Linux arm runners do not have verified nested virtualization support.
-      # The native build plus checksum validation is the architecture gate for
-      # aarch64; x86_64 additionally runs the boot/in-guest smoke test.
-      - name: Set up Lima
-        if: matrix.arch == 'x86_64'
-        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
-      - name: Install QEMU + OVMF firmware
-        if: matrix.arch == 'x86_64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf
-      - name: Run x86_64 QEMU/Lima integration test
-        if: matrix.arch == 'x86_64'
-        run: tests/podman-vm.sh
-
-      # repository_dispatch is verification-only and must never publish branch
-      # content. Point-release assets are immutable: the recipe skips an asset
-      # if another architecture or an earlier run already uploaded it.
-      - name: Publish ${{ matrix.arch }} raw disk and checksum
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      - name: Render target status/duration table
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just publish-podman-vm
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Build target summary"
+            echo
+            echo "| Target | Status | Duration |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs" --paginate \
+            --jq '.jobs[] | select(.name != "summary" and .name != "validate")
+                  | [.name,
+                     (.conclusion // "in_progress"),
+                     (if .completed_at and .started_at
+                      then (((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601)) | tostring) + "s"
+                      else "n/a" end)] | @tsv' \
+          | awk -F'\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}' >> "$GITHUB_STEP_SUMMARY"
