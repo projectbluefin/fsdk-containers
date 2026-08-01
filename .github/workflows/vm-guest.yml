@@ -46,10 +46,10 @@ jobs:
         with:
           tool: just
 
-      - name: Install qemu-img (raw -> QCOW2 conversion)
+      - name: Install qemu-img (raw -> QCOW2 conversion) and zstd (asset compression)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-utils
+          sudo apt-get install -y --no-install-recommends qemu-utils zstd
 
       - name: Build and export the ${{ matrix.arch }} podman-vm guest disk (raw + QCOW2)
         id: export
@@ -84,24 +84,29 @@ jobs:
       - name: Generate BuildStream-native SBOM for the VM guest
         run: just sbom podman-vm
 
+      # Compress the disks for publication. GitHub caps a release asset at
+      # 2 GiB and the raw disk is larger than that, so the uncompressed disk
+      # is not publishable -- see the compress-podman-vm recipe. Runs after
+      # the checksum, boot-test, and SBOM gates so nothing is compressed that
+      # was not first verified.
+      - name: Compress the disk images for release publication
+        run: just compress-podman-vm
+
       # repository_dispatch is verification-only and must never publish branch
-      # content. Point-release assets are immutable: the recipe skips an asset
-      # if another architecture or an earlier run already uploaded it.
-      - name: Publish ${{ matrix.arch }} raw disk, QCOW2, checksums, and SBOM
+      # content. Point-release assets are immutable: a COMPLETE architecture
+      # asset set is never overwritten, while a partial set left behind by an
+      # earlier failed publish is deleted and republished. The recipe uploads
+      # this architecture's set as an all-or-nothing transaction (preflight
+      # size check, rollback on failure, post-upload verification), so a
+      # checksum can never reach the release without its disk.
+      - name: Publish the ${{ matrix.arch }} disks, checksums, and SBOM
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          just publish-podman-vm
+          set -euo pipefail
           cp podman-vm.spdx.json "dist-vm/podman-vm-${{ matrix.arch }}.spdx.json"
-          TAG="v$(just --evaluate fsdk_version)"
-          NAME="podman-vm-${{ matrix.arch }}.spdx.json"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$NAME"; then
-            echo "==> skipping ${NAME} (point-release asset already published, immutable)"
-          else
-            gh release upload "$TAG" "dist-vm/${NAME}"
-            echo "==> uploaded ${NAME} to release ${TAG}"
-          fi
+          just publish-podman-vm
 
       - name: Generate GitHub artifact attestation for the disk images
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -110,6 +115,8 @@ jobs:
           subject-path: |
             dist-vm/donate-clanker-vm-*.raw
             dist-vm/donate-clanker-vm-*.qcow2
+            dist-vm/donate-clanker-vm-*.raw.zst
+            dist-vm/donate-clanker-vm-*.qcow2.zst
           push-to-registry: false
 
       - name: Attach GitHub SBOM attestation for the disk images
@@ -119,5 +126,56 @@ jobs:
           subject-path: |
             dist-vm/donate-clanker-vm-*.raw
             dist-vm/donate-clanker-vm-*.qcow2
+            dist-vm/donate-clanker-vm-*.raw.zst
+            dist-vm/donate-clanker-vm-*.qcow2.zst
           sbom-path: podman-vm.spdx.json
           push-to-registry: false
+
+  # Publication is per architecture (see docs/skills/ci-tooling.md), so no
+  # single job can make the two-architecture release atomic. This job makes an
+  # incomplete release impossible to miss instead: it runs after both legs,
+  # regardless of their outcome, and fails if the point-release tag is missing
+  # any expected asset. A release that carries only one architecture, or a
+  # checksum without its disk, is a red X here rather than a silent success.
+  verify-release:
+    needs: build
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Verify the release carries a complete asset set for both architectures
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="$(just --evaluate fsdk_version)"
+          TAG="v${VERSION}"
+          if ! ASSETS="$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            echo "FAIL: release ${TAG} does not exist -- no VM guest assets were published" >&2
+            exit 1
+          fi
+          missing=()
+          for arch in x86_64 aarch64; do
+            base="donate-clanker-vm-${VERSION}-${arch}"
+            for name in \
+              "${base}.raw.zst" "${base}.raw.zst.sha256" "${base}.raw.sha256" \
+              "${base}.qcow2.zst" "${base}.qcow2.zst.sha256" "${base}.qcow2.sha256" \
+              "podman-vm-${arch}.spdx.json"; do
+              printf '%s\n' "$ASSETS" | grep -qxF "$name" || missing+=("$name")
+            done
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "FAIL: release ${TAG} is incomplete -- ${#missing[@]} asset(s) missing:" >&2
+            printf '    %s\n' "${missing[@]}" >&2
+            echo "Consumers such as projectbluefin/donate-clanker require the complete two-architecture set." >&2
+            exit 1
+          fi
+          echo "OK: release ${TAG} carries the complete two-architecture VM guest asset set"

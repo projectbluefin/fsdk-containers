@@ -225,3 +225,44 @@ build or test job is an aggregate dependency: GitHub Actions waits for every
 matrix leg before starting any publisher. This can strand a valid x86_64 asset
 behind a slow or failed aarch64 build. The VM publisher must also retain the
 point-release existence check so retries never overwrite an existing asset.
+
+### Atomic release asset publication
+
+Independent per-architecture publication means no job can make a
+two-architecture release atomic, so the unit of atomicity is one
+architecture's complete asset set and completeness across architectures is a
+separate, loud check.
+
+Facts this repository learned the hard way, from the `v25.08.15` release:
+
+- A GitHub Release asset must be **under 2 GiB**. An oversized upload fails
+  with `HTTP 422: Validation Failed ... size must be less than 2147483648`.
+- `gh release upload TAG a b` is **not** atomic. Given a disk and its
+  checksum in one invocation, the small checksum lands while the oversized
+  disk is rejected. The command exits non-zero but the sidecar stays on the
+  release: a checksum with no disk.
+- Once that debris exists, a retry dies earlier still, with
+  `asset under the same name already exists: [...]`, because an idempotency
+  guard that only checks the disk name never notices the orphaned sidecar.
+  The release stays wedged until someone deletes the asset by hand.
+
+The rules that follow, implemented in `just publish-podman-vm`:
+
+1. **Preflight.** Every file exists and is under the 2 GiB limit before
+   anything is uploaded. Assets that cannot fit are compressed
+   (`just compress-podman-vm`), never skipped.
+2. **Rollback.** Record every asset uploaded by this invocation and delete
+   them again on any later failure (`trap ... ERR`), so a failed run leaves
+   the release exactly as it found it.
+3. **Repair, without weakening immutability.** A complete asset set is never
+   overwritten. A partial set is debris from a failed publish, not a
+   published artifact: delete the orphans and republish the full set.
+4. **Post-verify.** Re-read the release and require every expected name at
+   its expected byte size, else roll back and fail.
+5. **Cross-architecture completeness.** A `verify-release` job with
+   `needs: build` and `if: always()` fails the run when the point-release tag
+   is missing any asset for either architecture. Publication stays per leg;
+   only the check is aggregate, so nothing is stranded.
+
+Never paper over any of this with `continue-on-error`: a half-published
+release looks like success to consumers and is worse than a clean failure.
