@@ -92,7 +92,13 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 
 ## Wire it up
 
-- Add a `build-<name>` target or parameterize the Justfile (`image_name`).
+- Add the image name to `oci_images` in `elements/targets.json` — this is the
+  single canonical manifest for the GitHub Actions build/manifest matrices,
+  `just validate`, and `just sbom`/`sboms` (see docs/skills/ci-tooling.md).
+  No other workflow or matrix loop needs editing.
+- Add the per-image `DESC` case in the Justfile `export` recipe and the
+  `MAX_BYTES` + smoke-test case in `verify` — these stay hand-written because
+  they are genuine per-image behavior, not matrix membership.
 - Add the image row to `README.md`.
 - `just validate && just build && just verify`.
 

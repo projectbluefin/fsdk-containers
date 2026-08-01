@@ -1,0 +1,12 @@
+{
+  "$comment": "Canonical manifest of OCI distroless image targets published to GHCR. This is the SINGLE source of truth for the GitHub Actions build/manifest matrices, `just validate`, and `just sbom`/`sboms`. Adding a package requires exactly one entry here plus the BST element at elements/oci/<name>.bst -- no edits to any matrix loop or case list. Per-image description, size budget, and smoke-test logic stay in the Justfile (`export`/`verify`), since those are genuine per-image behaviour, not matrix membership.",
+  "oci_images": [
+    "base",
+    "static",
+    "skopeo",
+    "lab-runner",
+    "python",
+    "buildah",
+    "qemu-img"
+  ]
+}

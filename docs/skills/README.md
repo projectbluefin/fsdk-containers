@@ -47,3 +47,5 @@ Workflow knowledge and operational runbooks any agent needs to work in this repo
 - Compose from FSDK `components/*`, never `platform.bst`.
 - Slim by default; keep tzdata + common charsets + CA certs.
 - `just verify` (4 gates) is the merge contract.
+- `elements/targets.json` is the single canonical manifest for the OCI image
+  build/manifest matrices — see docs/skills/ci-tooling.md.
