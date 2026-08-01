@@ -15,10 +15,10 @@ sources:
     (?):
       - arch == "x86_64":
           url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-amd64.gz"
-        ref: d92ea4cb4afbca3d6eeb68988cfc4d3220d91831ce3689cc12312c9babcf4003
+          ref: d92ea4cb4afbca3d6eeb68988cfc4d3220d91831ce3689cc12312c9babcf4003
       - arch == "aarch64":
           url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-arm64.gz"
-        ref: b54757a0060e3b6529e06de3d2a5a7fec82dc3e2fd436f78c712340101e4981a
+          ref: b54757a0060e3b6529e06de3d2a5a7fec82dc3e2fd436f78c712340101e4981a
     filename: argo.gz
 
 config:
