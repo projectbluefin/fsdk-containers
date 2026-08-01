@@ -42,7 +42,7 @@ Mirror `elements/base/` + `elements/oci/base.bst`:
 3. **`elements/oci/<name>.bst`** (`kind: script`) — stage the runtime at `/layer`,
    run the **shared SLIM block** (copy from `oci/base.bst`), then any
    **per-runtime prune**, then `build-oci`. Set the image title/labels and the
-   `index-annotations` ref.name to `ghcr.io/projectbluefin/<name>:latest`.
+   `index-annotations` ref.name to `ghcr.io/projectbluefin/<name>:build`.
 
 ### Per-runtime prune (the big win)
 

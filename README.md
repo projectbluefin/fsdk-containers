@@ -60,7 +60,7 @@ workflow (called from `build.yml` — see docs/skills/ci-tooling.md), so the
 certificate identity below names that file, not `build.yml`. Verify a
 main-branch build with:
 
-    cosign verify ghcr.io/projectbluefin/base:latest \
+    cosign verify ghcr.io/projectbluefin/base:25.08 \
       --certificate-identity "https://github.com/projectbluefin/fsdk-containers/.github/workflows/oci-images.yml@refs/heads/main" \
       --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 
@@ -70,10 +70,10 @@ corresponding branch ref in the certificate identity.)
 GitHub also publishes a registry-backed build provenance attestation for each
 image. Verify it with the GitHub CLI:
 
-    gh attestation verify oci://ghcr.io/projectbluefin/base:latest \
+    gh attestation verify oci://ghcr.io/projectbluefin/base:25.08 \
       -R projectbluefin/fsdk-containers
 
-For reproducible audits, replace `:latest` with the exact manifest digest.
+For reproducible audits, replace the tag with the exact manifest digest.
 
 ## Versioning
 
@@ -82,10 +82,15 @@ FSDK release. We track upstream FSDK releases and active development/beta branch
 so users can test upcoming FSDK features early. Tags are derived automatically from
 the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
-- `:latest` -- rolling
-- `:25.08` or `:26.08` -- FSDK minor line
+- `:25.08` or `:26.08` -- FSDK minor line (the most rolling tag published)
 - `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
 - `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
+
+There is deliberately **no `:latest`**. A rolling alias lets a consumer deploy
+an unpinned image and have it change underneath them without any signal; the
+minor line is the most permissive tag we publish, so every consumer has to
+state how much drift it accepts. Pin the point release, or a digest, when even
+that is too much.
 
 Every image self-declares its base via `io.projectbluefin.fsdk.version` and
 `io.projectbluefin.fsdk.ref` labels.
@@ -96,7 +101,7 @@ Requires `podman` and [`just`](https://github.com/casey/just). BuildStream runs
 inside the FSDK `bst2` container -- nothing to install.
 
     just validate        # resolve the element graph
-    just build           # build + load ghcr.io/projectbluefin/base:latest
+    just build           # build + load ghcr.io/projectbluefin/base:build
     just verify          # assert distroless + certs + tzdata
     just tags            # show derived tags
 

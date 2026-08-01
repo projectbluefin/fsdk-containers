@@ -54,10 +54,10 @@ To verify a published image and its signature/attestation from the command line:
 cosign verify \
   --certificate-identity-regexp="https://github.com/projectbluefin/fsdk-containers/.github/workflows/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/projectbluefin/base:latest
+  ghcr.io/projectbluefin/base:25.08
 
 # Discover and retrieve the attached SBOM
-oras discover ghcr.io/projectbluefin/base:latest
+oras discover ghcr.io/projectbluefin/base:25.08
 ```
 
 ---

@@ -6,6 +6,11 @@ default:
 # -- Configuration ---------------------------------------------------------
 export image_name := env("BUILD_IMAGE_NAME", "base")
 export image_registry := env("BUILD_IMAGE_REGISTRY", "ghcr.io/projectbluefin")
+# The tag the local build/verify/push recipes hand between each other. It is
+# never published: keeping it distinct from any registry tag means a local
+# working image can never be mistaken for, or accidentally pushed as, a
+# released one.
+local_tag := "build"
 
 # Same bst2 container image FSDK/dakota CI uses -- pinned by SHA.
 export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d")
@@ -108,7 +113,12 @@ bst *ARGS:
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- --no-interactive "${RE_FLAG[@]}" ${BST_FLAGS:-} {{ARGS}}
 
-# Print the tag set derived from the FSDK release: latest, minor line, point release/beta tag.
+# Print the tag set derived from the FSDK release: minor line and point
+# release/beta tag. Deliberately no "latest": a mutable rolling alias invites
+# consumers to deploy an unpinned image and silently changes what they run.
+# Every published tag here is either immutable (the point release) or moves
+# only within a declared minor line, so a consumer always states how much
+# drift they accept. Pin by digest when even that is too much.
 [group('info')]
 tags:
     #!/usr/bin/env bash
@@ -116,9 +126,9 @@ tags:
     V="{{fsdk_version}}"
     MINOR="$(echo "$V" | grep -oE '^[0-9]+\.[0-9]+')"
     if [ "$V" = "$MINOR" ]; then
-        printf '%s\n%s\n' latest "$V"
+        printf '%s\n' "$V"
     else
-        printf '%s\n%s\n%s\n' latest "$MINOR" "$V"
+        printf '%s\n%s\n' "$MINOR" "$V"
     fi
 
 # Print the OCI image names from the canonical manifest (elements/targets.json),
@@ -160,7 +170,7 @@ build:
 export:
     #!/usr/bin/env bash
     set -euo pipefail
-    FINAL_REF="{{image_registry}}/{{image_name}}:latest"
+    FINAL_REF="{{image_registry}}/{{image_name}}:{{local_tag}}"
 
     echo "==> Exporting OCI image -> ${FINAL_REF}..."
     rm -rf .build-out
@@ -196,7 +206,7 @@ export:
       | {{sudo_cmd}} podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
     echo "==> Built ${FINAL_REF}"
 
-# Push the locally built :latest under all derived tags to a given repo ref.
+# Push the locally built image under all derived tags to a given repo ref.
 # The FSDK point-release tag (e.g. :25.08.13) is treated as immutable: if it
 # already exists at the destination it is skipped, never overwritten.
 # Usage: just tag-push ghcr.io/projectbluefin/base
@@ -204,7 +214,7 @@ export:
 tag-push REPO:
     #!/usr/bin/env bash
     set -euo pipefail
-    SRC="{{image_registry}}/{{image_name}}:latest"
+    SRC="{{image_registry}}/{{image_name}}:{{local_tag}}"
     while read -r t; do
         if [ "$t" = "{{fsdk_version}}" ] && skopeo inspect --no-tags "docker://{{REPO}}:$t" >/dev/null 2>&1; then
             echo "==> skipping {{REPO}}:$t (point-release tag already published, immutable)"
@@ -221,7 +231,7 @@ tag-push REPO:
 push-quay REPO:
     #!/usr/bin/env bash
     set -euo pipefail
-    SRC="{{image_registry}}/{{image_name}}:latest"
+    SRC="{{image_registry}}/{{image_name}}:{{local_tag}}"
     while read -r t; do
         echo "==> Tagging $SRC to {{REPO}}:$t..."
         {{sudo_cmd}} podman tag "$SRC" "{{REPO}}:$t"
@@ -237,7 +247,7 @@ push-quay REPO:
 verify:
     #!/usr/bin/env bash
     set -euo pipefail
-    REF="{{image_registry}}/{{image_name}}:latest"
+    REF="{{image_registry}}/{{image_name}}:{{local_tag}}"
     IMG="{{image_name}}"
 
     # Guard against silent size creep. These are uncompressed local Podman

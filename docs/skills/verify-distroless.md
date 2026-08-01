@@ -9,7 +9,7 @@ metadata:
 # Verify Distroless
 
 `just verify` is the merge contract. It builds nothing — it inspects the loaded
-`ghcr.io/projectbluefin/<name>:latest` image. All gates must pass.
+`ghcr.io/projectbluefin/<name>:build` image. All gates must pass.
 
 ## Upstream FSDK coverage we inherit
 
@@ -103,7 +103,7 @@ ENTRYPOINT in their OCI config — `podman create` requires a placeholder comman
 to succeed (it does not validate whether the command exists in the image):
 
 ```
-cid=$(podman create ghcr.io/projectbluefin/<name>:latest /nonexistent)
+cid=$(podman create ghcr.io/projectbluefin/<name>:build /nonexistent)
 podman export "$cid" | tar -tf - | grep -E '<thing you expect/don.t expect>'
 podman rm "$cid"
 ```
@@ -112,7 +112,7 @@ A functional smoke test (loader + libc) on a distroless image — run a real bin
 not a shell:
 
 ```
-podman run --rm ghcr.io/projectbluefin/<name>:latest /usr/bin/env
+podman run --rm ghcr.io/projectbluefin/<name>:build /usr/bin/env
 ```
 
 ## Adding test coverage
