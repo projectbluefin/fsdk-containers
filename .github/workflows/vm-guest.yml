@@ -79,7 +79,9 @@ jobs:
           set -euo pipefail
           case "${{ matrix.arch }}" in
             x86_64)  sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf ;;
-            aarch64) sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-efi-aarch64 ;;
+            # qemu-system-aarch64 loads efi-virtio.rom for the consumer's
+            # `-drive if=virtio` topology; ipxe-qemu provides that ROM.
+            aarch64) sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-efi-aarch64 ipxe-qemu ;;
           esac
 
       # GitHub's x86_64 Linux runners expose /dev/kvm, but only to the kvm
