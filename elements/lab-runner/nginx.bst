@@ -28,9 +28,13 @@ variables:
 config:
   configure-commands:
     - |
+      # --sbin-path lands in /usr/bin, not /usr/sbin: freedesktop-sdk is a
+      # merged-usr sysroot where /usr/sbin is a symlink to /usr/bin, and
+      # staging a real usr/sbin directory fails with "Destination is a
+      # symlink, not a directory: /usr/sbin".
       ./configure \
         --prefix=/usr \
-        --sbin-path=/usr/sbin/nginx \
+        --sbin-path=/usr/bin/nginx \
         --conf-path=/etc/nginx/nginx.conf \
         --pid-path=/run/nginx.pid \
         --lock-path=/run/nginx.lock \
