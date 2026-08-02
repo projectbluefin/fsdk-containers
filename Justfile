@@ -331,7 +331,15 @@ verify:
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
-        lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
+        # lab-runner is the documented shell-enabled exception, and its CLI
+        # contract (argo, just, kubectl) is dominated by two unstrippable Go
+        # binaries: argo v4.0.8 alone is 181MB uncompressed and kubectl is
+        # 57MB. Stripping is deliberately disabled for those elements
+        # (strip-binaries: ""), so the ceiling has to accommodate them. The
+        # argo v3 -> v4 bump added ~100MB and merged unverified, which is what
+        # first pushed this image over its old 320MB budget; see
+        # https://github.com/projectbluefin/fsdk-containers/issues/48.
+        lab-runner) MAX_BYTES=$((544 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
