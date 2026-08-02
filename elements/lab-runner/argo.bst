@@ -24,7 +24,10 @@ sources:
 config:
   install-commands:
     - |
-      gunzip argo.gz
+      # Decompress to a new file rather than in place: BuildStream may stage
+      # the source as a hardlink, and gzip refuses to touch a file with other
+      # links ("argo.gz has 1 other link -- file ignored", exit 2).
+      gunzip -c argo.gz > argo
       mkdir -p "%{install-root}/usr/bin"
       cp argo "%{install-root}/usr/bin/argo"
       chmod 755 "%{install-root}/usr/bin/argo"
