@@ -4,6 +4,7 @@ description: Build the bootable donate-clanker VM guest from the FSDK VM graph.
 metadata:
   context7-sources:
     - /apache/buildstream
+    - /python/cpython
 ---
 
 # Donate-clanker VM artifacts
@@ -72,11 +73,15 @@ An observed x86_64 local build took approximately 10 minutes and produced a
 - The requested target is an OCI `qemu-system` or `qemu-img` image.
 - `vm/minimal/deps.bst` and `vm/boot/efi.bst` are bypassed.
 - The output lacks both the raw disk and binary checksum manifest.
+- A Lima test is used to prove this guest booted. Lima requires SSH, which the
+  guest deliberately excludes.
 
 ## Verification
 
 - [ ] `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
 - [ ] `just export-podman-vm` checks out only the raw disk and `.sha256`.
+- [ ] `tests/podman-vm.sh` verifies the exported artifact's checksum and
+      GPT/EFI structure without requiring SSH.
 - [ ] The dependency graph contains no Podman, SSH, cloud-init, or `qemu-img`.
 - [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
 - [ ] `podman-vm/donate-clanker-worker.bst` builds from the pinned source.

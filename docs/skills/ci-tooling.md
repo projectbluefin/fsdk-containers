@@ -83,6 +83,13 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
        ref: ${{ github.event.client_payload.ref || github.ref }}
    ```
 
+## Core Process
+
+1. Resolve the BuildStream graph before adding a workflow build.
+2. Pin every action by commit SHA.
+3. Keep the VM release gate aligned with its declared raw-disk interface.
+4. Run `just validate` after workflow changes.
+
 ## Workflow Structure
 
 | Job | Trigger | Purpose |
@@ -91,7 +98,7 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | `build` | `push`, `workflow_dispatch` | matrix per container (base, static, skopeo, lab-runner, python, buildah, qemu-img) and arch (x86_64 + aarch64), build + verify + tag-push |
 | `manifest` | after `build` succeeds on `push`/`workflow_dispatch` | same container matrix, assemble and push multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
 | `build-podman-vm` | not on `pull_request` | matrix arch (x86_64 + aarch64), builds the `podman-vm-efi.bst` VM guest disk (not an OCI image), uploads the raw disk + checksum manifest as a workflow artifact per arch |
-| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that raw disk and runs the `tests/podman-vm.sh` QEMU/Lima boot integration test |
+| `test-podman-vm` | after `build-podman-vm`, not on `pull_request` | x86_64 only: downloads that raw disk and validates its checksum-protected GPT/EFI artifact contract with `tests/podman-vm.sh`; it does not use Lima because the guest deliberately excludes SSH |
 | `publish-podman-vm` | after `build-podman-vm` **and a passing** `test-podman-vm`, only `push`/`workflow_dispatch` | matrix arch (x86_64 + aarch64), uploads the raw disk + checksum manifest as immutable GitHub Release assets under the `v<fsdk_version>` tag — never a mutable `latest` URL |
 
 `repository_dispatch` (used by the automated FSDK bump PR check) is

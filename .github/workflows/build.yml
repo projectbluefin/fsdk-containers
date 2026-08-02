@@ -254,10 +254,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # QEMU/Lima integration boot test (tests/podman-vm.sh). x86_64 only: GitHub
-  # Linux runners have no verified nested-virtualization support on aarch64
-  # runners, and this is the same generic software stack on both
-  # architectures -- see docs/skills/vm-podman-guest.md.
+  # Artifact-contract test (tests/podman-vm.sh). The guest deliberately has
+  # no SSH, cloud-init, or Podman, so a Lima boot test cannot observe it as
+  # running. Validate the published raw GPT/EFI disk interface instead.
   test-podman-vm:
     needs: build-podman-vm
     if: (always()) && (github.event_name != 'pull_request') && !cancelled()
@@ -272,22 +271,8 @@ jobs:
         with:
           name: podman-vm-x86_64
           path: dist-vm/
-      - name: Set up Lima
-        uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5 # v1
-      - name: Install QEMU + OVMF firmware
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf
-      - name: Run the podman-vm QEMU/Lima integration test
+      - name: Validate the podman-vm artifact contract
         run: tests/podman-vm.sh
-      - name: Upload guest logs (always, for diagnostics)
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.1
-        with:
-          name: podman-vm-test-logs
-          path: tests/artifacts/
-          if-no-files-found: ignore
-          retention-days: 7
 
   # Publish the raw disk + checksum manifest as versioned (immutable) GitHub
   # Release assets. repository_dispatch is verification-only for an
