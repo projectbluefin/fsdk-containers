@@ -38,6 +38,7 @@
   "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload.",
   "vm_guest_paths": [
     "elements/podman-vm/",
-    "tests/vm-boot.sh"
+    "tests/vm-boot.sh",
+    ".github/actions/vm-boot-test/"
   ]
 }

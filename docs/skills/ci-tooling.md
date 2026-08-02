@@ -107,7 +107,6 @@ Supporting workflows, none of which touch publication:
 | `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
-| `label-enforcement.yml` | issue/PR events | shared factory label lifecycle |
 
 | Job | Trigger | Purpose |
 |---|---|---|
