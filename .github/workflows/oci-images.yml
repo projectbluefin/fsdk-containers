@@ -201,3 +201,71 @@ jobs:
           subject-name: ${{ env.BUILD_IMAGE_REGISTRY }}/${{ inputs.image }}
           subject-digest: ${{ steps.resolve-digest.outputs.digest }}
           push-to-registry: true
+
+      # Artifact Hub does not discover OCI repositories automatically. Register
+      # each image after its manifest is published, then push the repository ID
+      # as ownership metadata so Artifact Hub can grant Verified Publisher.
+      - name: Register image with Artifact Hub
+        if: steps.resolve-digest.outputs.digest != ''
+        env:
+          ARTIFACT_HUB_KEY_ID: ${{ secrets.ARTIFACT_HUB_KEY_ID }}
+          ARTIFACT_HUB_KEY_SECRET: ${{ secrets.ARTIFACT_HUB_KEY_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ARTIFACT_HUB_KEY_ID}" || -z "${ARTIFACT_HUB_KEY_SECRET}" ]]; then
+            echo 'Artifact Hub registration skipped: configure ARTIFACT_HUB_KEY_ID and ARTIFACT_HUB_KEY_SECRET repository secrets.'
+            exit 0
+          fi
+          REPO="${BUILD_IMAGE_REGISTRY}/${{ inputs.image }}"
+          OCI_URL="oci://${REPO}"
+          API="https://artifacthub.io/api/v1"
+          AUTH=(-H "X-API-KEY-ID: ${ARTIFACT_HUB_KEY_ID}" -H "X-API-KEY-SECRET: ${ARTIFACT_HUB_KEY_SECRET}")
+
+          # The search endpoint makes this safe to re-run on every publication.
+          find_repository_id() {
+            curl --fail-with-body --silent --show-error --get \
+              --data-urlencode "url=${OCI_URL}" \
+              "${API}/repositories/search" \
+              | jq -r --arg url "${OCI_URL}" '.[] | select(.url == $url) | .repository_id' \
+              | head -n1
+          }
+
+          REPOSITORY_ID="$(find_repository_id)"
+
+          if [[ -z "${REPOSITORY_ID}" ]]; then
+            curl --fail-with-body --silent --show-error --request POST \
+              "${API}/repositories/org/projectbluefin" \
+              "${AUTH[@]}" \
+              -H 'Content-Type: application/json' \
+              --data "$(jq -cn \
+                --arg name '${{ inputs.image }}' \
+                --arg display_name 'Project Bluefin ${{ inputs.image }} container image' \
+                --arg url "${OCI_URL}" \
+                '{kind: 12, name: $name, display_name: $display_name, url: $url}')" \
+              >/dev/null
+
+            # The create response is intentionally not relied on: the API's
+            # documented response has no body. Search until indexing exposes
+            # the generated UUID needed by artifacthub-repo.yml.
+            for _ in {1..10}; do
+              REPOSITORY_ID="$(find_repository_id)"
+              [[ -n "${REPOSITORY_ID}" ]] && break
+              sleep 2
+            done
+          fi
+
+          if [[ -z "${REPOSITORY_ID}" ]]; then
+            echo "ERROR: Artifact Hub did not return a repository ID for ${OCI_URL}" >&2
+            exit 1
+          fi
+
+          cat > artifacthub-repo.yml <<EOF
+          repositoryID: "${REPOSITORY_ID}"
+          owners:
+            - name: "Project Bluefin"
+              email: "maintainers@projectbluefin.io"
+          EOF
+          oras push \
+            "${REPO}:artifacthub.io" \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml

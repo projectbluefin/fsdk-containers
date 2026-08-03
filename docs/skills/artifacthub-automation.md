@@ -3,16 +3,15 @@ name: artifacthub-automation
 description: Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata.
 metadata:
   type: runbook
-  status: planned-not-implemented
+  status: implemented
 ---
 
 # Automating ArtifactHub Submissions
 
-> **STATUS: PLANNED, NOT IMPLEMENTED.** Nothing in this runbook is currently
-> wired into this repo: there is no `artifacthub-repo.yml`, no `oras` metadata
-> push, and no ArtifactHub API call in `.github/workflows/build.yml`. Treat
-> this document as a design for future work — do not assume ArtifactHub
-> listings or Verified Publisher status exist.
+> **STATUS: IMPLEMENTED.** The OCI manifest workflow registers each published
+> image through Artifact Hub's API (when the repository API-key secrets are
+> configured), then pushes `artifacthub-repo.yml` ownership metadata with `oras`.
+> Registration is idempotent and applies independently to each OCI image.
 
 ArtifactHub does not support automatic registry-wide scanning to discover new OCI repositories. New container images (like `ghcr.io/projectbluefin/skopeo`) must be registered individually. However, this process can be fully automated in CI using ArtifactHub's REST API and `oras`.
 
