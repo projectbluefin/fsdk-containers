@@ -296,3 +296,21 @@ The rules that follow, implemented in `just publish-podman-vm`:
 
 Never paper over any of this with `continue-on-error`: a half-published
 release looks like success to consumers and is worse than a clean failure.
+
+## Main build failure notification
+
+`.github/workflows/main-build-failure.yml` listens for completed `Build images`
+workflow runs on `main`. It only acts when the completed run was a failed `push`
+run, so pull-request validation and manual or repository-dispatch runs do not
+create noise.
+
+The job uses the repository `GITHUB_TOKEN` with `issues: write` to find the one
+canonical issue titled `CI: main build is failing`. It reopens and updates that
+issue on later failures; if no matching issue exists, it creates one. The run
+URL, run ID, and head SHA are included as evidence. Do not create one issue per
+run or close the issue automatically: closing is the human acknowledgement that
+main is healthy again.
+
+The trigger relies on the exact workflow name `Build images` in `build.yml`.
+If that workflow is renamed, update the `workflow_run.workflows` value in the
+notification workflow at the same time.

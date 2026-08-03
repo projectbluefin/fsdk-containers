@@ -1,0 +1,58 @@
+name: Notice main build failures
+
+on:
+  workflow_run:
+    workflows: [Build images]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  notice:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Open or update the main build tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          title='CI: main build is failing'
+          body=$(cat <<EOF
+          The [Build images](${RUN_URL}) workflow failed on `main`.
+
+          - Run: `${RUN_ID}`
+          - Commit: `${HEAD_SHA}`
+          - Workflow: ${RUN_URL}
+
+          This issue is automatically reopened and updated when the main build
+          fails. Close it after the build is healthy again.
+          EOF
+          )
+
+          issue_number="$(gh api --paginate "repos/${REPO}/issues?state=all&per_page=100" \
+            --jq '.[] | select(.pull_request == null) | [.number, .title] | @tsv' \
+            | awk -F '\t' -v title="${title}" '$2 == title { print $1; exit }')"
+
+          if [[ -n "${issue_number}" ]]; then
+            gh api --method PATCH "repos/${REPO}/issues/${issue_number}" \
+              -f state=open \
+              -f body="${body}" >/dev/null
+            echo "Updated issue #${issue_number}."
+          else
+            gh api --method POST "repos/${REPO}/issues" \
+              -f title="${title}" \
+              -f body="${body}" >/dev/null
+            echo "Opened main build failure issue."
+          fi
