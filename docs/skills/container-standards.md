@@ -86,6 +86,18 @@ never be a hardcoded tag (and never `:latest`, which is no longer published).
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
 - A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.
 - Images published to GHCR without point-release tagging.
+- Bumping a large CLI major version without measuring the resulting image size and checking the workflow contract.
+
+### lab-runner Argo CLI sizing
+
+The lab-runner image uses the Argo Workflows CLI v3.7 line rather than v4.0.
+Issue #48 recorded that v4.0.8 made the image 497,245,531 bytes uncompressed,
+with the Argo binary contributing about 181.2 MB. The v3.7.17 release was
+selected as the current v3 patch line and its architecture-specific release
+asset digests are pinned in `elements/lab-runner/argo.bst`. The lab-runner
+verification gate still requires `argo`, `just`, and `kubectl`; changing the
+CLI line must preserve that executable contract and be followed by `just
+verify` and an image-size measurement.
 
 ---
 
