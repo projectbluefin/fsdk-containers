@@ -1,0 +1,64 @@
+name: CI health
+
+# Keep infrastructure failures on main visible even when the failed build
+# itself cannot write issues. workflow_run runs with this workflow's token and
+# receives the completed Build images run as its event payload.
+on:
+  workflow_run:
+    workflows: [Build images]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: ci-health-main
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  report-failure:
+    if: >-
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report failed main build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          title='CI is red on main'
+          failed_jobs=''
+          while IFS=$'\t' read -r name conclusion; do
+            case "$conclusion" in
+              success|skipped|neutral) continue ;;
+            esac
+            failed_jobs+="- ${name}: ${conclusion}"$'\n'
+          done < <(gh api --paginate \
+            "/repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+            --jq '.jobs[] | [.name, .conclusion] | @tsv')
+          if [[ -z "$failed_jobs" ]]; then
+            failed_jobs='- No failed job details were returned by the GitHub API.'$'\n'
+          fi
+          body=$(printf '## Build images failed on `main`\n\n- **Run:** [%s](%s)\n- **Commit:** `%s`\n- **Conclusion:** `%s`\n\n### Failed jobs\n\n%s' \
+            "$RUN_ID" "$RUN_URL" "$HEAD_SHA" "$CONCLUSION" "$failed_jobs")
+          issue_number=$(gh issue list --repo "$REPOSITORY" --state all \
+            --search "in:title $title" --limit 20 \
+            --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n1)
+          if [[ -n "$issue_number" ]]; then
+            state=$(gh issue view "$issue_number" --repo "$REPOSITORY" --json state --jq .state)
+            if [[ "$state" == CLOSED ]]; then
+              gh issue reopen "$issue_number" --repo "$REPOSITORY"
+            fi
+            gh issue comment "$issue_number" --repo "$REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$REPOSITORY" --title "$title" --body "$body"
+          fi

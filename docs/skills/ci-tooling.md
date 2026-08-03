@@ -186,11 +186,21 @@ container build failure from canceling unrelated container builds.
 | "It's just a minor version tag, supply-chain risk is low." | One compromised tag push owns every repo using it. Pin to SHA. |
 | "I'll check what SHA other repos use later." | Check now — it's one `gh api` call and takes 10 seconds. |
 
+## Main-branch failure notification
+
+`main` has a separate `ci-health.yml` `workflow_run` listener for the `Build images` workflow. It is intentionally downstream of the build: `workflow_run` workflows can use a write-capable token even when the build itself is restricted, and the listener filters to `main` and only acts when the completed run conclusion is not `success` or `skipped`.
+
+The listener maintains one issue titled `CI is red on main`, reopening it when necessary and appending a comment with the failed run URL, commit, conclusion, and failed job names. It must not create one issue per run. Keep the issue lookup exact and serialize runs with a concurrency group so simultaneous completion events cannot race to create duplicates.
+
+The issue writer uses the workflow-provided `GH_TOKEN`; do not add a PAT or webhook secret. If the issue is closed, reopen it before commenting. The workflow should be tested with a deliberately failed run or by reviewing its rendered YAML and shell quoting; never mutate the signed image artifact as a notification workaround.
+
 ## Red Flags
 
 - Any `uses:` line with a mutable ref (`@v2`, `@main`, `@latest`)
 - `sudo podman` in one job and plain `podman` in another job doing the same operation
 - A new action not present in any sibling repo — check upstream first
+- A failure notifier that searches by a loose title substring or creates a new issue for every failed run
+- A notifier that uses a PAT or depends on a secret webhook when the GitHub issue is sufficient
 
 ## Verification
 
