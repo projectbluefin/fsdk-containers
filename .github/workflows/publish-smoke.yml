@@ -1,0 +1,108 @@
+name: Published Manifest Smoke
+
+# Validate the registry-facing contract after Build images publishes. This is
+# intentionally a separate workflow: the publish workflow must not be made
+# dependent on observational smoke checks, but published tags must still be
+# exercised before they are considered healthy.
+on:
+  workflow_run:
+    workflows: [Build images]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+jobs:
+  prepare:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      images: ${{ steps.matrix.outputs.images }}
+      tag: ${{ steps.tags.outputs.tag }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - id: matrix
+        run: echo "images=$(jq -c '.oci_images' elements/targets.json)" >> "$GITHUB_OUTPUT"
+      - id: tags
+        run: echo "tag=$(just tags | tail -1)" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: prepare
+    if: github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.prepare.outputs.images) }}
+        arch: [x86_64, aarch64]
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    env:
+      REPO: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Install ORAS
+        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+      - name: Log in to GHCR
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.docker
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io \
+            -u "${{ github.actor }}" --password-stdin \
+            --compat-auth-file ~/.docker/config.json
+      - name: Resolve and verify published manifest
+        id: manifest
+        env:
+          COSIGN_CERT_IDENTITY_REGEXP: https://github.com/projectbluefin/fsdk-containers/.github/workflows/
+          COSIGN_OIDC_ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          digest="$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+            "docker://${REPO}:${TAG}" | jq -r .Digest)"
+          test -n "$digest" -a "$digest" != null
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          cosign verify \
+            --certificate-identity-regexp "$COSIGN_CERT_IDENTITY_REGEXP" \
+            --certificate-oidc-issuer "$COSIGN_OIDC_ISSUER" \
+            "${REPO}@${digest}"
+          refs="$(oras discover --format json "${REPO}@${digest}")"
+          echo "$refs" | jq -e '[.manifests[] | select(.artifactType == "application/vnd.spdx+json")] | length > 0'
+      - name: Pull and smoke each published architecture
+        run: |
+          set -euo pipefail
+          arch="${{ matrix.arch }}"
+          platform="${{ matrix.arch == 'aarch64' && 'arm64' || 'amd64' }}"
+          for pair in "${arch}:${platform}"; do
+            arch="${pair%%:*}"; platform="${pair##*:}"
+            ref="${REPO}-${arch}:${TAG}"
+            podman pull --platform "linux/${platform}" "$ref"
+            case "${{ matrix.image }}" in
+              skopeo|python|buildah|qemu-img)
+                podman run --rm --platform "linux/${platform}" "$ref" --version >/dev/null
+                ;;
+              lab-runner)
+                podman run --rm --platform "linux/${platform}" "$ref" \
+                  -c 'curl --version && git --version && jq --version && python3 --version' >/dev/null
+                ;;
+              base|static)
+                # These images intentionally have no process entrypoint. Pulling
+                # the architecture-specific image and inspecting its config is
+                # the executable smoke equivalent for a filesystem-only image.
+                podman image inspect "$ref" >/dev/null
+                ;;
+              *) echo "unknown image smoke contract" >&2; exit 1 ;;
+            esac
+          done
