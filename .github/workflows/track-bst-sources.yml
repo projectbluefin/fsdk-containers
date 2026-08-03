@@ -1,0 +1,82 @@
+name: Track BuildStream sources
+
+# Renovate can update the release variable in a manual element, but the
+# architecture-specific remote source refs are BuildStream-generated hashes.
+# Track those refs with BuildStream itself so a version bump and its checksums
+# land together in one reviewable PR.
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: track-bst-sources
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  track:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - element: lab-runner/just.bst
+            branch: auto/track-just
+            title: 'chore(deps): update just'
+          - element: lab-runner/kubectl.bst
+            branch: auto/track-kubectl
+            title: 'chore(deps): update kubectl'
+          - element: lab-runner/argo.bst
+            branch: auto/track-argo
+            title: 'chore(deps): update argo'
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Track source refs with BuildStream
+        run: just bst --no-interactive source track elements/${{ matrix.element }}
+      - name: Check for source changes
+        id: changes
+        env:
+          ELEMENT: elements/${{ matrix.element }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$ELEMENT"; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo "No source update for ${ELEMENT}."
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            git diff -- "$ELEMENT"
+          fi
+      - name: Validate changed element
+        if: steps.changes.outputs.changed == 'true'
+        run: just bst --no-interactive show --deps all "${{ matrix.element }}"
+      - name: Create or update tracking PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ matrix.branch }}
+          ELEMENT: elements/${{ matrix.element }}
+          TITLE: ${{ matrix.title }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$BRANCH"
+          git add "$ELEMENT"
+          git commit -m "$TITLE"
+          git push --force-with-lease origin "$BRANCH"
+          if gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number' | grep -q .; then
+            echo "Updated existing PR for ${ELEMENT}."
+          else
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" \
+              --body "Automated BuildStream source tracking for ${ELEMENT}. The PR updates the release source refs and their architecture-specific sha256 values together."
+          fi
