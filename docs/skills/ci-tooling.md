@@ -119,6 +119,7 @@ Supporting workflows, none of which touch publication:
 | `oci-images` (`build.yml`) | after `matrix` | matrix-calls `oci-images.yml` once per selected image |
 | `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per architecture (x86_64 + aarch64) for that one image: build + verify + tag-push |
 | `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+| `publish-smoke` (`oci-images.yml`) | after `manifest` succeeds | native-runner pull of each architecture tag, OCI-config smoke execution, manifest signature verification, and SBOM referrer discovery |
 | `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
