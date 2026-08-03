@@ -1,4 +1,4 @@
 repository=https://github.com/projectbluefin/donate-clanker.git
-commit=7f16610ead3d82826ca4f662a7c1d1624415f43a
+commit=5155b0bbdba0262b0ed1d948acf8d2e26b8205ce
 publication_required=true
 binary=/usr/libexec/donate-clanker-worker

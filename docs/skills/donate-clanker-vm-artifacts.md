@@ -44,9 +44,10 @@ See "Release asset contract" in docs/skills/vm-podman-guest.md.
 boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
-systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
+systemd unit, the Goose runtime config/policy, and
+`/etc/donate-clanker/worker.source`, pinned to
 `projectbluefin/donate-clanker` commit
-`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
+`5155b0bbdba0262b0ed1d948acf8d2e26b8205ce`. The consumer opens the
 virtio-serial channel as an unbuffered binary stream because virtio ports are
 non-seekable; it retries until the launcher's version-2 envelope line arrives,
 validates it, encodes a version-2 `control_ack`, keeps credentials in memory,
@@ -89,4 +90,6 @@ An observed x86_64 local build took approximately 10 minutes and produced a
 - [ ] `just export-podman-vm` checks out only the raw disk and `.sha256`.
 - [ ] The dependency graph contains no Podman, SSH, cloud-init, or `qemu-img`.
 - [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
+- [ ] The guest includes `/etc/donate-clanker/goose.yaml` and
+  `/etc/donate-clanker/local-agent-policy.md` from the same pinned source.
 - [ ] `podman-vm/donate-clanker-worker.bst` builds from the pinned source.

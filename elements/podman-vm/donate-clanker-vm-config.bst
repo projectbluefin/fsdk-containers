@@ -11,6 +11,10 @@ sources:
     path: elements/podman-vm/files/donate-clanker-bootstrap.service
   - kind: local
     path: elements/podman-vm/files/donate-clanker-worker.source
+  - kind: git_repo
+    url: github:projectbluefin/donate-clanker.git
+    ref: 5155b0bbdba0262b0ed1d948acf8d2e26b8205ce
+    directory: donate-clanker
 
 build-depends:
   - freedesktop-sdk.bst:bootstrap/bash.bst
@@ -39,6 +43,10 @@ config:
         "%{install-root}/usr/libexec/donate-clanker-bootstrap"
       install -m 0644 donate-clanker-bootstrap.service \
         "%{install-root}/usr/lib/systemd/system/donate-clanker-bootstrap.service"
+      install -m 0644 donate-clanker/image/config/goose.yaml \
+        "%{install-root}/etc/donate-clanker/goose.yaml"
+      install -m 0644 donate-clanker/image/config/local-agent-policy.md \
+        "%{install-root}/etc/donate-clanker/local-agent-policy.md"
       printf '%s\n' 'enable donate-clanker-bootstrap.service' \
         > "%{install-root}/usr/lib/systemd/system-preset/01-donate-clanker.preset"
       install -m 0644 donate-clanker-worker.source \
