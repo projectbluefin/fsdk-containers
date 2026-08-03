@@ -72,11 +72,11 @@ Personal Access Tokens (PATs) are strictly banned in this organization. To perfo
     private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
 ```
 
-### Renovate-updated BuildStream sources
+### Atomic BuildStream source updates
 
-Renovate updates the version variable, but the sibling `ref:` in a `kind: remote` source is resolved by BuildStream rather than Renovate. The `renovate-track-bst.yml` workflow runs on Renovate PRs, checks out the PR branch, finds changed elements containing `# renovate:` metadata, and runs `just bst --no-interactive source track` for each one before committing the refreshed refs.
+Only git repository sources with a commit-resolving datasource are Renovate-managed. The `buildah.bst` annotation uses Renovate's `git-refs` datasource and captures both `track:` and the matching `ref:` in one regex manager match. Renovate therefore updates the source selector and commit ref together. The manager's package name is the fully qualified GitHub URL (`https://github.com/{{depName}}.git`), as required by the `git-refs` datasource.
 
-Keep this workflow restricted to Renovate branches and same-repository PR heads: `pull_request_target` has write credentials, so it must never execute arbitrary contributor code. The workflow is intentionally limited to the changed `.bst` files that contain Renovate metadata.
+Archive and remote binary sources remain intentionally unautomated unless an authoritative upstream checksum manifest or verifiable signature can be integrated. Do not restore the old generic regex manager: a release version alone cannot identify or verify the exact archive artifact.
 
 ### Triggering Workflows (Pushes vs. Repository Dispatch)
 Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Actions workflows. To trigger downstream workflows or standard build runs from an automated update:

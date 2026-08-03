@@ -7,7 +7,8 @@ build-depends:
 
 variables:
   strip-binaries: ""
-  # renovate: datasource=github-releases depName=argoproj/argo-workflows
+  # BuildStream source is intentionally not Renovate-managed: the release artifact has no authoritative checksum manifest.
+  # depName=argoproj/argo-workflows
   argo_version: v4.0.8
 
 sources:

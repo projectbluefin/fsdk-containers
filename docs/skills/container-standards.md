@@ -42,12 +42,13 @@ All OCI images (except explicit exceptions) must pass the `just verify` validati
 ## 3. Automated Dependency Updates (GitOps / Renovate)
 
 No version pins may be static or unmonitored. 
-- **Renovate regex matching:** Every external binary, package, or track branch must register a `# renovate:` comment above the variable or field:
+- **Renovate matching:** Only sources with an authoritative, source-specific update mechanism may be automated. Git repositories use the atomic `git-refs` manager, which updates `track:` and `ref:` together. Archive sources without authoritative checksums remain manual:
   ```yaml
-  # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
+  # renovate: datasource=git-refs depName=containers/buildah
+  track: v1.45.0
+  ref: <matching commit SHA>
   ```
-- **Automated tracking:** For git repositories, Renovate updates the `track` field, which must then trigger `bst source track <element>` in CI to fetch and pin the exact, secure cryptographic commit `ref:` hash.
+- **Do not use the old generic regex manager:** a release tag does not identify which archive artifact an element downloads and cannot safely update its SHA-256 ref.
 
 ---
 

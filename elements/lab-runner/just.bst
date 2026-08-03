@@ -8,7 +8,8 @@ build-depends:
 
 variables:
   strip-binaries: ""
-  # renovate: datasource=github-releases depName=casey/just
+  # BuildStream source is intentionally not Renovate-managed: the release artifact has no authoritative checksum manifest.
+  # depName=casey/just
   just_version: 1.57.0
 
 sources:

@@ -93,17 +93,13 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **Auto-Renovate version updates:** Use the generic regex customManager in `renovate.json` by adding a comment above your version/track variable:
+- **Auto-Renovate version updates:** Use the atomic `git-refs` custom manager in `renovate.json` only for git repository sources whose commit ref can be resolved from the tracked ref:
   ```yaml
-  # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
+  # renovate: datasource=git-refs depName=containers/buildah
+  track: v1.45.0
+  ref: <matching commit SHA>
   ```
-  Or for git_repo tracking:
-  ```yaml
-  # renovate: datasource=github-releases depName=containers/buildah
-  track: v1.36.0
-  ```
-  Once Renovate updates the tag, the CI workflow runs `just bst source track <element>` to resolve the exact commit hash and update the `ref:` field.
+  `track:` and `ref:` must be captured by the same manager match. Archive sources without an authoritative checksum manifest or verifiable signature are not Renovate-managed.
 
 ## Wire it up
 

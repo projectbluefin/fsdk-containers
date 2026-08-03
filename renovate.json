@@ -13,11 +13,14 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/(^|/)elements/.*\\.bst$/"
+        "/(^|/)elements/buildah/buildah\\.bst$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s+(?:[a-zA-Z0-9_-]+):\\s*\"?(?<currentValue>[a-zA-Z0-9_.-]+)\"?"
-      ]
+        "# renovate: datasource=git-refs depName=(?<depName>\\S+)\\n\\s+track:\\s+(?<currentValue>\\S+)\\n\\s+ref:\\s+(?<currentDigest>[0-9a-f]{40})"
+      ],
+      "packageNameTemplate": "https://github.com/{{depName}}.git",
+      "datasourceTemplate": "git-refs",
+      "versioningTemplate": "loose"
     }
   ],
   "schedule": [
