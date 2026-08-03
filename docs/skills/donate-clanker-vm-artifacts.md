@@ -26,8 +26,9 @@ The target reuses the FSDK VM graph:
 `podman-vm/podman-vm-filesystem.bst` → `podman-vm/podman-vm-efi.bst`.
 
 The guest is the full FSDK VM/uutils base plus networking, certificates, git,
-the pinned worker, `/sbin/init`, an empty machine-id, and the EFI system
-partition. It does not include Podman, SSH, cloud-init, or `qemu-img`. The final
+the pinned worker, its matching `goose.yaml` and `local-agent-policy.md`
+configuration, `/sbin/init`, an empty machine-id, and the EFI system partition.
+It does not include Podman, SSH, cloud-init, or `qemu-img`. The final
 install-root contains exactly:
 
 ```text
@@ -44,7 +45,9 @@ See "Release asset contract" in docs/skills/vm-podman-guest.md.
 boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
-systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
+systemd unit, `/etc/donate-clanker/worker.source`,
+`/etc/donate-clanker/goose.yaml`, and
+`/etc/donate-clanker/local-agent-policy.md`, all pinned to
 `projectbluefin/donate-clanker` commit
 `96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
 virtio-serial channel as an unbuffered binary stream because virtio ports are
