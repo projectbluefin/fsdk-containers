@@ -1,0 +1,73 @@
+name: Track Renovate BuildStream sources
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: renovate-track-bst-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  track:
+    # Only Renovate-created PRs are allowed to receive an automated commit.
+    if: github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Renovate branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.repository }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Install just
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Track changed BuildStream sources
+        id: track
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          mapfile -t elements < <(
+            git diff --name-only "$base" HEAD -- 'elements/**/*.bst' |
+              while read -r path; do
+                if grep -q '# renovate:' "$path"; then
+                  printf '%s\n' "$path"
+                fi
+              done
+          )
+
+          if [ "${#elements[@]}" -eq 0 ]; then
+            echo "No Renovate-managed BuildStream elements changed."
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for element in "${elements[@]}"; do
+            echo "Tracking sources in ${element}"
+            just bst --no-interactive source track "${element}"
+          done
+
+          if git diff --quiet; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit tracked refs
+        if: steps.track.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add elements
+          git commit -m 'chore(deps): track Renovate BuildStream sources'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}

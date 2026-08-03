@@ -72,6 +72,12 @@ Personal Access Tokens (PATs) are strictly banned in this organization. To perfo
     private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
 ```
 
+### Renovate-updated BuildStream sources
+
+Renovate updates the version variable, but the sibling `ref:` in a `kind: remote` source is resolved by BuildStream rather than Renovate. The `renovate-track-bst.yml` workflow runs on Renovate PRs, checks out the PR branch, finds changed elements containing `# renovate:` metadata, and runs `just bst --no-interactive source track` for each one before committing the refreshed refs.
+
+Keep this workflow restricted to Renovate branches and same-repository PR heads: `pull_request_target` has write credentials, so it must never execute arbitrary contributor code. The workflow is intentionally limited to the changed `.bst` files that contain Renovate metadata.
+
 ### Triggering Workflows (Pushes vs. Repository Dispatch)
 Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Actions workflows. To trigger downstream workflows or standard build runs from an automated update:
 1. Push updates to an automated branch (e.g. `auto/update-fsdk`) and create a Pull Request using the Mergeraptor token.
