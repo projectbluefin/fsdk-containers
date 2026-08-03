@@ -28,6 +28,7 @@ load the focused skill for your task.
 | Run local/agent builds on the ghost cluster (remote execution) | [remote-execution.md](remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [custom-builds-and-caching.md](custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [artifacthub-automation.md](artifacthub-automation.md) |
+| Verify the brew nspawn machine image | [nspawn-machine-image.md](nspawn-machine-image.md) |
 | Container quality standards and SRE tagging | [container-standards.md](container-standards.md) |
 | Run or respond to a security audit / review | [security-review.md](security-review.md) |
 | Finishing a task (always) | [skill-improvement.md](skill-improvement.md) |
