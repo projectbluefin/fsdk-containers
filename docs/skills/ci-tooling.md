@@ -104,6 +104,7 @@ other in the Actions UI:
 | `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
 | `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
+| `track-bst-sources.yml` | daily schedule or manual dispatch | runs `bst source track` for remote lab-runner artifacts and opens/updates a PR containing refreshed version and sha256 refs |
 
 The **canonical manifest** for the OCI image lane is `elements/targets.json`
 (`oci_images` list). Adding a package means adding one entry there — `just
@@ -197,6 +198,24 @@ container build failure from canceling unrelated container builds.
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] No new mutable action refs introduced
+
+### BuildStream remote source tracking
+
+Renovate can update the version variable marked by a custom regex manager, but
+it does not calculate the sibling `ref` hash for a BuildStream `kind: remote`
+source. The scheduled `track-bst-sources.yml` workflow is therefore the source
+of truth for `elements/lab-runner/{just,kubectl,argo}.bst`: `bst source track`
+updates both the version and the downloaded artifact's sha256 ref in one
+change, and the workflow submits that change as a reviewable PR.
+
+Run the same operation locally with:
+
+```bash
+just bst --no-interactive source track \
+  elements/lab-runner/just.bst \
+  elements/lab-runner/kubectl.bst \
+  elements/lab-runner/argo.bst
+```
 
 ### GitHub artifact attestations
 

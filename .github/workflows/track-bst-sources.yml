@@ -1,0 +1,66 @@
+name: Track BuildStream sources
+
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: track-bst-sources
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  track:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Track remote source refs
+        run: |
+          set -euo pipefail
+          just bst --no-interactive source track \
+            lab-runner/just.bst \
+            lab-runner/kubectl.bst \
+            lab-runner/argo.bst
+
+      - name: Check for source changes
+        id: changes
+        run: |
+          if git diff --quiet -- elements/lab-runner; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'No BuildStream source updates found.'
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            git diff -- elements/lab-runner
+          fi
+
+      - name: Create or update source-tracking PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch='auto/track-lab-runner-sources'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$branch"
+          git add elements/lab-runner
+          git commit -m 'chore(deps): track lab-runner remote sources'
+          git push --force origin "$branch"
+          if gh pr list --head "$branch" --state open --json number --jq 'length' | grep -q '^0$'; then
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title 'chore(deps): track lab-runner remote sources' \
+              --body 'Automated BuildStream source tracking for lab-runner remote artifacts. This refreshes each version-specific sha256 ref together with its version variable.'
+          fi
