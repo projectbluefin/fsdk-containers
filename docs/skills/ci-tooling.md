@@ -433,3 +433,30 @@ The rules that follow, implemented in `just publish-podman-vm`:
 
 Never paper over any of this with `continue-on-error`: a half-published
 release looks like success to consumers and is worse than a clean failure.
+
+### Atomic BuildStream source updates
+
+Renovate can update a release variable in a `.bst` file, but it cannot derive
+BuildStream's architecture-specific `ref` values for `kind: remote` sources.
+Changing a version without tracking those refs leaves the URL and SHA-256 pin
+out of sync.
+
+The repository therefore uses `.github/workflows/renovate-source-refs.yml` on
+`pull_request_target`. It is restricted to Renovate PRs whose head repository
+is this repository, checks out the branch with the Mergeraptor app token, runs
+`just bst source track` for changed Renovate-managed elements, validates the
+changed element graph, and pushes refreshed refs back to the same branch.
+
+Keep the source `ref` pins. Do not remove them to make Renovate updates easier:
+they are the supply-chain integrity check for downloaded artifacts.
+
+Verification:
+
+```bash
+bash tests/renovate-source-refs.sh
+python3 -m json.tool renovate.json >/dev/null
+just bst show --deps all elements/lab-runner/just.bst
+```
+
+The first two checks are local metadata checks. The final command requires the
+repository's FSDK `bst2` container and BuildStream setup.
