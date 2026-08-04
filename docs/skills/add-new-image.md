@@ -93,17 +93,7 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **Auto-Renovate version updates:** Use the generic regex customManager in `renovate.json` by adding a comment above your version/track variable:
-  ```yaml
-  # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
-  ```
-  Or for git_repo tracking:
-  ```yaml
-  # renovate: datasource=github-releases depName=containers/buildah
-  track: v1.36.0
-  ```
-  Once Renovate updates the tag, the CI workflow runs `just bst source track <element>` to resolve the exact commit hash and update the `ref:` field.
+- **Version pins are updated manually.** BuildStream source version variables and `ref` fields are not auto-updated by Renovate — the regex customManager was removed because it could change a version without updating the corresponding checksum, producing unreproducible builds (see [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50)). When bumping a source version, update both the version variable and the `ref` to the SHA-256 of the new artifact.
 
 ## Wire it up
 

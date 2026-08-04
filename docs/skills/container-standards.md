@@ -41,13 +41,9 @@ All OCI images (except explicit exceptions) must pass the `just verify` validati
 
 ## 3. Automated Dependency Updates (GitOps / Renovate)
 
-No version pins may be static or unmonitored. 
-- **Renovate regex matching:** Every external binary, package, or track branch must register a `# renovate:` comment above the variable or field:
-  ```yaml
-  # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
-  ```
-- **Automated tracking:** For git repositories, Renovate updates the `track` field, which must then trigger `bst source track <element>` in CI to fetch and pin the exact, secure cryptographic commit `ref:` hash.
+GitHub Actions are auto-updated via Renovate's built-in `github-actions` manager.
+
+BuildStream source version pins are **not** auto-updated by Renovate. The generic regex customManager was removed (see [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50)) because it could change a source version while leaving the `ref` (SHA-256 checksum) pointing to the old artifact, producing unreproducible builds. Sources are updated manually when upstream releases are reviewed.
 
 ---
 
@@ -81,7 +77,7 @@ never be a hardcoded tag (and never `:latest`, which is no longer published).
 ---
 
 ## Red Flags
-- Any hardcoded version tags in `.bst` files with no corresponding `# renovate:` comment.
+- Version pins in `.bst` files whose `ref` (SHA-256) does not match the corresponding source artifact.
 - Including a shell (`/usr/bin/bash` or similar) in a distroless-tier image.
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
 - A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.

@@ -6,19 +6,7 @@
     "helpers:pinGitHubActionDigests"
   ],
   "enabledManagers": [
-    "github-actions",
-    "custom.regex"
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/(^|/)elements/.*\\.bst$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s+(?:[a-zA-Z0-9_-]+):\\s*\"?(?<currentValue>[a-zA-Z0-9_.-]+)\"?"
-      ]
-    }
+    "github-actions"
   ],
   "schedule": [
     "after 2am and before 6am"
