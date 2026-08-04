@@ -6,7 +6,6 @@ build-depends:
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
-  strip-binaries: ""
   # renovate: datasource=github-releases depName=argoproj/argo-workflows
   argo_version: v4.0.8
 
