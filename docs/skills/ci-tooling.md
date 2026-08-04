@@ -105,6 +105,7 @@ Supporting workflows, none of which touch publication:
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
 | `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only |
+| `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
 
@@ -135,6 +136,15 @@ images, assemble manifests, sign, or publish attestations. This prevents
 unreviewed bump branches from moving minor production tags. The
 same caution applies to the VM guest's publish step: it only runs on
 `push`/`workflow_dispatch`, never `repository_dispatch`.
+
+### Main build alerts
+
+`ci-alert.yml` listens for failed `Build images` push runs on `main`. It records
+failed and skipped job links in one canonical `[CI] Build images failed on main`
+issue, reopening it when a later failure occurs. Keep the workflow-level
+concurrency group: without it, simultaneous failed runs can each observe no
+open issue and create duplicates. It searches all issue states and reapplies
+the `area/ci` and `priority/p1` labels whenever it reopens the issue.
 
 ### Per-image OCI fan-out
 

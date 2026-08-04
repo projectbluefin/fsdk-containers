@@ -33,9 +33,11 @@ jobs:
           FAILURES=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs" \
             --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "skipped")
                    | "- [\(.name)](\(.html_url)) (\(.conclusion))"] | join("\n")')
-          echo "failures<<EOF" >> "$GITHUB_OUTPUT"
-          echo "${FAILURES}" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "failures<<EOF"
+            echo "${FAILURES}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check for existing alert issue
         id: find
