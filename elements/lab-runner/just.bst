@@ -29,7 +29,7 @@ config:
       # restoring that ownership is not permitted inside the BuildStream
       # sandbox ("Cannot change ownership to uid 1001, gid 1001"), which
       # makes tar exit non-zero even though the member extracted fine.
-      tar -xzf just.tar.gz --no-same-owner just
+      tar --no-same-owner -xzf just.tar.gz just
       mkdir -p "%{install-root}/usr/bin"
       cp just "%{install-root}/usr/bin/just"
       chmod 755 "%{install-root}/usr/bin/just"
