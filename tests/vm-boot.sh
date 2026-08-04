@@ -248,10 +248,21 @@ BOOTSTRAP_SOCKET="${WORKDIR}/bootstrap.sock"
 
 log "booting ${ARCH} guest headless (timeout ${BOOT_TIMEOUT}s), serial captured to ${SERIAL_LOG}"
 : > "$SERIAL_LOG"
+case "$ARCH" in
+    x86_64)
+        DISK_ARGS=(-drive "file=${OVERLAY},format=qcow2,if=virtio")
+        ;;
+    aarch64)
+        DISK_ARGS=(
+            -drive "file=${OVERLAY},format=qcow2,if=none,id=rootdisk"
+            -device "virtio-blk-device,drive=rootdisk,romfile="
+        )
+        ;;
+esac
 "$QEMU" \
     "${ACCEL_ARGS[@]}" -smp 2 -m 2048 \
     "${FIRMWARE_ARGS[@]}" \
-    -drive "file=${OVERLAY},format=qcow2,if=virtio" \
+    "${DISK_ARGS[@]}" \
     -nic user,model=virtio \
     -chardev "socket,id=control,path=${BOOTSTRAP_SOCKET},server=on,wait=off" \
     -device "$SERIAL_DEVICE" \
