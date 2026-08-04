@@ -59,9 +59,9 @@ There is deliberately no `:latest`. A mutable rolling alias lets a consumer
 deploy an unpinned image and have it change underneath them with no signal, so
 the minor line below is the most permissive tag published.
 
-1. **`:25.08` / `:26.08` (Stable Minor Line)**  
+1. **`:25.08` / `:26.08` (Stable Minor Line)**
    e.g. `:25.08`. Tracks patch updates to that minor line. Balances security patches with high stability.
-2. **`:25.08.14` / `:26.08beta.1` (Immutable Point / Pre-release Tag)**  
+2. **`:25.08.14` / `:26.08beta.1` (Immutable Point / Pre-release Tag)**
    e.g. `:25.08.14` or `:26.08beta.1`. Point releases and upstream pre-releases/betas/RCs are tagged automatically, ensuring every upstream development and beta line is published. **Recommended for SRE production environments to guarantee 100% reproducible deployments.**
 
 ### Dynamic Metadata Labeling
