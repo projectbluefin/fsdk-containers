@@ -9,6 +9,10 @@ permissions:
   actions: read
   issues: write
 
+concurrency:
+  group: ci-alert-main
+  cancel-in-progress: false
+
 jobs:
   alert:
     if: >-
@@ -27,7 +31,7 @@ jobs:
           REPO="${{ github.repository }}"
           RUN_ID="${{ github.event.workflow_run.id }}"
           FAILURES=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs" \
-            --jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped")
+            --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "skipped")
                    | "- [\(.name)](\(.html_url)) (\(.conclusion))"] | join("\n")')
           echo "failures<<EOF" >> "$GITHUB_OUTPUT"
           echo "${FAILURES}" >> "$GITHUB_OUTPUT"
@@ -40,11 +44,10 @@ jobs:
         run: |
           set -euo pipefail
           ISSUE_NUM=$(gh issue list \
-            --state open \
-            --label 'area/ci' \
+            --state all \
             --limit 30 \
             --json number,title \
-            --jq '.[] | select(.title | startswith("[CI] Build images failed on main")) | .number' \
+            --jq '.[] | select(.title == "[CI] Build images failed on main") | .number' \
             | head -1)
           echo "issue_number=${ISSUE_NUM:-}" >> "$GITHUB_OUTPUT"
 
@@ -60,13 +63,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          RUN_LINK="[${RUN_URL}](#${RUN_ID})"
+          RUN_LINK="[${RUN_URL}](${RUN_URL})"
 
           if [[ -n "${EXISTING}" ]]; then
             echo "Reopening existing alert issue #${EXISTING}"
             gh issue reopen "${EXISTING}" --repo "${{ github.repository }}"
             gh issue edit "${EXISTING}" \
               --repo "${{ github.repository }}" \
+              --add-label 'area/ci' \
+              --add-label 'priority/p1' \
               --body "## CI alert: Build images failed on \`${BRANCH}\`
 
           Workflow run: ${RUN_LINK}
