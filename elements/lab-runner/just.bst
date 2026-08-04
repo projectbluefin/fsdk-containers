@@ -9,7 +9,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=casey/just
-  just_version: 1.57.0
+  just_version: 1.58.0
 
 sources:
   - kind: remote
