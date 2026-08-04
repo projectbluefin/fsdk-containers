@@ -274,13 +274,14 @@ the Justfile `tag-push` recipe and the workflow manifest loop guard this with
 a `skopeo inspect --no-tags docker://REPO:TAG` existence check and skip the
 push if the tag exists.
 
-The minor-line tag is rolling, but the manifest job only
-assembles and pushes them when **both** required architectures (`x86_64` and
-`aarch64`) were successfully built and published. If one architecture failed,
-the rolling/minor-line tags are skipped so a single-arch manifest cannot
-overwrite the existing multi-arch manifest. The manifest job resolves the
-signing digest from the first tag it actually publishes, so signing is skipped
-entirely when no tags are pushed.
+The manifest job only runs after both required architectures (`x86_64` and
+`aarch64`) have successfully built and published their staging images. It
+requires both references before it can publish any tag, including an immutable
+point release; a partial manifest is not a valid release. Do not add
+`always()` to this job: it overrides GitHub Actions' default `needs: build`
+success dependency and can promote a partial matrix. The manifest job resolves
+the signing digest from the first tag it actually publishes, so signing is
+skipped entirely when no tags are pushed.
 
 The `podman-vm` release assets follow the same immutability shape one level
 up: there is no rolling equivalent at all (GitHub Release assets

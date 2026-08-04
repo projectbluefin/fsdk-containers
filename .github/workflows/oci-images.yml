@@ -73,7 +73,7 @@ jobs:
     needs: build
     # repository_dispatch is verification-only for an unmerged FSDK bump;
     # never publish branch content to production tags.
-    if: (always()) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -120,7 +120,6 @@ jobs:
 
           # Check which per-architecture images were successfully built and published
           POINT_TAG="$(just tags | tail -1)"
-          MINOR_TAG="$(just tags | sed -n '2p')"
           AVAIL_ARCHS=()
           for arch in x86_64 aarch64; do
             if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
@@ -128,36 +127,17 @@ jobs:
             fi
           done
 
-          if [ ${#AVAIL_ARCHS[@]} -eq 0 ]; then
-            echo "==> WARNING: No per-architecture images found for ${REPO} at tag ${POINT_TAG}. Skipping manifest assembly."
-            exit 0
+          if [ ${#AVAIL_ARCHS[@]} -ne 2 ]; then
+            echo "ERROR: Expected x86_64 and aarch64 staging images for ${REPO}:${POINT_TAG}; found: ${AVAIL_ARCHS[*]:-none}" >&2
+            exit 1
           fi
 
           echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
-
-          # Rolling and minor-line tags must remain multi-arch: only update
-          # them when both required architectures were successfully built and
-          # published. If one architecture failed, a single-arch manifest
-          # would otherwise silently replace the existing multi-arch one for
-          # every consumer pinned to the minor line. The point-release tag is
-          # still published, because it is immutable and a partial point
-          # release is visibly incomplete rather than a regression of a tag
-          # people already depend on. `just tags` deliberately emits no
-          # `latest` (see the recipe); the check keeps it guarded anyway so
-          # re-introducing a rolling alias cannot quietly bypass this rule.
-          BOTH_ARCHS_AVAILABLE=false
-          if [ ${#AVAIL_ARCHS[@]} -eq 2 ]; then
-            BOTH_ARCHS_AVAILABLE=true
-          fi
 
           # Step 1: Create, annotate, and push tags.
           # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
           while read -r t; do
-            if [[ "${t}" == "latest" || "${t}" == "${MINOR_TAG}" ]] && [[ "${BOTH_ARCHS_AVAILABLE}" != "true" ]]; then
-              echo "==> skipping ${REPO}:${t} (rolling/minor-line tag requires both x86_64 and aarch64; only ${#AVAIL_ARCHS[@]} architecture(s) available)"
-              continue
-            fi
             if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
               echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
               continue
