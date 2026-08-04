@@ -1,0 +1,64 @@
+name: VM guest boot test
+description: >
+  Install QEMU plus UEFI firmware for one architecture and boot-test the
+  podman-vm guest disk in dist-vm/ with tests/vm-boot.sh. Shared by the
+  release pipeline (vm-guest.yml) and the pull-request gate (build.yml) so the
+  gate can never drift from what actually guards publication.
+
+inputs:
+  arch:
+    description: Guest architecture to boot (x86_64 or aarch64).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # QEMU loads efi-virtio.rom for the consumer's `if=virtio` topology;
+    # ipxe-qemu provides that ROM on both architectures.
+    - name: Install QEMU and UEFI firmware
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        case "${ARCH}" in
+          x86_64)  sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf ipxe-qemu ;;
+          aarch64) sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-utils qemu-efi-aarch64 ipxe-qemu ;;
+          *) echo "ERROR: unsupported arch '${ARCH}'" >&2; exit 1 ;;
+        esac
+
+    # GitHub's x86_64 Linux runners expose /dev/kvm, but only to the kvm
+    # group. Widening it lets the boot test run accelerated instead of falling
+    # back to TCG. Best effort, and deliberately not a gate: tests/vm-boot.sh
+    # detects a usable /dev/kvm itself and raises its own timeout when it has
+    # to fall back to software emulation.
+    - name: Make /dev/kvm usable by the runner user
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: |
+        set -euo pipefail
+        [ "${ARCH}" = x86_64 ] || exit 0
+        {
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+        } || echo "note: could not widen /dev/kvm permissions; the boot test will use TCG"
+
+    - name: Boot-test the ${{ inputs.arch }} disk under QEMU
+      shell: bash
+      run: tests/vm-boot.sh
+
+    # tests/vm-boot.sh copies the captured serial console to tests/artifacts/
+    # on every run and dumps it to stderr on failure; keep the file too, since
+    # a truncated job log is the usual reason a boot failure is hard to read.
+    - name: Upload the captured serial console on failure
+      if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v7.0.1
+      with:
+        name: vm-boot-serial-${{ inputs.arch }}
+        path: tests/artifacts/
+        if-no-files-found: ignore
+        retention-days: 7

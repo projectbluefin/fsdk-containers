@@ -211,7 +211,19 @@ esac
 if [ "$ACCEL" = kvm ]; then
     ACCEL_ARGS=(-enable-kvm -machine "$MACHINE" -cpu host)
 else
-    ACCEL_ARGS=(-machine "$MACHINE" -cpu max)
+    # aarch64 TCG deliberately does NOT use `-cpu max`. `max` enables
+    # FEAT_E0PD (ARMv8.5), and QEMU < 9.2 -- including the 8.2 that ships on
+    # ubuntu-24.04 runners -- aborts on the first E10_0 TLBI with
+    #   ERROR:target/arm/internals.h: regime_is_user: code should not be reached
+    # (fixed upstream by "target/arm: Don't assert in regime_is_user() for
+    # E10 mmuidx"). cortex-a76 is ARMv8.2, predates FEAT_E0PD, and boots the
+    # same guest, so the boot test exercises the disk instead of a QEMU bug.
+    case "$ARCH" in
+        aarch64) TCG_CPU="${PODMAN_VM_TCG_CPU:-cortex-a76}" ;;
+        *)       TCG_CPU="${PODMAN_VM_TCG_CPU:-max}" ;;
+    esac
+    log "TCG CPU model: ${TCG_CPU}"
+    ACCEL_ARGS=(-machine "$MACHINE" -cpu "$TCG_CPU")
 fi
 
 FIRMWARE_ARGS=()

@@ -48,11 +48,142 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
+          persist-credentials: false
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
           tool: just
       - name: Resolve element graph
         run: just validate
+
+  # Pull-request build gate. `just validate` only resolves the graph, so
+  # before this job existed a PR could be green while main went red on the
+  # merge commit -- which is exactly what happened, repeatedly. Building all
+  # seven images on two architectures per PR is not viable, so this resolves
+  # the targets the PR can actually break from the path ownership declared in
+  # elements/targets.json (`just changed-targets`), and a change to a shared
+  # path builds the canary image instead of the world.
+  changed-targets:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      oci_images: ${{ steps.resolve.outputs.oci_images }}
+      vm_guest: ${{ steps.resolve.outputs.vm_guest }}
+      any_oci: ${{ steps.resolve.outputs.any_oci }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history: the recipe diffs against the merge base so the PR is
+          # judged on its own changes only.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - id: resolve
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          TARGETS="$(just changed-targets "${BASE_SHA}" HEAD)"
+          echo "==> affected targets: ${TARGETS}"
+          OCI="$(jq -c '.oci_images' <<<"${TARGETS}")"
+          {
+            echo "oci_images=${OCI}"
+            echo "vm_guest=$(jq -r '.vm_guest' <<<"${TARGETS}")"
+            echo "any_oci=$(jq -r '.oci_images | length > 0' <<<"${TARGETS}")"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pull-request build gate"
+            echo
+            echo "- OCI images built and verified: \`$(jq -r '.oci_images | if length == 0 then "none" else join(", ") end' <<<"${TARGETS}")\`"
+            echo "- podman-vm guest built and boot-tested: \`$(jq -r '.vm_guest' <<<"${TARGETS}")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Deliberately NOT a call into oci-images.yml: this job has no login, tag,
+  # push, sign, or attest step at all, so a pull request -- including one from
+  # a fork -- has no code path to publication. It only needs `contents: read`.
+  pr-build-oci:
+    needs: changed-targets
+    if: github.event_name == 'pull_request' && needs.changed-targets.outputs.any_oci == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.changed-targets.outputs.oci_images) }}
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Compute OCI Metadata
+        run: |
+          echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
+      - name: Build and verify ${{ matrix.image }} (${{ matrix.arch }})
+        run: |
+          BUILD_IMAGE_NAME=${{ matrix.image }} just build
+          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
+
+  # Same shape for the VM guest: build, checksum, and boot-test only. The
+  # release upload, SBOM attestation, and release verification live in
+  # vm-guest.yml and are unreachable from a pull request.
+  pr-build-vm-guest:
+    needs: changed-targets
+    if: github.event_name == 'pull_request' && needs.changed-targets.outputs.vm_guest == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+      - name: Install qemu-img (raw -> QCOW2 conversion)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-utils
+      - name: Build and export the ${{ matrix.arch }} podman-vm guest disk
+        run: just export-podman-vm-qcow2
+      - name: Verify checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          disks=(dist-vm/donate-clanker-vm-*.raw dist-vm/donate-clanker-vm-*.qcow2)
+          shopt -u nullglob
+          test "${#disks[@]}" -eq 2
+          for d in "${disks[@]}"; do
+            ( cd dist-vm && sha256sum -c "$(basename "$d").sha256" )
+          done
+      - name: Boot-test the ${{ matrix.arch }} disk under QEMU
+        uses: ./.github/actions/vm-boot-test
+        with:
+          arch: ${{ matrix.arch }}
 
   # Resolve the OCI image matrix from the single canonical manifest
   # (elements/targets.json) once, so oci-images.yml never hand-maintains its
@@ -70,6 +201,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
+          persist-credentials: false
       - id: set
         env:
           SELECTED_IMAGE: ${{ github.event.inputs.image || '' }}

@@ -9,15 +9,23 @@ concurrency:
   group: auto-update-fsdk
   cancel-in-progress: true
 
+# All writes (branch push, PR creation, repository_dispatch) use a Mergeraptor
+# app token, so this workflow needs no write permissions of its own.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update-fsdk:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # The branch is pushed with the app token below, never with the
+          # workflow's own credentials: a push made with GITHUB_TOKEN does not
+          # trigger the build workflow, so the bump PR would sit there with no
+          # checks on it.
+          persist-credentials: false
 
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
@@ -43,11 +51,12 @@ jobs:
         run: |
           just validate
 
-      # PATs are banned org-wide; the default GITHUB_TOKEN cannot trigger
-      # downstream workflows. Use a Mergeraptor App installation token so the
-      # repository_dispatch actually starts the build workflow (see
-      # docs/skills/ci-tooling.md). Requires MERGERAPTOR_APP_ID and
-      # MERGERAPTOR_PRIVATE_KEY repository secrets to be configured.
+      # PATs are banned org-wide, and the default GITHUB_TOKEN cannot trigger
+      # downstream workflows. Mergeraptor is an org-level GitHub App whose
+      # permissions are already granted, so this mints a short-lived
+      # installation token from the existing MERGERAPTOR_APP_ID and
+      # MERGERAPTOR_PRIVATE_KEY secrets -- no PAT, no new secret, no new
+      # permission (see docs/skills/ci-tooling.md).
       - name: Get mergeraptor token
         if: steps.check_changes.outputs.changes == 'true'
         id: app-token
@@ -60,6 +69,7 @@ jobs:
         if: steps.check_changes.outputs.changes == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           BRANCH="auto/update-fsdk"
@@ -73,8 +83,13 @@ jobs:
           git add elements/freedesktop-sdk.bst
           git commit -m "chore: bump freedesktop-sdk point release" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
           
-          # Force push to overwrite any previous update branch
-          git push --force origin "$BRANCH"
+          # Push with the app token, not the workflow's own credentials: a
+          # branch pushed with GITHUB_TOKEN does not trigger the build
+          # workflow, so the bump PR would carry no checks at all. Force push
+          # to overwrite any previous update branch.
+          git push --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" \
+            "HEAD:refs/heads/${BRANCH}"
           
           # Create pull request if it doesn't already exist
           EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)
@@ -91,6 +106,6 @@ jobs:
           
           # Send a repository dispatch to trigger the multi-arch build workflow on the PR branch
           echo "==> Sending repository dispatch to test the new FSDK point release..."
-          gh api repos/${{ github.repository }}/dispatches \
+          gh api "repos/${REPOSITORY}/dispatches" \
             -f event_type="fsdk-updated" \
             -F "client_payload[ref]=refs/heads/$BRANCH"

@@ -12,6 +12,15 @@ build-depends:
   - freedesktop-sdk.bst:bootstrap/pcre2.bst
   - freedesktop-sdk.bst:components/openssl.bst
   - freedesktop-sdk.bst:components/zlib.bst
+  # nginx's auto/ configure scripts and the generated objs/Makefile shell out
+  # to sed, grep and awk without checking for them, so a missing one silently
+  # produces an objs/Makefile with an empty object list and the build dies at
+  # link time with "cc: fatal error: no input files". Declare every tool the
+  # build runs (docs/skills/ci-tooling.md, "Build-time utility dependencies").
+  - freedesktop-sdk.bst:components/sed.bst
+  - freedesktop-sdk.bst:components/grep.bst
+  - freedesktop-sdk.bst:components/gawk.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
   strip-binaries: ""
@@ -19,9 +28,13 @@ variables:
 config:
   configure-commands:
     - |
+      # --sbin-path lands in /usr/bin, not /usr/sbin: freedesktop-sdk is a
+      # merged-usr sysroot where /usr/sbin is a symlink to /usr/bin, and
+      # staging a real usr/sbin directory fails with "Destination is a
+      # symlink, not a directory: /usr/sbin".
       ./configure \
         --prefix=/usr \
-        --sbin-path=/usr/sbin/nginx \
+        --sbin-path=/usr/bin/nginx \
         --conf-path=/etc/nginx/nginx.conf \
         --pid-path=/run/nginx.pid \
         --lock-path=/run/nginx.lock \

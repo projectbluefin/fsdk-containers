@@ -37,7 +37,8 @@
         "pinDigest"
       ],
       "automerge": true,
-      "automergeType": "pr"
+      "automergeType": "pr",
+      "platformAutomerge": false
     },
     {
       "matchManagers": [

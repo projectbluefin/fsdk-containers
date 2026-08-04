@@ -42,6 +42,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
           tool: just
@@ -74,41 +75,22 @@ jobs:
       # tests/vm-boot.sh -- not under Lima, which this guest ships no
       # cloud-init, SSH or guest agent to satisfy, so a Lima failure never
       # reliably meant the disk was broken.
-      - name: Install QEMU and UEFI firmware
-        run: |
-          set -euo pipefail
-          case "${{ matrix.arch }}" in
-            # QEMU loads efi-virtio.rom for the consumer's `if=virtio`
-            # topology; ipxe-qemu provides that ROM on both architectures.
-            x86_64)  sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf ipxe-qemu ;;
-            aarch64) sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-efi-aarch64 ipxe-qemu ;;
-          esac
-
-      # GitHub's x86_64 Linux runners expose /dev/kvm, but only to the kvm
-      # group. Widening it lets the boot test run accelerated instead of
-      # falling back to TCG. Best effort, and deliberately not a gate:
-      # tests/vm-boot.sh detects a usable /dev/kvm itself and raises its own
-      # timeout when it has to fall back to software emulation.
-      - name: Make /dev/kvm usable by the runner user
-        if: matrix.arch == 'x86_64'
-        run: |
-          {
-            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-              | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-            sudo udevadm control --reload-rules
-            sudo udevadm trigger --name-match=kvm
-          } || echo "note: could not widen /dev/kvm permissions; the boot test will use TCG"
-
+      #
       # The aarch64 runner is native arm64 but has no nested virtualization,
-      # so this leg boots under TCG on its own architecture -- slow, but not
+      # so that leg boots under TCG on its own architecture -- slow, but not
       # cross-architecture emulation, and it is a real boot of the real disk.
-      # The alternative, emulating aarch64 on an x86_64 runner, would be
-      # slower still for no extra coverage, and skipping the leg would let an
-      # unbootable aarch64 disk reach a release. tests/vm-boot.sh raises its
-      # own timeout to 1800s when it detects TCG; the job timeout above
-      # accommodates that.
+      # Emulating aarch64 on an x86_64 runner would be slower still for no
+      # extra coverage, and skipping the leg would let an unbootable aarch64
+      # disk reach a release. tests/vm-boot.sh raises its own timeout to 1800s
+      # when it detects TCG; the job timeout above accommodates that.
+      #
+      # The setup and the boot itself live in a composite action shared with
+      # the pull-request gate in build.yml, so the gate cannot drift from the
+      # check that actually guards publication.
       - name: Boot-test the ${{ matrix.arch }} disk under QEMU
-        run: tests/vm-boot.sh
+        uses: ./.github/actions/vm-boot-test
+        with:
+          arch: ${{ matrix.arch }}
 
       - name: Generate BuildStream-native SBOM for the VM guest
         run: just sbom podman-vm
@@ -177,6 +159,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
           tool: just

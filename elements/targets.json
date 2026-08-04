@@ -1,5 +1,5 @@
 {
-  "$comment": "Canonical manifest of OCI distroless image targets published to GHCR. This is the SINGLE source of truth for the GitHub Actions build/manifest matrices, `just validate`, and `just sbom`/`sboms`. Adding a package requires exactly one entry here plus the BST element at elements/oci/<name>.bst -- no edits to any matrix loop or case list. Per-image description, size budget, and smoke-test logic stay in the Justfile (`export`/`verify`), since those are genuine per-image behaviour, not matrix membership.",
+  "$comment": "Canonical manifest of OCI distroless image targets published to GHCR. This is the SINGLE source of truth for the GitHub Actions build/manifest matrices, `just validate`, `just sbom`/`sboms`, and the pull-request build gate (`just changed-targets`). Adding a package requires exactly one entry in `oci_images` plus the BST element at elements/oci/<name>.bst and its path ownership in `image_paths` -- no edits to any matrix loop or case list. Per-image description, size budget, and smoke-test logic stay in the Justfile (`export`/`verify`), since those are genuine per-image behaviour, not matrix membership.",
   "oci_images": [
     "base",
     "static",
@@ -8,5 +8,37 @@
     "python",
     "buildah",
     "qemu-img"
+  ],
+
+  "$comment_image_paths": "Path prefixes each OCI image owns. `just changed-targets` matches changed files against these to decide which images a pull request must actually build and verify, so a one-image change costs one build instead of fourteen. A prefix ending in '/' matches everything under that directory; anything else matches that exact path.",
+  "image_paths": {
+    "base": ["elements/oci/base.bst", "elements/base/"],
+    "static": ["elements/oci/static.bst", "elements/static/"],
+    "skopeo": ["elements/oci/skopeo.bst", "elements/skopeo/"],
+    "lab-runner": ["elements/oci/lab-runner.bst", "elements/lab-runner/"],
+    "python": ["elements/oci/python.bst", "elements/python/"],
+    "buildah": ["elements/oci/buildah.bst", "elements/buildah/"],
+    "qemu-img": ["elements/oci/qemu-img.bst", "elements/qemu-img/"]
+  },
+
+  "$comment_shared_paths": "Changes here can affect every target (the FSDK junction, the shared slim recipe, project-wide options, the build tooling itself). Building all seven images times two architectures on every such pull request is not viable, so these select the canary image below instead: a real end-to-end build and `just verify` of the image every other image is carved from.",
+  "shared_paths": [
+    "project.conf",
+    "Justfile",
+    "include/",
+    "patches/",
+    "elements/targets.json",
+    "elements/freedesktop-sdk.bst",
+    "elements/gnome-build-meta.bst",
+    "elements/plugins/",
+    ".github/workflows/"
+  ],
+  "canary_image": "base",
+
+  "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload.",
+  "vm_guest_paths": [
+    "elements/podman-vm/",
+    "tests/vm-boot.sh",
+    ".github/actions/vm-boot-test/"
   ]
 }

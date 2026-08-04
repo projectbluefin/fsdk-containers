@@ -120,6 +120,33 @@ stack:
 just bst show --deps run cloud-init/cloud-init-stack.bst | grep <shim-element>   # expect no match
 ```
 
+## 6. Manual-element failure modes that look like something else
+
+Every one of these was found in a single session, in `elements/lab-runner/*`,
+and none of them says what it means. Recognise them by their error text:
+
+| Error | Real cause | Fix |
+|---|---|---|
+| `tar: X: Cannot change ownership to uid N, gid N: Invalid argument`, then `tar: Exiting with failure status` | The release tarball records a build-machine uid/gid. The sandbox cannot restore it, so `tar` exits non-zero even though the member extracted correctly. | `tar -xzf archive.tar.gz --no-same-owner member` |
+| `gzip: X.gz has 1 other link -- file ignored` (exit 2) | `gunzip` rewrites in place, and BuildStream may stage the source as a hardlink. | `gunzip -c X.gz > X` — never decompress a staged source in place |
+| `cc: fatal error: no input files` together with `sh: sed: command not found` | A configure script that shells out to `sed`/`grep`/`awk` *without checking for them*, generating a Makefile with an empty object list. The link failure is the symptom; the missing tool is the cause. | Declare every tool the build runs in `build-depends` (`components/sed.bst`, `components/grep.bst`, `components/gawk.bst`, `bootstrap/coreutils.bst`) |
+| `FAILURE Staging dependencies` / `Destination is a symlink, not a directory: /usr/sbin` | freedesktop-sdk is a merged-usr sysroot: `/usr/sbin`, `/bin`, `/lib` are symlinks. An element that installs a *real* directory there cannot be staged. | Install into `/usr/bin` (e.g. autotools `--sbin-path=/usr/bin/foo`) |
+
+The general rule behind all four: **a manual element's sandbox contains only
+what you declared**, and the tools it lacks usually fail silently before the
+step that actually reports an error. When a build fails at link or staging
+time, read upward in the log for a `command not found` first.
+
+Verify a fix against the real thing, not the graph:
+
+```
+just bst build lab-runner/nginx.bst          # the element alone
+just bst build lab-runner/lab-runner-runtime.bst   # its staging into the compose
+BUILD_IMAGE_NAME=lab-runner just build && BUILD_IMAGE_NAME=lab-runner just verify
+```
+
+`just validate` resolves the graph and would have passed for all four.
+
 ## Cloud-init specifics (for anyone extending this work)
 
 - FSDK does **not** package `jsonpatch`, `jsonpointer`, `configobj`,

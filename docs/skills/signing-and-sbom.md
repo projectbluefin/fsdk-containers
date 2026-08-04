@@ -107,6 +107,20 @@ Always cache the pip wheel for `buildstream-sbom` in CI, pinned to the exact com
 ### 5. Multi-image SBOM Optimization (Speed + Uniqueness)
 To generate SBOMs for multiple images efficiently and correctly in CI:
 - **Avoid calling `pip install` inside GHA loops.** Running `pip install` inside a loop for each container spins up the container multiple times and repeats dependency resolution.
-- Use `just sboms` (plural) to spin up the BuildStream container **once**, install `buildstream-sbom` **once**, and generate SBOMs for all target images in a single run.
+- Use `just sboms` (plural) **when one job generates several SBOMs**. Since the
+  per-image fan-out (`oci-images.yml` is called once per image), each `manifest`
+  job legitimately generates exactly one SBOM with `just sbom <image>`; that is
+  one container start per job, not a loop, and the pinned pip cache below covers
+  the install. Reach for `sboms` again only if a single job ever needs more than
+  one image's SBOM.
 - **Enforce Unique SPDX Namespaces.** Ensure each image variant receives a unique SPDX document namespace (as required by the SPDX spec) by appending the image name to the namespace URL: `https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}`.
+
+### 6. The SBOM is the vulnerability-scan input
+`vulnerability-scan.yml` consumes what this pipeline publishes: it resolves the
+manifest-list digest with `skopeo`, finds the SPDX referrer with `oras discover
+--format json` (the referrer list is `.referrers[]`), pulls it, and scans it
+with Grype. This is the only scan shape that works here — a rootfs scanner sees
+one package or none. It also means a break in SBOM attachment silently degrades
+scanning, so treat a "no SPDX SBOM referrer found" warning as a publish bug,
+not a scanner quirk.
 

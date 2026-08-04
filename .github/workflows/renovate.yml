@@ -1,21 +1,59 @@
 name: Renovate
 
+# Renovate runs with a Mergeraptor GitHub App installation token, not the
+# default GITHUB_TOKEN. Pushes and pull requests made with GITHUB_TOKEN do not
+# trigger other workflows (docs/skills/ci-tooling.md), so Renovate's PRs used
+# to arrive with no checks at all while renovate.json asked for them to be
+# auto-merged -- dependency bumps could merge without a single build ever
+# running. With an app token the pull-request gate in build.yml runs, and
+# Renovate's own automerge only merges once those checks are green.
+#
+# Mergeraptor is an org-level app whose permissions are already granted: this
+# consumes the existing MERGERAPTOR_APP_ID / MERGERAPTOR_PRIVATE_KEY secrets.
+# No PAT, no new secret, no new permission.
+#
+# projectbluefin/actions provides reusable-renovate.yml, but it validates its
+# token with check-token-health's `required_scopes: repo,workflow`, an OAuth
+# scope check that a GitHub App installation token cannot satisfy. Until that
+# reusable workflow accepts app tokens, this repo runs Renovate locally.
+
 on:
   schedule:
     - cron: '15 2 * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log only; create or update nothing
+        type: boolean
+        default: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions: {}
 
 jobs:
   renovate:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Get mergeraptor token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
       - uses: renovatebot/github-action@dd5302ec17783b2fc721b19ae7209b57b1587765 # v46.1.17
         with:
           configurationFile: renovate.json
-          token: ${{ github.token }}
+          token: ${{ steps.app-token.outputs.token }}
+        env:
+          RENOVATE_DRY_RUN: ${{ inputs.dry_run == true && 'full' || '' }}
