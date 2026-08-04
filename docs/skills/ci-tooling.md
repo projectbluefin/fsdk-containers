@@ -210,6 +210,25 @@ push, sign, attest, or release step anywhere in them. Gating publication with
 an `if:` inside a shared job means one edit away from a fork PR publishing to
 GHCR; gating it by *not having the code path* does not. Keep it that way.
 
+### Renovate version bumps and BuildStream source refs
+
+The custom regex manager updates only the human-readable version variable in a
+`.bst` element. Remote `kind: remote` sources separately store the immutable
+sha256 `ref`, including one ref per architecture, so a Renovate PR must be
+reconciled with `just bst source track <element>` before it can build.
+
+`.github/workflows/renovate-source-refs.yml` performs that reconciliation only
+for Renovate-authored PRs touching the affected source elements. It uses the
+Mergeraptor installation token to push the refreshed refs back to the existing
+Renovate branch, allowing the normal PR build gate to validate the result. Keep
+this workflow scoped to bot-authored branches; never let a pull-request
+workflow rewrite contributor branches. If adding another versioned remote
+source, add its element to both the workflow path filter and the tracking step.
+
+Do not remove the sha256 `ref` to make Renovate updates easier. The ref is the
+supply-chain pin and BuildStream source tracking is the mechanism that updates
+it after the version changes.
+
 ### Automation tokens — everything that writes uses Mergeraptor
 
 Neither a push nor a PR made with the default `GITHUB_TOKEN` triggers another

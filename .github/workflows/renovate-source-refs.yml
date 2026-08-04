@@ -1,0 +1,66 @@
+name: Reconcile Renovate BuildStream source refs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "elements/lab-runner/*.bst"
+      - "elements/buildah/*.bst"
+
+permissions: {}
+
+jobs:
+  reconcile:
+    # Only Renovate updates the version variables covered by this workflow.
+    # Never rewrite a contributor's pull request from a pull_request workflow.
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Get mergeraptor token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
+      - name: Checkout Renovate branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Install just
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Reconcile BuildStream source refs
+        run: |
+          set -euo pipefail
+          just bst source track elements/lab-runner/just.bst
+          just bst source track elements/lab-runner/kubectl.bst
+          just bst source track elements/lab-runner/argo.bst
+          git diff --exit-code -- elements/lab-runner/{just,kubectl,argo}.bst || true
+
+      - name: Push reconciled refs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- elements/lab-runner/{just,kubectl,argo}.bst; then
+            echo "BuildStream source refs are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add elements/lab-runner/{just,kubectl,argo}.bst
+          git commit -m "chore(deps): reconcile BuildStream source refs"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:${BRANCH}"
