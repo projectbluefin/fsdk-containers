@@ -34,6 +34,7 @@ import time
 
 CHANNEL = "/dev/virtio-ports/org.projectbluefin.donate-clanker.bootstrap"
 WORKER = "/usr/libexec/donate-clanker-worker"
+CONTROLLED_GOOSE_ROOT = "/opt/bluefin/goose"
 PROTOCOL_VERSION = 2
 
 # The host's accept timeout defaults to 180s. Outwaiting it keeps a slow guest

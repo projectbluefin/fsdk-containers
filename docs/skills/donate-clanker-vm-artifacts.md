@@ -44,9 +44,11 @@ See "Release asset contract" in docs/skills/vm-podman-guest.md.
 boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
-systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
-`projectbluefin/donate-clanker` commit
-`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
+systemd unit, `/etc/donate-clanker/worker.source`, and the controlled Goose
+configuration/policy under `/opt/bluefin/`. The worker source is pinned to the
+review runtime commit in `projectbluefin/donate-clanker`; keep that pin aligned
+with the config files because the worker's environment contract and the image
+bootstrap contract are versioned together. The consumer opens the
 virtio-serial channel as an unbuffered binary stream because virtio ports are
 non-seekable; it retries until the launcher's version-2 envelope line arrives,
 validates it, encodes a version-2 `control_ack`, keeps credentials in memory,
@@ -62,7 +64,11 @@ creates the ext4 root filesystem.
 
 `podman-vm/donate-clanker-worker.bst` compiles `cmd/contributor` with the FSDK
 Go toolchain, `CGO_ENABLED=0`, `GOPROXY=off`, and a separately pinned
-`gorilla/websocket` source tree wired with a local `go.mod` replacement.
+`gorilla/websocket` source tree wired with a local `go.mod` replacement. When
+updating the worker pin, copy the corresponding `image/config/goose.yaml` and
+`image/config/local-agent-policy.md` from the same donate-clanker revision;
+otherwise the VM can boot but the review worker's controlled configuration is
+missing or stale.
 
 An observed x86_64 local build took approximately 10 minutes and produced a
 2.2G raw disk. This is a local benchmark, not a size or duration guarantee.
