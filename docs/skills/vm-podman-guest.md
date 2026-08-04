@@ -83,6 +83,10 @@ reuse an EFI tree byte-for-byte without checking it against the ext4 root UUID.
   `elements/targets.json` OCI manifest since it isn't an OCI image).
 - Confirm the worker source pin is
   `96cc69f5779d63b908d5f53957287b7ef6bda7fa`.
+- Confirm the guest also installs the worker's bundled files at
+  `/etc/donate-clanker/goose.yaml` and
+  `/etc/donate-clanker/local-agent-policy.md`; the worker exits before
+  connecting if either file is absent.
 - Treat the observed x86_64 local benchmark (~10 minutes, 2.2G raw) as
   indicative only, not a contract.
 

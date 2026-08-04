@@ -44,7 +44,9 @@ See "Release asset contract" in docs/skills/vm-podman-guest.md.
 boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
-systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
+systemd unit, the worker source pin, and the worker's required
+`/etc/donate-clanker/goose.yaml` and `/etc/donate-clanker/local-agent-policy.md`
+configuration files, pinned to
 `projectbluefin/donate-clanker` commit
 `96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
 virtio-serial channel as an unbuffered binary stream because virtio ports are
