@@ -1,0 +1,108 @@
+name: Published manifest smoke
+
+# Keep post-publish checks outside the build workflow. A registry or runtime
+# regression must be visible without making the manifest publisher retry or
+# partially republish an otherwise valid image.
+on:
+  workflow_run:
+    workflows: [Build images]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  smoke:
+    if: github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [base, static, skopeo, lab-runner, python, buildah, qemu-img]
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    env:
+      REPO: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+      TAG: ""
+      GHCR_USER: ${{ github.actor }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      COSIGN_IDENTITY: https://github.com/projectbluefin/fsdk-containers/.github/workflows/
+      COSIGN_ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+
+      - name: Log in to GHCR
+        run: |
+          mkdir -p ~/.docker
+          echo "$GHCR_TOKEN" | podman login ghcr.io -u "$GHCR_USER" --password-stdin
+          echo "$GHCR_TOKEN" | podman login ghcr.io -u "$GHCR_USER" --password-stdin \
+            --compat-auth-file ~/.docker/config.json
+
+      - name: Resolve published tag
+        run: |
+          set -euo pipefail
+          tag="$(grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | sed -E 's/.*freedesktop-sdk-//; s/-[0-9]+-g[0-9a-f]+$//')"
+          [[ "$tag" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Resolve and verify published manifest
+        id: manifest
+        run: |
+          set -euo pipefail
+          digest="$(skopeo inspect --creds "$GHCR_USER:$GHCR_TOKEN" "docker://$REPO:$TAG" | jq -r .Digest)"
+          [[ "$digest" == sha256:* ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          cosign verify \
+            --certificate-identity-regexp="$COSIGN_IDENTITY.*" \
+            --certificate-oidc-issuer="$COSIGN_ISSUER" \
+            "$REPO@$digest" >/dev/null
+
+      - name: Pull and run each published architecture
+        run: |
+          set -euo pipefail
+          for item in "x86_64 linux/amd64" "aarch64 linux/arm64"; do
+            read -r arch platform <<<"$item"
+            [[ "$arch" == "${{ matrix.arch }}" ]] || continue
+            ref="$REPO-$arch:$TAG"
+            podman pull "$ref"
+            case "${{ matrix.image }}" in
+              lab-runner)
+                podman run --rm --platform "$platform" "$ref" -c 'exit 0'
+                ;;
+              python)
+                podman run --rm --platform "$platform" "$ref" -c 'import platform; print(platform.machine())'
+                ;;
+              buildah)
+                podman run --rm --platform "$platform" "$ref" --version
+                ;;
+              qemu-img)
+                podman run --rm --platform "$platform" "$ref" --version
+                ;;
+              skopeo)
+                podman run --rm --platform "$platform" "$ref" --version
+                ;;
+              base|static)
+                podman run --rm --platform "$platform" "$ref" /usr/bin/true
+                ;;
+            esac
+          done
+
+      - name: Verify the published SBOM referrer
+        env:
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+        run: |
+          set -euo pipefail
+          oras discover --format json "$REPO@$DIGEST" \
+            | jq -e '[.referrers[]? | select(.artifactType == "application/vnd.spdx+json")] | length > 0' >/dev/null
