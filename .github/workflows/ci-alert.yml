@@ -1,0 +1,103 @@
+name: CI alert
+
+on:
+  workflow_run:
+    workflows: ["Build images"]
+    types: [completed]
+
+permissions:
+  actions: read
+  issues: write
+
+concurrency:
+  group: ci-alert-main
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Get failed jobs from the run
+        id: jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          FAILURES=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs" \
+            --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "skipped")
+                   | "- [\(.name)](\(.html_url)) (\(.conclusion))"] | join("\n")')
+          {
+            echo "failures<<EOF"
+            echo "${FAILURES}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing alert issue
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ISSUE_NUM=$(gh issue list \
+            --state all \
+            --limit 30 \
+            --json number,title \
+            --jq '.[] | select(.title == "[CI] Build images failed on main") | .number' \
+            | head -1)
+          echo "issue_number=${ISSUE_NUM:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reopen alert issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          COMMIT: ${{ github.event.workflow_run.head_sha }}
+          FAILURES: ${{ steps.jobs.outputs.failures }}
+          EXISTING: ${{ steps.find.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          RUN_LINK="[${RUN_URL}](${RUN_URL})"
+
+          if [[ -n "${EXISTING}" ]]; then
+            echo "Reopening existing alert issue #${EXISTING}"
+            gh issue reopen "${EXISTING}" --repo "${{ github.repository }}"
+            gh issue edit "${EXISTING}" \
+              --repo "${{ github.repository }}" \
+              --add-label 'area/ci' \
+              --add-label 'priority/p1' \
+              --body "## CI alert: Build images failed on \`${BRANCH}\`
+
+          Workflow run: ${RUN_LINK}
+          Commit: \`${COMMIT}\`
+
+          ### Failed jobs
+          ${FAILURES}
+
+          This issue is automatically reopened when the build fails again.
+          "
+          else
+            echo "Creating new alert issue"
+            gh issue create \
+              --repo "${{ github.repository }}" \
+              --title "[CI] Build images failed on main" \
+              --label 'area/ci,priority/p1' \
+              --body "## CI alert: Build images failed on \`${BRANCH}\`
+
+          Workflow run: ${RUN_LINK}
+          Commit: \`${COMMIT}\`
+
+          ### Failed jobs
+          ${FAILURES}
+
+          This issue is automatically reopened when the build fails again.
+          "
+          fi
