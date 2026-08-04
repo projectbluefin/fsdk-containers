@@ -1,0 +1,58 @@
+# Controlled Goose configuration for review.
+#
+# This file is NOT ~/.config/goose/config.yaml. Hive's contributor entrypoint
+# unconditionally overwrites that path at every startup:
+#
+#     cat > "${HOME}/.config/goose/config.yaml" <<GOOSECFG
+#     GOOSE_PROVIDER: ...
+#     GOOSE_MODEL: ...
+#     GOOSECFG
+#
+# so anything written there is lost. The entrypoint instead exports
+# GOOSE_PATH_ROOT=/opt/bluefin/goose and installs this file at
+# /opt/bluefin/goose/config/config.yaml, which Goose reads instead.
+#
+# Provider and model are deliberately absent: Goose resolves environment before
+# file, and the launcher passes GOOSE_PROVIDER/GOOSE_MODEL through from the
+# contributor's own credentials.
+
+# Contributor runs are attended but Hive injects work by keystroke, so every
+# tool confirmation blocks the agent and the human at the terminal. The user
+# explicitly accepts the contributor's scoped runtime tools.
+GOOSE_MODE: auto
+
+# Goose CLI uses bat themes for markdown and code syntax. Keep the regular
+# terminal colors under the user's terminal emulator, but make agent output
+# Catppuccin Mocha without requiring per-user configuration.
+GOOSE_CLI_THEME: dark
+GOOSE_CLI_DARK_THEME: "Catppuccin Mocha"
+
+# Goose asks an interactive yes/no telemetry question on first run. Hive drives
+# the CLI by simulated keystrokes, so that prompt blocks the agent forever
+# waiting for an answer nobody is there to give. Answer it here, up front.
+GOOSE_TELEMETRY_ENABLED: false
+
+# Goose spills a tool response to a temp file only above this many characters.
+# The default is 200000 (~50k tokens), which lets a single documentation lookup
+# dominate the context window. Keep review evidence bounded instead.
+GOOSE_MAX_TOOL_RESPONSE_SIZE: 20000
+
+# Keep complete diff and source blocks visible during reviews. Tool responses
+# remain bounded above; this only disables Goose's display-line truncation.
+GOOSE_NO_CODE_TRUNCATION: true
+
+# Summarise rather than prompt when the window fills; `goose run` already
+# defaults to this, but interactive sessions otherwise stop and ask.
+GOOSE_CONTEXT_STRATEGY: summarize
+
+extensions:
+  context7:
+    type: streamable_http
+    name: context7
+    enabled: true
+    bundled: false
+    uri: "https://mcp.context7.com/mcp"
+    timeout: 30
+    headers: {}
+    envs: {}
+    env_keys: []
