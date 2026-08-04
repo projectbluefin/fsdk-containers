@@ -1,0 +1,103 @@
+name: Reconcile Renovate BuildStream source refs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "elements/lab-runner/just.bst"
+      - "elements/lab-runner/kubectl.bst"
+      - "elements/lab-runner/argo.bst"
+
+permissions: {}
+
+concurrency:
+  group: renovate-source-refs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    # Renovate runs with the Mergeraptor app token in this repository, so its
+    # PR author is mergeraptor[bot]. Never run this write-capable job for a
+    # contributor branch or a fork PR.
+    if: >-
+      github.event.pull_request.user.login == 'mergeraptor[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'renovate/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Get mergeraptor token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
+      - name: Check out Renovate branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install just
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Track changed BuildStream sources
+        id: track
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t elements < <(
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+              elements/lab-runner/just.bst \
+              elements/lab-runner/kubectl.bst \
+              elements/lab-runner/argo.bst
+          )
+
+          if [[ ${#elements[@]} -eq 0 ]]; then
+            echo 'No affected BuildStream elements changed.'
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for element in "${elements[@]}"; do
+            bst_element="${element#elements/}"
+            echo "Tracking source refs in ${bst_element}"
+            just bst source track "${bst_element}"
+          done
+
+          if git diff --quiet -- "${elements[@]}"; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            git diff -- "${elements[@]}"
+            for element in "${elements[@]}"; do
+              just bst show --deps all "${element#elements/}"
+            done
+          fi
+
+      - name: Push reconciled refs
+        if: steps.track.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add elements/lab-runner
+          git commit -m 'chore(deps): reconcile BuildStream source refs'
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/${BRANCH}"

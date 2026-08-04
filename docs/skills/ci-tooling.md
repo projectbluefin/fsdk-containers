@@ -335,6 +335,34 @@ container build failure from canceling unrelated container builds.
 - [ ] No new mutable action refs introduced
 - [ ] No new secret name: automation writes go through Mergeraptor
 
+### Renovate BuildStream source-ref reconciliation
+
+Renovate's custom regex manager updates the release variable in the three
+`elements/lab-runner/{just,kubectl,argo}.bst` manual elements, but it cannot
+calculate the architecture-specific `ref` SHA-256 pins for their `kind: remote`
+sources. `.github/workflows/renovate-source-refs.yml` runs on
+`pull_request_target` for Renovate PRs that touch those elements, runs
+`just bst source track` for the changed element, validates its graph, and
+pushes the refreshed refs back to the same branch.
+
+The workflow is intentionally guarded by all three conditions: the PR author
+must be `mergeraptor[bot]` (the Renovate workflow uses the Mergeraptor GitHub
+App), the head branch must start with `renovate/`, and the head repository must
+be this repository. This is the security boundary for the write-capable
+`pull_request_target` job: it checks out only the repository-owned Renovate
+branch and never executes or pushes to a fork or contributor branch. Keep the
+`ref` pins; they are the downloaded-artifact supply-chain integrity check.
+
+Regression and metadata checks:
+
+```bash
+bash tests/renovate-source-refs.sh
+python3 -m json.tool renovate.json >/dev/null
+```
+
+The workflow's BuildStream graph check requires the repository's FSDK `bst2`
+container and is exercised in CI.
+
 ### GitHub artifact attestations
 
 The manifest job uses the current GitHub `actions/attest` action with a
