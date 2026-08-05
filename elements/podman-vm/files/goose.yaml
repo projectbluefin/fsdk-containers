@@ -1,0 +1,16 @@
+provider: openai
+base_url: http://127.0.0.1:8000/v1
+api_key: local
+model: local
+context_window: 32768
+max_output_tokens: 4096
+temperature: 0
+
+extensions:
+  context7:
+    bundled: false
+    enabled: true
+    name: context7
+    timeout: 30
+    type: streamable_http
+    uri: "https://mcp.context7.com/mcp"

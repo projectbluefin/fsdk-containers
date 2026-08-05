@@ -44,16 +44,19 @@ See "Release asset contract" in docs/skills/vm-podman-guest.md.
 boots the raw disk directly.
 
 `podman-vm/donate-clanker-vm-config.bst` installs the guest bootstrap consumer,
-systemd unit, and `/etc/donate-clanker/worker.source`, pinned to
-`projectbluefin/donate-clanker` commit
-`96cc69f5779d63b908d5f53957287b7ef6bda7fa`. The consumer opens the
-virtio-serial channel as an unbuffered binary stream because virtio ports are
-non-seekable; it retries until the launcher's version-2 envelope line arrives,
-validates it, encodes a version-2 `control_ack`, keeps credentials in memory,
-and execs `/usr/libexec/donate-clanker-worker` with the `HIVE_*`/`AGENT_*`/
-`GOOSE_*` names that worker actually reads. Both schemas belong to
-donate-clanker -- see "Guest bootstrap contract" in
-docs/skills/vm-podman-guest.md before touching either end.
+systemd unit, `/etc/donate-clanker/worker.source`, and the controlled Goose
+configuration/policy under `/opt/bluefin/`. The worker source and
+`donate-clanker-worker.bst` are pinned to the same published
+`projectbluefin/donate-clanker` revision. Keep the pin aligned with those
+configuration files because the worker's environment and image configuration
+contracts are versioned together. The consumer opens the virtio-serial channel
+as an unbuffered binary stream because virtio ports are non-seekable; it retries
+until the launcher's version-2 envelope line arrives, validates it, encodes a
+version-2 `control_ack`, keeps credentials in memory, and execs
+`/usr/libexec/donate-clanker-worker` with the `HIVE_*`/`AGENT_*`/`GOOSE_*` names
+that worker actually reads. Both schemas belong to donate-clanker — see
+"Guest bootstrap contract" in docs/skills/vm-podman-guest.md before touching
+either end.
 
 The EFI tree is staged separately from the root filesystem. Before `genimage`
 copies it into the disk, `podman-vm-efi.bst` rewrites each loader entry's
@@ -89,4 +92,5 @@ An observed x86_64 local build took approximately 10 minutes and produced a
 - [ ] `just export-podman-vm` checks out only the raw disk and `.sha256`.
 - [ ] The dependency graph contains no Podman, SSH, cloud-init, or `qemu-img`.
 - [ ] The worker input is supplied at `/usr/libexec/donate-clanker-worker`.
-- [ ] `podman-vm/donate-clanker-worker.bst` builds from the pinned source.
+- [ ] The worker source and bundled Goose configuration are from one
+      `donate-clanker` revision.
