@@ -4,8 +4,11 @@ description: Fetch the Argo Workflows CLI for lab-runner
 build-depends:
   - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
+  - freedesktop-sdk.bst:bootstrap/binutils.bst
 
 variables:
+  # The automatic FSDK stripper is unavailable in manual-element sandboxes.
+  # Keep it disabled and strip this upstream binary explicitly below.
   strip-binaries: ""
   # renovate: datasource=github-releases depName=argoproj/argo-workflows
   argo_version: v4.0.8
@@ -24,7 +27,9 @@ sources:
 config:
   install-commands:
     - |
-      gunzip argo.gz
+      gunzip -c argo.gz > argo
       mkdir -p "%{install-root}/usr/bin"
       cp argo "%{install-root}/usr/bin/argo"
       chmod 755 "%{install-root}/usr/bin/argo"
+      strip --strip-unneeded "%{install-root}/usr/bin/argo"
+

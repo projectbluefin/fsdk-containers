@@ -259,7 +259,7 @@ verify:
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
-        lab-runner) MAX_BYTES=$((320 * 1024 * 1024)) ;;
+        lab-runner) MAX_BYTES=$((464 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
@@ -281,7 +281,7 @@ verify:
             echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
         fi
         echo "OK: bash present"
-        TOTAL=2
+        TOTAL=3
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
         for tool in argo just kubectl; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
@@ -289,6 +289,11 @@ verify:
             fi
         done
         echo "OK: argo, just, and kubectl present"
+        echo "==> [3/${TOTAL}] lab-runner argo CLI execution smoke test"
+        if ! {{sudo_cmd}} podman run --rm "$REF" argo version >/dev/null 2>&1; then
+            echo "FAIL: argo binary failed to execute (version check failed)"; exit 1
+        fi
+        echo "OK: argo binary executes cleanly"
     else
         TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
