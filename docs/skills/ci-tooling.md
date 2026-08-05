@@ -163,6 +163,13 @@ separate parent concurrency group, while `oci-images.yml` serializes only
 conflicting publication for the same ref and image. This lets distinct targets
 run at the same time without racing their tags.
 
+When a reusable workflow job needs a repository/image string at the **job**
+`env:` level, compose it directly from contexts allowed there (for example
+`github`, `inputs`, `matrix`, `needs`, `vars`). Do **not** reference
+`${{ env.* }}` inside `jobs.<job_id>.env`: GitHub validates that key before
+runner startup, and an invalid context there can prevent the caller workflow
+from instantiating any jobs at all.
+
 BuildStream's shared artifact and source pull caches in `project.conf` are the
 CI cache layer for this fan-out. They are available to every native runner as
 soon as it starts; a GitHub Actions local cache cannot provide artifacts to
