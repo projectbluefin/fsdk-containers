@@ -3,16 +3,15 @@ name: artifacthub-automation
 description: Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata.
 metadata:
   type: runbook
-  status: planned-not-implemented
+  status: implemented
 ---
 
 # Automating ArtifactHub Submissions
 
-> **STATUS: PLANNED, NOT IMPLEMENTED.** Nothing in this runbook is currently
-> wired into this repo: there is no `artifacthub-repo.yml`, no `oras` metadata
-> push, and no ArtifactHub API call in `.github/workflows/build.yml`. Treat
-> this document as a design for future work — do not assume ArtifactHub
-> listings or Verified Publisher status exist.
+> **STATUS: IMPLEMENTED.** The OCI manifest workflow registers each published
+> image through Artifact Hub's API (when the repository API-key secrets are
+> configured), then pushes `artifacthub-repo.yml` ownership metadata with `oras`.
+> Registration is idempotent and applies independently to each OCI image.
 
 ArtifactHub does not support automatic registry-wide scanning to discover new OCI repositories. New container images (like `ghcr.io/projectbluefin/skopeo`) must be registered individually. However, this process can be fully automated in CI using ArtifactHub's REST API and `oras`.
 
@@ -58,10 +57,15 @@ Example `curl` step for the release pipeline:
         "url": "oci://ghcr.io/projectbluefin/base",
         "kind": 12,
         "data": {
-          "tags": [{"name": "25.08", "mutable": true}]
+          "tags": [{"name": "latest", "mutable": true}]
         }
       }'
 ```
+
+Artifact Hub creates versions from the tags configured on the repository, so the
+registration payload must include `data.tags`. A single mutable `latest` tag is
+enough for this repo's OCI images and lets Artifact Hub keep reindexing the
+published manifest when `latest` moves.
 
 ### 3. Verified Publisher Badge
 To get the green "Verified Publisher" checkmark, push an ownership metadata file to the image registry.

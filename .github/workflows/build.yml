@@ -235,6 +235,7 @@ jobs:
     with:
       image: ${{ matrix.image }}
       ref: ${{ github.event.client_payload.ref || github.ref }}
+    secrets: inherit
 
   vm-guest:
     if: github.event_name != 'pull_request'
