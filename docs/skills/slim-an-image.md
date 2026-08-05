@@ -68,6 +68,23 @@ rm -rf _sizecheck
 - CA certificates + `usr/share/pki` trust source.
 - `libstdc++`, `libgcc_s`, `libgomp` — C++ / OpenMP runtimes apps link.
 
+## Prebuilt static binaries
+
+Do not assume every upstream Go binary is already stripped, or that changing
+versions will make it smaller. Inspect and measure each release artifact with
+`file` and `stat`, then smoke-test the stripped copy before changing its element.
+For example, Argo v4.0.8 contains debug data: GNU
+`strip --strip-unneeded` reduces the amd64 CLI from 190,044,513 to 142,699,000
+bytes while preserving its command surface. Argo v3.7.17 is nearly the same
+size as v4 before and after stripping, so downgrading does not recover space.
+kubectl v1.36.3 is already stripped and does not benefit from another pass.
+
+Manual elements cannot rely on BuildStream's automatic stripping when
+`freedesktop-sdk-stripper` is absent from the sandbox. Keep
+`strip-binaries: ""`, add `freedesktop-sdk.bst:components/binutils.bst` as a
+build dependency, and explicitly strip only artifacts whose measured size
+decreases. Build dependencies do not enter the composed runtime image.
+
 ## Sandbox constraint
 
 The oci-builder sandbox has **no `find`**. Use shell globs + `case`:
