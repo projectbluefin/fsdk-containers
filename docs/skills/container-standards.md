@@ -43,7 +43,13 @@ All OCI images (except explicit exceptions) must pass the `just verify` validati
 
 GitHub Actions are auto-updated via Renovate's built-in `github-actions` manager.
 
-BuildStream source version pins are **not** auto-updated by Renovate. The generic regex customManager was removed (see [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50)) because it could change a source version while leaving the `ref` (SHA-256 checksum) pointing to the old artifact, producing unreproducible builds. Sources are updated manually when upstream releases are reviewed.
+BuildStream source updates must be atomic. Only git repository sources with a commit-resolving datasource may be Renovate-managed. The scoped `git-refs` manager updates `track:` and the matching commit `ref:` together:
+  ```yaml
+  # renovate: datasource=git-refs depName=containers/buildah
+  track: v1.45.0
+  ref: <matching commit SHA>
+  ```
+Archive and remote binary sources remain manual unless an authoritative upstream checksum manifest or verifiable signature can be integrated. Do not restore the old generic regex manager: a release version alone cannot identify or verify the exact archive artifact, which is why the old broad matcher was removed for [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50).
 
 ---
 
