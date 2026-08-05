@@ -334,7 +334,7 @@ verify:
         # lab-runner is the documented shell-enabled exception. Its CLI
         # contract includes the 136MiB stripped Argo v4 binary and the 57MiB
         # already-stripped kubectl binary. The 464MiB ceiling leaves headroom
-        # over the measured ~427MiB image but rejects the old 474MiB build.
+        # over the measured ~427MiB image but rejects the old ~472MiB build.
         lab-runner) MAX_BYTES=$((464 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
@@ -423,7 +423,7 @@ verify:
         if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
             echo "FAIL: argo failed to execute"; exit 1
         fi
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
