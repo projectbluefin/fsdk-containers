@@ -420,6 +420,9 @@ verify:
         fi
         echo "OK: qemu-img executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
+        if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
+            echo "FAIL: argo failed to execute"; exit 1
+        fi
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
