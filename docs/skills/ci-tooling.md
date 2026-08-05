@@ -119,6 +119,7 @@ Supporting workflows, none of which touch publication:
 | `oci-images` (`build.yml`) | after `matrix` | matrix-calls `oci-images.yml` once per selected image |
 | `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per architecture (x86_64 + aarch64) for that one image: build + verify + tag-push |
 | `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
+| `publish-smoke` (`oci-images.yml`) | after `manifest` succeeds | native-runner pull of each architecture tag, OCI-config smoke execution, manifest signature verification, and SBOM referrer discovery |
 | `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
@@ -161,6 +162,13 @@ against `elements/targets.json` before it is fanned out. Targeted runs use a
 separate parent concurrency group, while `oci-images.yml` serializes only
 conflicting publication for the same ref and image. This lets distinct targets
 run at the same time without racing their tags.
+
+When a reusable workflow job needs a repository/image string at the **job**
+`env:` level, compose it directly from contexts allowed there (for example
+`github`, `inputs`, `matrix`, `needs`, `vars`). Do **not** reference
+`${{ env.* }}` inside `jobs.<job_id>.env`: GitHub validates that key before
+runner startup, and an invalid context there can prevent the caller workflow
+from instantiating any jobs at all.
 
 BuildStream's shared artifact and source pull caches in `project.conf` are the
 CI cache layer for this fan-out. They are available to every native runner as
