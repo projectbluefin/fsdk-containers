@@ -84,6 +84,7 @@ Get the artifact out with `bst artifact checkout <oci elem> --directory dist`.
 ## Verification
 
 `just verify-brew` exports the tarball and asserts the real `usr/bin/*` paths,
-the init symlink, locale.conf, machine-id, and the app user at uid 1001. Booting
-(`machinectl import-tar` + `machinectl start`) requires a systemd host and is not
-done in CI here — note it as an integration step.
+the init symlink, locale.conf, machine-id, and the app user at uid 1001. The
+scheduled/on-demand `.github/workflows/brew-nspawn.yml` job runs this check on a
+native Ubuntu runner. Booting (`machinectl import-tar` + `machinectl start`)
+requires a systemd host and remains a separate integration step.

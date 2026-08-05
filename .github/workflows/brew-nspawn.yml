@@ -1,0 +1,45 @@
+name: Verify brew nspawn image
+
+# The brew image is a deliberate non-distroless machine-image lane. It is
+# expensive and unrelated to OCI image publication, so verify it weekly and
+# on demand rather than on every pull request.
+on:
+  schedule:
+    - cron: "30 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: brew-nspawn-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-brew:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: just
+
+      - name: Verify brew nspawn machine image
+        run: just verify-brew
+
+      - name: Summarize exported artifacts
+        if: always()
+        run: |
+          if [ -d dist ]; then
+            {
+              echo '## brew nspawn artifacts'
+              echo
+              echo '```text'
+              ls -lh dist
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
