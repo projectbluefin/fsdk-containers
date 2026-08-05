@@ -93,7 +93,13 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **Version pins are updated manually.** BuildStream source version variables and `ref` fields are not auto-updated by Renovate — the regex customManager was removed because it could change a version without updating the corresponding checksum, producing unreproducible builds (see [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50)). When bumping a source version, update both the version variable and the `ref` to the SHA-256 of the new artifact.
+- **BuildStream source updates:** Use the atomic `git-refs` custom manager in `renovate.json` only for git repository sources whose pinned commit ref can be updated together with `track:`:
+  ```yaml
+  # renovate: datasource=git-refs depName=containers/buildah
+  track: v1.45.0
+  ref: <matching commit SHA>
+  ```
+  `track:` and `ref:` must be captured by the same manager match. Archive and remote sources without an authoritative checksum manifest or verifiable signature remain manual; when bumping them, update the selector and `ref` together yourself.
 
 ## Wire it up
 
