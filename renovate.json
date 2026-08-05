@@ -6,7 +6,22 @@
     "helpers:pinGitHubActionDigests"
   ],
   "enabledManagers": [
-    "github-actions"
+    "github-actions",
+    "custom.regex"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)elements/buildah/buildah\\.bst$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=git-refs depName=(?<depName>\\S+)\\n\\s+track:\\s+(?<currentValue>\\S+)\\n\\s+ref:\\s+(?<currentDigest>[0-9a-f]{40})"
+      ],
+      "packageNameTemplate": "https://github.com/{{depName}}.git",
+      "datasourceTemplate": "git-refs",
+      "versioningTemplate": "loose"
+    }
   ],
   "schedule": [
     "after 2am and before 6am"
