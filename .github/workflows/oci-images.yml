@@ -210,6 +210,7 @@ jobs:
         env:
           ARTIFACT_HUB_KEY_ID: ${{ secrets.ARTIFACT_HUB_KEY_ID }}
           ARTIFACT_HUB_KEY_SECRET: ${{ secrets.ARTIFACT_HUB_KEY_SECRET }}
+        shell: bash
         run: |
           set -euo pipefail
           if [[ -z "${ARTIFACT_HUB_KEY_ID}" || -z "${ARTIFACT_HUB_KEY_SECRET}" ]]; then
@@ -220,6 +221,24 @@ jobs:
           OCI_URL="oci://${REPO}"
           API="https://artifacthub.io/api/v1"
           AUTH=(-H "X-API-KEY-ID: ${ARTIFACT_HUB_KEY_ID}" -H "X-API-KEY-SECRET: ${ARTIFACT_HUB_KEY_SECRET}")
+          REGISTRATION_PAYLOAD="$(jq -cn \
+            --arg name '${{ inputs.image }}' \
+            --arg display_name 'Project Bluefin ${{ inputs.image }} container image' \
+            --arg url "${OCI_URL}" \
+            '{
+              kind: 12,
+              name: $name,
+              display_name: $display_name,
+              url: $url,
+              data: {
+                tags: [
+                  {
+                    name: "latest",
+                    mutable: true
+                  }
+                ]
+              }
+            }')"
 
           # The search endpoint makes this safe to re-run on every publication.
           find_repository_id() {
@@ -232,16 +251,19 @@ jobs:
 
           REPOSITORY_ID="$(find_repository_id)"
 
-          if [[ -z "${REPOSITORY_ID}" ]]; then
+          if [[ -n "${REPOSITORY_ID}" ]]; then
+            curl --fail-with-body --silent --show-error --request PUT \
+              "${API}/repositories/org/projectbluefin/${{ inputs.image }}" \
+              "${AUTH[@]}" \
+              -H 'Content-Type: application/json' \
+              --data "${REGISTRATION_PAYLOAD}" \
+              >/dev/null
+          else
             curl --fail-with-body --silent --show-error --request POST \
               "${API}/repositories/org/projectbluefin" \
               "${AUTH[@]}" \
               -H 'Content-Type: application/json' \
-              --data "$(jq -cn \
-                --arg name '${{ inputs.image }}' \
-                --arg display_name 'Project Bluefin ${{ inputs.image }} container image' \
-                --arg url "${OCI_URL}" \
-                '{kind: 12, name: $name, display_name: $display_name, url: $url}')" \
+              --data "${REGISTRATION_PAYLOAD}" \
               >/dev/null
 
             # The create response is intentionally not relied on: the API's

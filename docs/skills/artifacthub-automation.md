@@ -57,10 +57,15 @@ Example `curl` step for the release pipeline:
         "url": "oci://ghcr.io/projectbluefin/base",
         "kind": 12,
         "data": {
-          "tags": [{"name": "25.08", "mutable": true}]
+          "tags": [{"name": "latest", "mutable": true}]
         }
       }'
 ```
+
+Artifact Hub creates versions from the tags configured on the repository, so the
+registration payload must include `data.tags`. A single mutable `latest` tag is
+enough for this repo's OCI images and lets Artifact Hub keep reindexing the
+published manifest when `latest` moves.
 
 ### 3. Verified Publisher Badge
 To get the green "Verified Publisher" checkmark, push an ownership metadata file to the image registry.
