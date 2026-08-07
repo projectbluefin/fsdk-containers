@@ -12,6 +12,14 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  # Neither the shipped python3 nor the shell can parse YAML without these:
+  # python3-pyyaml covers `import yaml`, and yq covers shell pipelines
+  # (GitHub Actions workflows, skill frontmatter, Kubernetes manifests). A
+  # contributor agent assigned to edit YAML with only what this image ships
+  # otherwise hits `ModuleNotFoundError: No module named 'yaml'` and
+  # `yq: command not found`.
+  - freedesktop-sdk.bst:components/python3-pyyaml.bst
+  - lab-runner/yq.bst
   # Standard POSIX/GNU userland beyond coreutils. A shell-enabled CI container
   # that answers `which`, `xargs`, `awk`, `ps`, `tar`, `diff` and `patch` with
   # exit 127 forces every consumer to either hand-roll a replacement or work
