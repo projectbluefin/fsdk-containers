@@ -12,6 +12,19 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  # Standard POSIX/GNU userland beyond coreutils. A shell-enabled CI container
+  # that answers `which`, `xargs`, `awk`, `ps`, `tar`, `diff` and `patch` with
+  # exit 127 forces every consumer to either hand-roll a replacement or work
+  # around the gap; both cost more than carrying the real GNU tools.
+  - freedesktop-sdk.bst:components/diffutils.bst
+  - freedesktop-sdk.bst:components/file.bst
+  - freedesktop-sdk.bst:components/findutils.bst
+  - freedesktop-sdk.bst:components/gawk.bst
+  - freedesktop-sdk.bst:components/less.bst
+  - freedesktop-sdk.bst:components/patch.bst
+  - freedesktop-sdk.bst:components/procps.bst
+  - freedesktop-sdk.bst:components/tar.bst
+  - freedesktop-sdk.bst:components/which.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
