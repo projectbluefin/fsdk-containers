@@ -21,7 +21,7 @@ config:
     #
     # FSDK split-rule domains only cover devel/debug/doc/sysconf/tests/
     # shells/static-blocklist/license/locale/vm-only/zoneinfo. They do NOT
-    # cover the largest runtime-domain bloat (terminfo, gconv charset
+    # cover the largest runtime-domain bloat (gconv charset
     # modules, gcc sanitizer/fortran runtimes, glibc locale-archive,
     # build-time tools). Those are removed explicitly here, same pattern as
     # the bash removal. Cuts the base rootfs roughly in half (~73M -> ~45M)
