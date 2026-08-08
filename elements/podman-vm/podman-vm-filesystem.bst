@@ -5,7 +5,6 @@ description: |
   are excluded using the same policy as FSDK's VM filesystem.
 
 build-depends:
-- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - podman-vm/podman-vm-deps.bst
 
 config:
