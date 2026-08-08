@@ -33,6 +33,10 @@ depends:
   - freedesktop-sdk.bst:components/procps.bst
   - freedesktop-sdk.bst:components/tar.bst
   - freedesktop-sdk.bst:components/which.bst
+  # Contributor / CI linters
+  - lab-runner/shellcheck.bst
+  - lab-runner/hadolint.bst
+  - lab-runner/actionlint.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst

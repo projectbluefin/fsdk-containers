@@ -357,7 +357,7 @@ verify:
             echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
         fi
         echo "OK: bash present"
-        TOTAL=3
+        TOTAL=4
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
         for tool in argo just kubectl; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
@@ -366,7 +366,15 @@ verify:
         done
         echo "OK: argo, just, and kubectl present"
 
-        echo "==> [3/${TOTAL}] lab-runner standard userland present"
+        echo "==> [3/${TOTAL}] lab-runner linter suite present"
+        for tool in shellcheck hadolint actionlint; do
+            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
+                echo "FAIL: ${tool} missing from lab-runner — linter suite must be present"; exit 1
+            fi
+        done
+        echo "OK: shellcheck, hadolint, and actionlint present"
+
+        echo "==> [4/${TOTAL}] lab-runner standard userland present"
         for tool in which xargs awk ps tar diff patch less file; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
@@ -433,6 +441,9 @@ verify:
         fi
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
+        fi
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "shellcheck --version >/dev/null && hadolint --version >/dev/null && actionlint --version >/dev/null" >/dev/null; then
+            echo "FAIL: lab-runner linters failed to execute"; exit 1
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
