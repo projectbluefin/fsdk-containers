@@ -3,8 +3,8 @@ description: Compile qemu-img from source.
 
 sources:
   - kind: tar
-    url: https://download.qemu.org/qemu-8.2.2.tar.xz
-    ref: 847346c1b82c1a54b2c38f6edbd85549edeb17430b7d4d3da12620e2962bc4f3
+    url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
+    ref: da5fcffc32762820568b828ed430a728864d34d50b6d2f30358597760cbb0523
 
 build-depends:
   - freedesktop-sdk.bst:components/pkg-config.bst
@@ -27,6 +27,8 @@ depends:
 
 variables:
   strip-binaries: ""
+  # renovate: datasource=gitlab-tags depName=qemu-project/qemu extractVersion=^v(?<version>.+)$
+  qemu_version: 11.0.3
   hardening-flags: ""
   (?):
     - arch == "x86_64":

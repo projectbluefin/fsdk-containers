@@ -21,6 +21,7 @@ load the focused skill for your task.
 | Add a bootable EFI/raw VM guest image (QEMU disk) | [vm-podman-guest.md](vm-podman-guest.md) |
 | Make an image smaller / apply the SLIM recipe | [slim-an-image.md](slim-an-image.md) |
 | Move to a new FSDK release / retag | [bump-fsdk-version.md](bump-fsdk-version.md) |
+| Keep non-FSDK upstream packages current / add a tracked version pin | [track-upstream-versions.md](track-upstream-versions.md) |
 | Prove an image is still distroless | [verify-distroless.md](verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [signing-and-sbom.md](signing-and-sbom.md) |
 | Add donate-clanker VM artifacts | [donate-clanker-vm-artifacts.md](donate-clanker-vm-artifacts.md) |

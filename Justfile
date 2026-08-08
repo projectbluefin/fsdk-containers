@@ -677,7 +677,8 @@ publish-podman-vm:
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
-brew_version := "6.0.3"
+# renovate: datasource=github-tags depName=Homebrew/brew
+brew_version := "6.0.15"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]

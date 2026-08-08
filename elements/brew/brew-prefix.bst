@@ -9,8 +9,9 @@ description: |
 sources:
   - kind: git_repo
     url: github:Homebrew/brew.git
-    track: 6.0.3
-    ref: 5c38c6b3fc42281af432cda526dd0509172f681b
+    # renovate: datasource=github-tags depName=Homebrew/brew
+    track: 6.0.15
+    ref: 7b0f22a4ab77567edef114c8dfc423fb96e2fbaa
 
 depends:
   # coreutils + bash to run the install-commands.
