@@ -28,6 +28,12 @@ depends:
   - freedesktop-sdk.bst:components/file.bst
   - freedesktop-sdk.bst:components/findutils.bst
   - freedesktop-sdk.bst:components/gawk.bst
+  # GNU tar execs gzip for .tar.gz streams; without it both `tar -xzf` and
+  # `tar -xf` on a gzip-compressed archive fail with "Cannot exec: No such
+  # file or directory" even though tar itself is present. gh, tmux and goose
+  # all publish .tar.gz releases, so every consumer that installs one needs
+  # this. zstd is not a substitute (built without zlib support here).
+  - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:components/less.bst
   - freedesktop-sdk.bst:components/patch.bst
   - freedesktop-sdk.bst:components/procps.bst
