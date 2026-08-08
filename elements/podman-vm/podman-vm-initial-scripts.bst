@@ -9,6 +9,7 @@ description: |
   this image's own (larger) dependency set.
 
 build-depends:
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - podman-vm/podman-vm-deps.bst
 
 config:
