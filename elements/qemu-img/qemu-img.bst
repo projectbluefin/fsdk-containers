@@ -3,8 +3,8 @@ description: Compile qemu-img from source.
 
 sources:
   - kind: tar
-    url: https://download.qemu.org/qemu-8.2.2.tar.xz
-    ref: 847346c1b82c1a54b2c38f6edbd85549edeb17430b7d4d3da12620e2962bc4f3
+    url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
+    ref: da5fcffc32762820568b828ed430a728864d34d50b6d2f30358597760cbb0523
 
 build-depends:
   - freedesktop-sdk.bst:components/pkg-config.bst
@@ -12,6 +12,10 @@ build-depends:
   - freedesktop-sdk.bst:components/python3-distlib.bst
   - freedesktop-sdk.bst:components/python3-setuptools.bst
   - freedesktop-sdk.bst:components/python3-packaging.bst
+  # qemu >= 9 builds a Python venv for its build tooling; wheel and pip must be
+  # present or mkvenv tries to fetch them from PyPI, which the sandbox blocks.
+  - freedesktop-sdk.bst:components/python3-wheel.bst
+  - freedesktop-sdk.bst:components/python3-pip.bst
   - freedesktop-sdk.bst:components/ninja.bst
   - freedesktop-sdk.bst:components/meson.bst
   - freedesktop-sdk.bst:components/grep.bst
@@ -27,6 +31,8 @@ depends:
 
 variables:
   strip-binaries: ""
+  # renovate: datasource=gitlab-tags depName=qemu-project/qemu extractVersion=^v(?<version>.+)$
+  qemu_version: 11.0.3
   hardening-flags: ""
   (?):
     - arch == "x86_64":
@@ -37,6 +43,10 @@ variables:
 config:
   configure-commands:
     - |
+      # --disable-download: qemu >= 9 resolves its Python build deps (qemu.qmp,
+      # meson) into a venv and reaches for PyPI when they are missing.
+      # BuildStream sandboxes have no network, so use the wheels qemu bundles
+      # in python/wheels/ instead of failing on DNS resolution.
       ./configure \
         --prefix=/usr \
         --extra-cflags="%{hardening-flags}" \
@@ -44,6 +54,7 @@ config:
         --disable-user \
         --enable-tools \
         --disable-docs \
+        --disable-download \
         --disable-guest-agent \
         --disable-werror \
         --disable-sdl \
