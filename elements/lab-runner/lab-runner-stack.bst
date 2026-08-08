@@ -12,6 +12,10 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  # tar is basic userland for a CI utility container; current FSDK
+  # runtime-minimal no longer pulls it in (projectbluefin/review's image
+  # build runs tar).
+  - freedesktop-sdk.bst:components/tar.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
