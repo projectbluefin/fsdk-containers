@@ -333,9 +333,10 @@ verify:
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         # lab-runner is the documented shell-enabled exception. Its CLI
         # contract includes the 136MiB stripped Argo v4 binary and the 57MiB
-        # already-stripped kubectl binary. The 464MiB ceiling leaves headroom
-        # over the measured ~427MiB image but rejects the old ~472MiB build.
-        lab-runner) MAX_BYTES=$((464 * 1024 * 1024)) ;;
+        # already-stripped kubectl binary, plus the terminfo database and the
+        # standard GNU userland added since. The 512MiB ceiling leaves
+        # headroom over the measured ~466MiB aarch64 image.
+        lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
