@@ -22,6 +22,7 @@ matches your task, load only that skill, then act.
 | Add a bootable EFI/raw VM guest image (QEMU disk) | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
 | Make an image smaller / apply the SLIM recipe | [`skills/slim-an-image.md`](skills/slim-an-image.md) |
 | Move to a new FSDK release / retag | [`skills/bump-fsdk-version.md`](skills/bump-fsdk-version.md) |
+| Keep non-FSDK upstream packages current / add a tracked version pin | [`skills/track-upstream-versions.md`](skills/track-upstream-versions.md) |
 | Prove an image is still distroless | [`skills/verify-distroless.md`](skills/verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [`skills/signing-and-sbom.md`](skills/signing-and-sbom.md) |
 | Add donate-clanker VM artifacts | [`skills/donate-clanker-vm-artifacts.md`](skills/donate-clanker-vm-artifacts.md) |

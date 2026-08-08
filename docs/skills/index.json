@@ -255,6 +255,24 @@
       "doc_type": "procedure"
     },
     {
+      "id": "track-upstream-versions",
+      "name": "track-upstream-versions",
+      "one_line_purpose": "Keep every non-FSDK upstream package pinned at its latest release automatically.",
+      "entry_point": "docs/skills/track-upstream-versions.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "renovate",
+        "versioning",
+        "buildstream",
+        "dependencies"
+      ],
+      "description": "Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
       "id": "verify-distroless",
       "name": "verify-distroless",
       "one_line_purpose": "Run and extend the per-image verify contract that gates every merge.",
