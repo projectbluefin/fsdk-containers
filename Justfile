@@ -357,7 +357,7 @@ verify:
             echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
         fi
         echo "OK: bash present"
-        TOTAL=3
+        TOTAL=4
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
         for tool in argo just kubectl; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
@@ -366,7 +366,15 @@ verify:
         done
         echo "OK: argo, just, and kubectl present"
 
-        echo "==> [3/${TOTAL}] lab-runner ships the full terminfo database"
+        echo "==> [3/${TOTAL}] lab-runner standard userland present"
+        for tool in which xargs awk ps tar diff patch less file; do
+            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
+                echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
+            fi
+        done
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+
+        echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
             if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
                 echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
@@ -437,6 +445,11 @@ verify:
         fi
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
+        fi
+        # Presence in the rootfs listing does not prove a working binary: a
+        # missing shared library or interpreter shows up only on execution.
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+            echo "FAIL: lab-runner standard userland failed to execute"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi

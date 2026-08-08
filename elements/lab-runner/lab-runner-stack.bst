@@ -12,13 +12,27 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
-  # tar/findutils/diffutils are basic userland for a CI utility container;
-  # current FSDK runtime-minimal no longer pulls them in
-  # (projectbluefin/review's image build and runtime contracts require
-  # tar, GNU find, and GNU cmp from the base — shims are forbidden there).
-  - freedesktop-sdk.bst:components/tar.bst
-  - freedesktop-sdk.bst:components/findutils.bst
+  # Neither the shipped python3 nor the shell can parse YAML without these:
+  # python3-pyyaml covers `import yaml`, and yq covers shell pipelines
+  # (GitHub Actions workflows, skill frontmatter, Kubernetes manifests). A
+  # contributor agent assigned to edit YAML with only what this image ships
+  # otherwise hits `ModuleNotFoundError: No module named 'yaml'` and
+  # `yq: command not found`.
+  - freedesktop-sdk.bst:components/python3-pyyaml.bst
+  - lab-runner/yq.bst
+  # Standard POSIX/GNU userland beyond coreutils. A shell-enabled CI container
+  # that answers `which`, `xargs`, `awk`, `ps`, `tar`, `diff` and `patch` with
+  # exit 127 forces every consumer to either hand-roll a replacement or work
+  # around the gap; both cost more than carrying the real GNU tools.
   - freedesktop-sdk.bst:components/diffutils.bst
+  - freedesktop-sdk.bst:components/file.bst
+  - freedesktop-sdk.bst:components/findutils.bst
+  - freedesktop-sdk.bst:components/gawk.bst
+  - freedesktop-sdk.bst:components/less.bst
+  - freedesktop-sdk.bst:components/patch.bst
+  - freedesktop-sdk.bst:components/procps.bst
+  - freedesktop-sdk.bst:components/tar.bst
+  - freedesktop-sdk.bst:components/which.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
