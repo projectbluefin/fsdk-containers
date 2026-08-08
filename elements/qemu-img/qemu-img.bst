@@ -12,6 +12,10 @@ build-depends:
   - freedesktop-sdk.bst:components/python3-distlib.bst
   - freedesktop-sdk.bst:components/python3-setuptools.bst
   - freedesktop-sdk.bst:components/python3-packaging.bst
+  # qemu >= 9 builds a Python venv for its build tooling; wheel and pip must be
+  # present or mkvenv tries to fetch them from PyPI, which the sandbox blocks.
+  - freedesktop-sdk.bst:components/python3-wheel.bst
+  - freedesktop-sdk.bst:components/python3-pip.bst
   - freedesktop-sdk.bst:components/ninja.bst
   - freedesktop-sdk.bst:components/meson.bst
   - freedesktop-sdk.bst:components/grep.bst
@@ -39,6 +43,10 @@ variables:
 config:
   configure-commands:
     - |
+      # --disable-download: qemu >= 9 resolves its Python build deps (qemu.qmp,
+      # meson) into a venv and reaches for PyPI when they are missing.
+      # BuildStream sandboxes have no network, so use the wheels qemu bundles
+      # in python/wheels/ instead of failing on DNS resolution.
       ./configure \
         --prefix=/usr \
         --extra-cflags="%{hardening-flags}" \
@@ -46,6 +54,7 @@ config:
         --disable-user \
         --enable-tools \
         --disable-docs \
+        --disable-download \
         --disable-guest-agent \
         --disable-werror \
         --disable-sdl \
