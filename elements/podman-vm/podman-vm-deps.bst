@@ -7,11 +7,6 @@ description: |
 
 depends:
 - freedesktop-sdk.bst:vm/minimal/deps.bst
-# The guest's init path (serial getty, donate-clanker-bootstrap.service) needs
-# a shell. Until FSDK 26.08 that arrived via runtime-minimal; the userland
-# split removed it, leaving a disk that builds and checksums but never reaches
-# its ready point under QEMU.
-- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - freedesktop-sdk.bst:components/git.bst
 - podman-vm/donate-clanker-vm-config.bst
 - podman-vm/donate-clanker-worker.bst
