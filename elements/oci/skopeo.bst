@@ -1,6 +1,11 @@
 kind: script
 
 build-depends:
+  # FSDK 26.08 removed the shell from runtime-minimal, so the script
+  # sandbox no longer gets /bin/sh implicitly. The SLIM recipe is a
+  # shell script, so declare its interpreter explicitly.
+  - freedesktop-sdk.bst:bootstrap/bash.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
   - freedesktop-sdk.bst:components/oci-builder.bst
   - base/base-init-script.bst
   - filename: skopeo/skopeo-runtime.bst
