@@ -2,6 +2,14 @@ kind: manual
 description: Fetch kubectl static binary for lab-runner
 
 build-depends:
+
+  # FSDK 26.08 removed the shell from runtime-minimal; these commands
+
+  # are shell scripts, so declare the interpreter explicitly.
+
+  - freedesktop-sdk.bst:bootstrap/bash.bst
+
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
   - freedesktop-sdk.bst:components/make.bst
 
 variables:

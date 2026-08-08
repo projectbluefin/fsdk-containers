@@ -13,7 +13,9 @@ sources:
     ref: 5c38c6b3fc42281af432cda526dd0509172f681b
 
 depends:
-  # coreutils + bash to run the install-commands.
+  # coreutils + bash to run the install-commands. FSDK 26.08 removed both from
+  # runtime-minimal, so name the shell stack that still provides them.
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
 
 variables:

@@ -2,6 +2,14 @@ kind: manual
 description: Build buildah from source
 
 build-depends:
+
+# FSDK 26.08 removed the shell from runtime-minimal; these commands
+
+# are shell scripts, so declare the interpreter explicitly.
+
+- freedesktop-sdk.bst:bootstrap/bash.bst
+
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
 - freedesktop-sdk.bst:components/go.bst
 - freedesktop-sdk.bst:components/gcc.bst
 - freedesktop-sdk.bst:components/binutils.bst
