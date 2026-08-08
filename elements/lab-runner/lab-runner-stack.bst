@@ -12,10 +12,13 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
-  # tar is basic userland for a CI utility container; current FSDK
-  # runtime-minimal no longer pulls it in (projectbluefin/review's image
-  # build runs tar).
+  # tar/findutils/diffutils are basic userland for a CI utility container;
+  # current FSDK runtime-minimal no longer pulls them in
+  # (projectbluefin/review's image build and runtime contracts require
+  # tar, GNU find, and GNU cmp from the base — shims are forbidden there).
   - freedesktop-sdk.bst:components/tar.bst
+  - freedesktop-sdk.bst:components/findutils.bst
+  - freedesktop-sdk.bst:components/diffutils.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
