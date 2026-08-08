@@ -56,7 +56,7 @@ jobs:
       # permissions are already granted, so this mints a short-lived
       # installation token from the existing MERGERAPTOR_APP_ID and
       # MERGERAPTOR_PRIVATE_KEY secrets -- no PAT, no new secret, no new
-      # permission (see docs/skills/ci-tooling.md).
+      # permission (see docs/skills/ci-tooling/SKILL.md).
       - name: Get mergeraptor token
         if: steps.check_changes.outputs.changes == 'true'
         id: app-token

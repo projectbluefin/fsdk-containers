@@ -1,8 +1,19 @@
 ---
 name: container-standards
-description: The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance.
+version: "1.0"
+last_updated: 2026-08-08
+id: container-standards
+one_line_purpose: Define the build, verification and tagging standard every image must meet.
+entry_point: docs/skills/container-standards.md
+category: meta
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [standards, verification, tagging, compliance]
+description: "The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance."
 metadata:
-  type: standard
+  type: policy
 ---
 
 # Container Standard of Quality
@@ -26,16 +37,28 @@ metadata:
 
 ---
 
-## 2. The Four Verification Gates
+## 2. The Verification Gates
 
-All OCI images (except explicit exceptions) must pass the `just verify` validation suite containing four automated gates before merge:
+`just verify` is the merge contract. Every OCI image must pass a per-image size
+ceiling, the gates below, and a smoke test that executes the image's binary.
+
+Distroless images (all except `lab-runner`):
 
 | Gate | Validation | Why It Matters |
 | --- | --- | --- |
-| **Gate 1** | Distroless Assertion | Ensures no shell binaries exist in the rootfs. |
-| **Gate 2** | CA Certificate Bundle | Verifies secure HTTPS communication works out-of-the-box. |
-| **Gate 3** | Timezone Data (`tzdata`) | Keeps `usr/share/zoneinfo/UTC` so runtimes/Python do not crash. |
-| **Gate 4** | Zero-Bloat Recipe | Assures removal of terminfo databases, GCC compiler sanitizers, and Gconv charsets. |
+| **Gate 1** | No shell present | The distroless guarantee: no `sh`/`bash` in the rootfs. |
+| **Gate 2** | CA certificate bundle | HTTPS works out of the box. |
+| **Gate 3** | Timezone data | Keeps `usr/share/zoneinfo/UTC` so runtimes do not crash. |
+| **Gate 4** | Sanitizer/fortran bloat removed | No `libasan`, `libtsan`, `libgfortran` and friends. |
+| **Gate 5** | Locale/build-tool bloat removed | No `locale-archive`, charmaps, `ldconfig`, `pcre2` tooling. |
+
+`lab-runner` is the documented shell-enabled exception and is verified against an
+inverted contract instead — bash present, the `argo`/`just`/`kubectl` CLI
+contract present, the standard POSIX/GNU userland present, and the full terminfo
+database present.
+
+Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
+removing it produced real colour and rendering bugs downstream.
 
 ---
 

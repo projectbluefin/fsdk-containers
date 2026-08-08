@@ -1,9 +1,19 @@
 ---
 name: signing-and-sbom
-description: >
-  Guides supply chain security implementation for fsdk-containers, focusing on
-  BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM
-  signing with Sigstore Cosign.
+version: "1.0"
+last_updated: 2026-08-08
+id: signing-and-sbom
+one_line_purpose: Sign published images and attach SPDX SBOMs as OCI referrers.
+entry_point: docs/skills/signing-and-sbom.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [signing, sbom, cosign, supply-chain]
+description: "Guides supply chain security implementation for fsdk-containers, focusing on BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM signing with Sigstore Cosign."
+metadata:
+  type: runbook
 ---
 
 # Supply Chain Security: Keyless Signing and SBOMs

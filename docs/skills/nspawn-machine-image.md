@@ -1,9 +1,19 @@
 ---
 name: nspawn-machine-image
-description: Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.
+version: "1.0"
+last_updated: 2026-08-08
+id: nspawn-machine-image
+one_line_purpose: Build a non-distroless systemd-nspawn machine image rootfs from FSDK.
+entry_point: docs/skills/nspawn-machine-image.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [nspawn, machinectl, rootfs, brew]
+description: "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # nspawn Machine Image (rootfs tarball)

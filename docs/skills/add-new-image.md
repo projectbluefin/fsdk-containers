@@ -1,9 +1,19 @@
 ---
 name: add-new-image
-description: Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers.
+version: "1.0"
+last_updated: 2026-08-08
+id: add-new-image
+one_line_purpose: Scaffold a new distroless OCI image carved from FSDK components.
+entry_point: docs/skills/add-new-image.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [buildstream, oci, distroless, images]
+description: "Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # Add a New Distroless Image
@@ -105,7 +115,7 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 
 - Add the image name to `oci_images` in `elements/targets.json` — this is the
   single canonical manifest for the GitHub Actions build/manifest matrices,
-  `just validate`, and `just sbom`/`sboms` (see docs/skills/ci-tooling.md).
+  `just validate`, and `just sbom`/`sboms` (see docs/skills/ci-tooling/SKILL.md).
   No other workflow or matrix loop needs editing.
 - Add the per-image `DESC` case in the Justfile `export` recipe and the
   `MAX_BYTES` + smoke-test case in `verify` — these stay hand-written because

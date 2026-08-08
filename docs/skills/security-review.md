@@ -1,8 +1,19 @@
 ---
 name: security-review
-description: Guidance on performing security reviews for fsdk-containers. Use when reviewing pull requests, auditing workflows, or using the /security-review command.
+version: "1.0"
+last_updated: 2026-08-08
+id: security-review
+one_line_purpose: Review pull requests and workflows for supply-chain and container security issues.
+entry_point: docs/skills/security-review.md
+category: meta
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [security, review, supply-chain, workflows]
+description: "Guidance on performing security reviews for fsdk-containers. Use when reviewing pull requests, auditing workflows, or using the /security-review command."
 metadata:
-  type: runbook
+  type: policy
 ---
 
 # Security-Focused Code Review
