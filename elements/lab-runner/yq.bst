@@ -2,6 +2,9 @@ kind: manual
 description: Fetch the mikefarah/yq YAML/JSON/XML CLI processor for lab-runner
 
 build-depends:
+  # FSDK 26.08 removed the shell from runtime-minimal; these commands
+  # are shell scripts, so declare the interpreter explicitly.
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   # A bare `kind: manual` element has no shell in its sandbox for
   # install-commands beyond invoking a single prebuilt tool ("Staged
   # artifacts do not provide command 'sh'") — see

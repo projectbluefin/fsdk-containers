@@ -67,10 +67,33 @@ Before merging a bump:
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
 - Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components or restructure runtime stacks:
-  - **FSDK 26.08 Stack Refactoring:** Re-check the VM and shell stack inputs in the staged junction when moving to Freedesktop-SDK 26.08 (`26.08beta.1`+).
-  - Distroless images (`base-stack.bst`) using `runtime-minimal` become even leaner by default upstream (no need to rely solely on manual `rm -f /usr/bin/bash` in `include/slim.yml`).
-  - Shell-enabled stacks (`lab-runner-stack.bst`, `brew-deps.bst`) must explicitly depend on the staged FSDK shell stack when updating to FSDK 26.08+.
+  - **FSDK 26.08 "Choose Your Own Userland" (verified on `26.08beta.2`).**
+    `public-stacks/runtime-minimal.bst` no longer contains bash or coreutils —
+    they now live only in `public-stacks/runtime-gnu.bst`. Additionally,
+    `integration/ldconfig.bst` changed from `depends:` to `build-depends:` on
+    `runtime-gnu` between beta.1 and beta.2, closing a long-standing leak that
+    had been pulling a full GNU userland into the *runtime* closure of every
+    consumer. That leak is why our "distroless" images shipped ~184 binaries
+    that `include/slim.yml` then deleted.
+  - **The symptom is `Staged artifacts do not provide command 'sh'`.** Anything
+    that runs a shell script now needs the shell declared. Two classes break:
+    - Stacks whose components carry shell integration-commands
+      (`base-stack.bst`, `static-stack.bst` — `update-ca-trust` and `ldconfig`
+      are shell scripts) need `public-stacks/runtime-gnu.bst` in `depends:`.
+    - Every `kind: script` element in `elements/oci/` runs the SLIM recipe,
+      which is a shell script, and needs `bootstrap/bash.bst` +
+      `bootstrap/coreutils.bst` in `build-depends:`. Before 26.08 only
+      `oci/qemu-img.bst` declared these; the rest inherited a shell by accident.
+  - **`components/systemd-base.bst` was removed in 26.08.** The
+    `gnome-build-meta` systemd overrides in `elements/freedesktop-sdk.bst` must
+    be dropped: gnome-build-meta (both `gnome-50` and `master`) is still pinned
+    to FSDK 25.08 and still references `systemd-base.bst`, so keeping the
+    overrides fails to load the junction entirely.
   - Re-confirm `components/*` and `public-stacks/*` names against the staged junction before assuming a dep still exists.
+- **Tag refs must be the dereferenced commit, not the tag object.** FSDK tags are
+  annotated, so `git ls-remote --tags` returns the tag object SHA. Use the
+  `refs/tags/<tag>^{}` line, or `bst source track`, or the junction will not
+  resolve.
 - A point-release tag is immutable: once `:25.08.13` is published, never republish
   different bits under it.
 - **Only the systemd-* overrides and two CAS-config patches remain.** When Dakota

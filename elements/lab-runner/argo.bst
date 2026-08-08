@@ -2,6 +2,7 @@ kind: manual
 description: Fetch the Argo Workflows CLI for lab-runner
 
 build-depends:
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/binutils.bst
   - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
