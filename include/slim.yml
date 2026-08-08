@@ -8,7 +8,9 @@ slim-distroless-commands: |
   rm -f "$L"/usr/bin/bash "$L"/usr/bin/sh "$L"/bin/bash "$L"/bin/sh "$L"/usr/bin/bashbug
   rm -rf "$L"/usr/lib/bash "$L"/usr/lib/*/bash
 
-  rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset "$L"/etc/terminfo "$L"/lib/terminfo
+  # terminfo is KEPT: 12M unpacked, ~0.5M compressed. Without it a container
+  # must lie about the host TERM or vendor its own entries; both produced
+  # real color/rendering bugs downstream (projectbluefin/review).
   rm -f "$L"/usr/lib/*/libasan.so* "$L"/usr/lib/*/libtsan.so* \
         "$L"/usr/lib/*/liblsan.so* "$L"/usr/lib/*/libubsan.so* \
         "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
@@ -36,7 +38,7 @@ slim-distroless-commands: |
 slim-shell-enabled-commands: |
   set -eu
   L=/layer
-  rm -rf "$L"/usr/share/terminfo "$L"/usr/share/tabset "$L"/etc/terminfo "$L"/lib/terminfo
+  # terminfo is KEPT: see slim-distroless-commands.
   rm -f "$L"/usr/lib/*/libasan.so* "$L"/usr/lib/*/libtsan.so* \
         "$L"/usr/lib/*/liblsan.so* "$L"/usr/lib/*/libubsan.so* \
         "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*

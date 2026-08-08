@@ -333,9 +333,10 @@ verify:
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         # lab-runner is the documented shell-enabled exception. Its CLI
         # contract includes the 136MiB stripped Argo v4 binary and the 57MiB
-        # already-stripped kubectl binary. The 464MiB ceiling leaves headroom
-        # over the measured ~427MiB image but rejects the old ~472MiB build.
-        lab-runner) MAX_BYTES=$((464 * 1024 * 1024)) ;;
+        # already-stripped kubectl binary, plus the terminfo database and the
+        # standard GNU userland added since. The 512MiB ceiling leaves
+        # headroom over the measured ~466MiB aarch64 image.
+        lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
@@ -357,7 +358,7 @@ verify:
             echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
         fi
         echo "OK: bash present"
-        TOTAL=3
+        TOTAL=4
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
         for tool in argo just kubectl; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
@@ -373,6 +374,18 @@ verify:
             fi
         done
         echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+
+        echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
+        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
+            if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
+                echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
+            fi
+        done
+        TERMINFO_COUNT="$(grep -cE '^usr/share/terminfo/./[^/]+$' "$LISTING" || true)"
+        if [ "$TERMINFO_COUNT" -lt 1000 ]; then
+            echo "FAIL: terminfo database looks incomplete ($TERMINFO_COUNT entries)"; exit 1
+        fi
+        echo "OK: full terminfo database present ($TERMINFO_COUNT entries)"
     else
         TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
@@ -393,8 +406,8 @@ verify:
         fi
         echo "OK: tzdata present"
 
-        echo "==> [4/${TOTAL}] slim: bloat must NOT be present (terminfo, sanitizers, fortran)"
-        if grep -qE 'usr/share/terminfo/|/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
+        echo "==> [4/${TOTAL}] slim: bloat must NOT be present (sanitizers, fortran)"
+        if grep -qE '/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
             echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
         fi
         echo "OK: slim bloat removed"
