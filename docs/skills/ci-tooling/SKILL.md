@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.0"
-last_updated: 2026-08-08
+version: "1.1"
+last_updated: 2026-08-09
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -10,8 +10,8 @@ mcp_compliance_level: partial
 optimization_status: draft
 status: active
 dependencies: []
-tags: [ci, github-actions, workflows, publishing]
-description: "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, or adding a new CI step."
+tags: [ci, github-actions, workflows, publishing, scaling, attestation]
+description: "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, adding a new CI step, or checking a change against the org-wide CI job budget."
 metadata:
   type: reference
 ---
@@ -23,6 +23,7 @@ metadata:
 - Writing a new workflow or job
 - Adding a new action dependency
 - Debugging a CI failure in the build, verify, or manifest job
+- Adding images to the catalog, or changing how many jobs a run fans out into
 
 ## When NOT to Use
 
@@ -96,6 +97,46 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
        ref: ${{ github.event.client_payload.ref || github.ref }}
    ```
 
+### The CI job budget — 60 concurrent jobs, org-wide
+
+**The constraint is concurrency, not the 256-job matrix limit.** This trips people up because
+the matrix limit is the documented number everyone quotes.
+
+| Limit | Value | Raisable? |
+|---|---|---|
+| Job matrix | 256 jobs / workflow run | No |
+| **Concurrent jobs, Team plan** | **60, shared across the whole org** | Yes, support ticket |
+| Job execution time (GH-hosted) | 6 hours | No |
+| Unique reusable workflows / top-level file | 50 (nesting 10 deep) | — |
+
+`projectbluefin` is on the **Team** plan, so all 60 concurrent job slots are shared by every
+repository in the org — not 60 per repo, and not 60 per workflow.
+
+**Each OCI image costs 5 jobs**: `build` x2 arch, `manifest` x1, `publish-smoke` x2 arch. With
+~5 jobs of non-OCI overhead per run (`matrix`, `summary`, `vm-guest`), a full catalog run
+saturates the org at roughly **11 images**:
+
+```
+(60 - 5 overhead) / 5 jobs per image = 11 images
+```
+
+Failure here does not look like a failure. Jobs **queue** rather than error, so the symptom is
+every other repo in the org waiting behind a catalog build, with nothing pointing at the cause.
+Watch the job count, not just the red X.
+
+Build time is not the constraint and has never been: the entire 7-image catalog builds serially
+in ~40 minutes on `x86_64` (~29 on `aarch64`) against a 180-minute job timeout. Fan-out is
+mostly scheduling overhead.
+
+The agreed remedy (#127) is **sharding**: matrix entries are batches of 10 images, not single
+images, giving `jobs = 5 x ceil(N / 10)`. The shard count is derived from
+`elements/targets.json` in the `matrix` job, so adding image N+1 changes no workflow file.
+Re-derive the batch size when any single image's build exceeds ~18 minutes.
+
+When batching a loop over images, **do not `set -e` out of the loop.** Collect per-image
+results, print one line per image, and exit non-zero at the end — otherwise one bad image hides
+the other nine behind a single click.
+
 ## Common Rationalizations
 
 | Rationalization | Reality |
@@ -104,6 +145,10 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 | "I'll check what SHA other repos use later." | Check now — it's one `gh api` call and takes 10 seconds. |
 | "`just validate` passes, the PR is fine." | Graph resolution is not a build. Every red `main` push in this repo's history was green at PR time for exactly this reason. |
 | "Building on PRs is too expensive." | Building *everything* is. The gate builds only what the diff can break, and a shared-path change builds one canary. |
+| "We're nowhere near the 256-job matrix limit." | 256 is the wrong number. 60 concurrent jobs, shared org-wide, binds ~23x earlier — at ~11 images. |
+| "Adding one image only costs one job." | It costs **five**: build x2, manifest, publish-smoke x2. |
+| "CI is slow, so shrink the build." | Measure first. The full catalog builds in 40 min/arch; the cost is job scheduling, not compilation. |
+| "The build didn't fail, so we're within limits." | Exceeding concurrency queues jobs, it doesn't fail them. The damage lands on other repos in the org. |
 | "The publish step is skipped on PRs anyway." | An `if:` is one careless edit from being wrong. PR jobs have no publish code path at all. |
 | "GITHUB_TOKEN is fine for the bot's push." | It cannot trigger workflows, so the resulting PR carries no checks — and Renovate was set to auto-merge those. |
 | "Mergeraptor needs new permissions for that." | It is an org-level app; the permissions and secrets already exist. Reuse them. |
@@ -116,6 +161,10 @@ Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Acti
 - A publish, sign, or release step reachable from a `pull_request` event
 - An automated push, PR, or dispatch using `secrets.GITHUB_TOKEN` instead of a Mergeraptor token
 - A new image added to `oci_images` without a matching `image_paths` entry — its PRs would build nothing
+- A change that multiplies jobs per image — check it against the 60-job org-wide budget first
+- A loop over images that runs under `set -e` — the first failure masks every image after it
+- `actions/attest` with `push-to-registry: true` given anything but one subject
+- A documented `gh attestation verify` command with no `--signer-workflow`/`--signer-repo`
 - `actions/checkout` without `persist-credentials: false` in a job that does not push
 - A rootfs vulnerability scanner pointed at a distroless image ref
 
@@ -134,8 +183,36 @@ The manifest job uses the current GitHub `actions/attest` action with a
 SHA-pinned ref. It requires `contents: read`, `packages: write`,
 `attestations: write`, and `id-token: write`. The subject is the fully-qualified
 repository name plus the resolved multi-arch `sha256:` digest, and
-`push-to-registry: true` stores the attestation beside the image. Consumers can
-verify it with `gh attestation verify oci://IMAGE:TAG -R ORG/REPO`.
+`push-to-registry: true` stores the attestation beside the image.
+
+Consumers verify with:
+
+```console
+$ gh attestation verify oci://IMAGE:TAG -R projectbluefin/fsdk-containers \
+    --signer-repo projectbluefin/fsdk-containers
+```
+
+**The signer flag is not optional here.** Our images are attested from the *reusable* workflow
+`oci-images.yml`, and `gh attestation verify` documents that when an attestation is generated
+via a reusable workflow, that reusable workflow is the signer — so `--signer-workflow` or
+`--signer-repo` must be supplied. A bare `-R ORG/REPO` fails against these images.
+
+#### `push-to-registry` takes a single subject only
+
+`actions/attest` states that `push-to-registry` "requires that the resolved subject is a
+**single** fully-qualified OCI image reference with a SHA-256 digest". GitHub Actions has **no
+step-level loop**, so a job that handles N images cannot call `actions/attest` N times, and
+cannot pass N subjects while also pushing to the registry. This constrains any batching of the
+publish path (see the job budget above).
+
+The way through is `subject-checksums` — many subjects, one attestation — with
+`push-to-registry: false`. Verification survives, because `gh attestation verify` **fetches via
+the GitHub API by default**; pulling from the registry instead is the opt-in `--bundle-from-oci`
+path. What is lost is the attestation-as-registry-referrer for consumers who pass that flag.
+
+By contrast, the SPDX SBOM referrer is plain `oras attach` + `cosign sign` in shell, so it
+batches by simply looping. Cosign signing also scales without per-image configuration: a generic
+OIDC identity over the index digest.
 
 The `podman-vm` guest disk has no OCI registry to attach to, so it uses the
 same `actions/attest` action with `subject-path` (a glob over the `.raw`/
