@@ -70,8 +70,8 @@
         "tags"
       ],
       "description": "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "runbook"
     },
     {
