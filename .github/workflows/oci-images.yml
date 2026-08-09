@@ -5,7 +5,7 @@ name: Build OCI images
 # once per target so a slow or failed image never delays another image's
 # manifest, signing, or attestation. Deliberately excludes the podman-vm guest
 # disk (see vm-guest.yml) and the brew-nspawn machine image lane. See
-# docs/skills/ci-tooling.md.
+# docs/skills/ci-tooling/SKILL.md.
 
 on:
   workflow_call:

@@ -1,13 +1,23 @@
 ---
 name: track-upstream-versions
-description: Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream.
+version: "1.0"
+last_updated: 2026-08-08
+id: track-upstream-versions
+one_line_purpose: Keep every non-FSDK upstream package pinned at its latest release automatically.
+entry_point: docs/skills/track-upstream-versions.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [renovate, versioning, buildstream, dependencies]
+description: "Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream."
 metadata:
   type: runbook
   context7-sources:
     - /websites/renovatebot
     - /apache/buildstream
 ---
-
 # Track Upstream Versions
 
 ## The rule

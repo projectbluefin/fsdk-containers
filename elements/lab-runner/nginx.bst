@@ -16,7 +16,7 @@ build-depends:
   # to sed, grep and awk without checking for them, so a missing one silently
   # produces an objs/Makefile with an empty object list and the build dies at
   # link time with "cc: fatal error: no input files". Declare every tool the
-  # build runs (docs/skills/ci-tooling.md, "Build-time utility dependencies").
+  # build runs (docs/skills/ci-tooling/SKILL.md, "Build-time utility dependencies").
   - freedesktop-sdk.bst:components/sed.bst
   - freedesktop-sdk.bst:components/grep.bst
   - freedesktop-sdk.bst:components/gawk.bst

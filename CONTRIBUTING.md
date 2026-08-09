@@ -29,7 +29,7 @@ not install BuildStream locally.
    ```
    just validate   # graph resolves
    just build      # builds + loads the image
-   just verify     # 4 gates must pass
+   just verify     # size ceiling + gates + smoke test must pass
    ```
 
 4. Update or add a `docs/skills/*.md` file capturing anything a future contributor
