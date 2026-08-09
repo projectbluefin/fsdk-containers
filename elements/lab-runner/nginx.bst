@@ -7,6 +7,7 @@ sources:
     ref: a7657c50811c2d92d9895395e8b873ef60398142c4db21eb647811c38f6dd525
 
 build-depends:
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/gcc.bst
   - freedesktop-sdk.bst:components/make.bst
   - freedesktop-sdk.bst:bootstrap/pcre2.bst

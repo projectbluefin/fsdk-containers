@@ -7,6 +7,11 @@ sources:
     ref: da5fcffc32762820568b828ed430a728864d34d50b6d2f30358597760cbb0523
 
 build-depends:
+  # FSDK 26.08 removed the shell from runtime-minimal; these commands
+
+  # are shell scripts, so declare the interpreter explicitly.
+
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/pkg-config.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/python3-distlib.bst
