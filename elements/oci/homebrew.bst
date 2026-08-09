@@ -14,6 +14,11 @@ description: |
   image by slimming it.
 
 build-depends:
+  # Root toolchain to run the assembly commands. base-stack provides /bin/sh,
+  # without which the sandbox fails with "Staged artifacts do not provide
+  # command 'sh'" -- see the note in elements/base/base-stack.bst. Root-staged
+  # content is not part of /layer, so it never reaches the image.
+  - base/base-stack.bst
   - freedesktop-sdk.bst:components/oci-builder.bst
   - base/base-init-script.bst
   # The rootfs content, staged into /layer.
