@@ -5,6 +5,7 @@ build-depends:
   - freedesktop-sdk.bst:bootstrap/bash.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
   - freedesktop-sdk.bst:bootstrap/glibc.bst
+  - freedesktop-sdk.bst:components/gcc-libs.bst
 
 variables:
   strip-binaries: ""
