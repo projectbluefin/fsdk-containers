@@ -31,7 +31,7 @@ variables:
 sources:
 - kind: git_repo
   url: github:containers/buildah.git
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
   ref: b459120c69f877227039ca6ddb8131c11f6e641d
 

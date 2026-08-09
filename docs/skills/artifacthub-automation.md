@@ -1,9 +1,19 @@
 ---
 name: artifacthub-automation
-description: Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata.
+version: "1.0"
+last_updated: 2026-08-08
+id: artifacthub-automation
+one_line_purpose: Submit and verify an ArtifactHub repository for published OCI images.
+entry_point: docs/skills/artifacthub-automation.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [artifacthub, publishing, oci, metadata]
+description: "Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata."
 metadata:
   type: runbook
-  status: implemented
 ---
 
 # Automating ArtifactHub Submissions

@@ -56,7 +56,7 @@ See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
 
 All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
 and ship an attached SPDX SBOM. Signing happens in the `oci-images.yml` reusable
-workflow (called from `build.yml` — see docs/skills/ci-tooling.md), so the
+workflow (called from `build.yml` — see docs/skills/ci-tooling/SKILL.md), so the
 certificate identity below names that file, not `build.yml`. Verify a
 main-branch build with:
 

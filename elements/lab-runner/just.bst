@@ -9,17 +9,18 @@ build-depends:
 
 variables:
   strip-binaries: ""
-  just_version: 1.57.0
+  # renovate: datasource=github-releases depName=casey/just
+  just_version: 1.58.0
 
 sources:
   - kind: remote
     (?):
       - arch == "x86_64":
           url: "https://github.com/casey/just/releases/download/%{just_version}/just-%{just_version}-x86_64-unknown-linux-musl.tar.gz"
-          ref: 45b548094283cb9739af8f13273b8cddeee869f5b4ef2bb631b1f311cb566155
+          ref: 4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d
       - arch == "aarch64":
           url: "https://github.com/casey/just/releases/download/%{just_version}/just-%{just_version}-aarch64-unknown-linux-musl.tar.gz"
-          ref: f225044a81adea6e0b3a8b9370aaf374e6af76c8735ae263ac993df55fd137ec
+          ref: 748237128c4c40cbdabc65e841d05ceba13cc23a91eaba395495894c1d9764df
     filename: just.tar.gz
 
 config:

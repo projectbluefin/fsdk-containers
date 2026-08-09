@@ -1,9 +1,19 @@
 ---
 name: bump-fsdk-version
-description: Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.
+version: "1.0"
+last_updated: 2026-08-08
+id: bump-fsdk-version
+one_line_purpose: Move the project to a new freedesktop-sdk release and refresh derived tags.
+entry_point: docs/skills/bump-fsdk-version.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [fsdk, versioning, junction, tags]
+description: "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: runbook
 ---
 
 # Bump the FSDK Version
@@ -63,7 +73,7 @@ Before merging a bump:
 - [ ] `just tags` output matches the expected `YY.MM / YY.MM.PP` pair and
       contains no `latest`
 - [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
-- [ ] `just build && just verify` — all 4 gates pass
+- [ ] `just build && just verify` — size ceiling, all gates, and the smoke test pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
 - Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components or restructure runtime stacks:
