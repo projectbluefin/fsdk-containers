@@ -64,7 +64,7 @@ distroless images (everything except the shell-enabled `lab-runner`):
    transfer size; it catches silent runtime-rootfs creep.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
-present and that `argo`, `just`, and `kubectl` are on disk.
+present and that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and `actionlint` are on disk and executable.
 
 ## Graph validation
 
