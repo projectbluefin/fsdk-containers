@@ -23,7 +23,7 @@ Only load the docs relevant to your task.
   image. Keep only cheap crash-preventers (tzdata, common charsets, CA certs).
 - **One documented exception — machine images.** A non-distroless lane exists for
   full dev-environment containers booted by `systemd-nspawn`/`machinectl` (e.g.
-  `brew`): a rootfs `.tar.gz`, with shell/init/locale kept and the SLIM recipe NOT
+  `homebrew`): a rootfs `.tar.zst`, with shell/init/locale kept and the SLIM recipe NOT
   applied. This is deliberate and scoped — see
   [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Do not
   generalise it to the OCI images.

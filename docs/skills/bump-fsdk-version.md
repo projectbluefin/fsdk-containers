@@ -113,7 +113,7 @@ Before merging a bump:
   because this repo never builds those components.
 - **Junction overrides are only meaningful for components your local elements
   reference directly.** The 25 GNOME sdk/* overrides (cairo, gtk3, pango, glib,
-  gdk-pixbuf…) were dead weight — none of our `base-stack`, `brew-deps` etc. ever
+  gdk-pixbuf…) were dead weight — none of our `base-stack`, `homebrew-deps` etc. ever
   reference those components. If you copy a junction from dakota in the future,
   strip every override whose component is not in your local dep graph.
 

@@ -31,7 +31,7 @@ ArtifactHub does not support automatic registry-wide scanning to discover new OC
 - When you need to obtain the "Verified Publisher" badge for an OCI image.
 
 ## When NOT to Use
-- When working with non-OCI artifacts (e.g., `brew` nspawn tarballs).
+- When working with non-OCI artifacts (e.g., the `homebrew` nspawn tarball).
 - When the image is an internal/testing image not meant for public registry listing.
 
 ## Core Process

@@ -1,22 +1,23 @@
-name: Verify brew nspawn image
+name: Verify homebrew nspawn image
 
-# The brew image is a deliberate non-distroless machine-image lane. It is
-# expensive and unrelated to OCI image publication, so verify it weekly and
-# on demand rather than on every pull request.
+# The homebrew nspawn tarball is the machine-image packaging of the homebrew
+# rootfs; the OCI packaging of the SAME rootfs is built by the normal OCI
+# lane from elements/targets.json. This lane is expensive and unrelated to
+# OCI publication, so verify it weekly and on demand, not on every PR.
 on:
   schedule:
     - cron: "30 4 * * 1"
   workflow_dispatch:
 
 concurrency:
-  group: brew-nspawn-${{ github.ref }}
+  group: homebrew-nspawn-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  verify-brew:
+  verify-homebrew-nspawn:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -28,15 +29,15 @@ jobs:
         with:
           tool: just
 
-      - name: Verify brew nspawn machine image
-        run: just verify-brew
+      - name: Verify homebrew nspawn machine image
+        run: just verify-homebrew-nspawn
 
       - name: Summarize exported artifacts
         if: always()
         run: |
           if [ -d dist ]; then
             {
-              echo '## brew nspawn artifacts'
+              echo '## homebrew nspawn artifacts'
               echo
               echo '```text'
               ls -lh dist

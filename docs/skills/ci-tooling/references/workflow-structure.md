@@ -101,8 +101,8 @@ reusable workflow](https://docs.github.com/en/actions/how-tos/reuse-automations/
 and [Control concurrency of workflows and
 jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
-`brew-nspawn` (machine tarball) is verified weekly and on demand by
-`.github/workflows/brew-nspawn.yml`; it runs `just verify-brew` without
+`homebrew-nspawn` (machine tarball) is verified weekly and on demand by
+`.github/workflows/homebrew-nspawn.yml`; it runs `just verify-homebrew-nspawn` without
 requiring a systemd host. `podman-vm` (bootable VM disk) is
 deliberately excluded from the OCI publishing matrix — see
 docs/skills/vm-podman-guest.md for the VM guest's own build/test/publish

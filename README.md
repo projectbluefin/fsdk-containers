@@ -28,13 +28,13 @@ and coreutils together; the SLIM recipe removes only bash. In FSDK 26.08+, the
 split becomes explicit: `runtime-minimal` drops both bash and coreutils, which move
 to `public-stacks/runtime-gnu`. The distroless `base` image continues to compose
 from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
-(lab-runner, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
+(lab-runner, homebrew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
 
 ### Machine images (not distroless)
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/brew` | ~410 MB | Homebrew developer environment as a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`, **not** an OCI image). Full dev env: bash, ruby, git, curl, gcc, patchelf, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
+| `ghcr.io/projectbluefin/homebrew` | ~410 MB | Homebrew developer environment, published in **two packagings of one rootfs**: an **OCI image** (`podman run`) and a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`). Full dev env: bash, ruby, git, curl, gcc, patchelf, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). OCI: `BUILD_IMAGE_NAME=homebrew just build`. Tarball: `just export-homebrew-nspawn`. |
 
 ## How it works
 
@@ -122,28 +122,29 @@ execution — see [docs/skills/remote-execution.md](docs/skills/remote-execution
 
 ## Homebrew systemd-nspawn container
 
-For a full developer environment container booted by `systemd-nspawn` instead of a distroless OCI image, we provide the `brew` machine image.
+For a full developer environment container booted by `systemd-nspawn` instead of a distroless OCI image, we provide the `homebrew` machine image.
+The same rootfs is also published as a plain OCI image (`ghcr.io/projectbluefin/homebrew`) if you just want `podman run`.
 
 ### 1. Build and install
 
 The build process produces a `.tar.zst` rootfs, imports it into `machinectl`, creates a dedicated `/home/linuxbrew` folder on your host, and configures the `systemd-nspawn` sandbox settings (requires `sudo`):
 
-    just install-brew
+    just install-homebrew
 
-This runs `build-brew`, `export-brew`, and `verify-brew` before importing it as a systemd machine named `homebrew`.
+This runs `build-homebrew-nspawn`, `export-homebrew-nspawn`, and `verify-homebrew-nspawn` before importing it as a systemd machine named `homebrew`.
 
 ### 2. Run commands
 
 Execute brew commands inside the sandboxed container from your host shell:
 
-    just run-brew info
-    just run-brew install hello
+    just run-homebrew info
+    just run-homebrew install hello
 
 ### 3. Uninstall
 
 Stop the container, remove the machine image, and clean up sandbox settings:
 
-    just uninstall-brew
+    just uninstall-homebrew
 
 Please report any issues or feedback you encounter while using the Homebrew nspawn container!
 
