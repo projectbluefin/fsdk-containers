@@ -1,7 +1,7 @@
 ---
 name: bump-fsdk-version
-version: "1.0"
-last_updated: 2026-08-08
+version: "1.1"
+last_updated: 2026-08-09
 id: bump-fsdk-version
 one_line_purpose: Move the project to a new freedesktop-sdk release and refresh derived tags.
 entry_point: docs/skills/bump-fsdk-version.md
@@ -49,6 +49,17 @@ built and published for early testing.
 
 2. Update the `ref:` in `elements/freedesktop-sdk.bst` to the new tag/commit.
 
+   > [!IMPORTANT]
+   > **When the bump crosses a minor line, move `track:` with it.** The junction carries a
+   > glob (e.g. `track: freedesktop-sdk-26.08*`), and `auto-update-fsdk.yml` runs
+   > `just bst source track` **daily at 03:00 UTC**, re-resolving that glob to the newest
+   > matching tag.
+   >
+   > So changing only `ref:` to a *different* line does not hold: automation bumps it back
+   > within 24 hours, and it arrives as a routine "chore: bump freedesktop-sdk point release"
+   > PR that looks like every other automated bump. Within the same line this is harmless and
+   > intended — across lines it silently reverts your change.
+
 3. Re-check patches still apply — FSDK ships local patches under
    `patches/freedesktop-sdk/`. If a release changed the patched files, refresh or
    drop them. `just validate` surfaces patch failures.
@@ -70,6 +81,7 @@ built and published for early testing.
 Before merging a bump:
 
 - [ ] `just validate` passes (element graph resolves with new ref)
+- [ ] If the bump crosses a minor line, `track:` was moved to the new line too — otherwise the nightly auto-update reverts it
 - [ ] `just tags` output matches the expected `YY.MM / YY.MM.PP` pair and
       contains no `latest`
 - [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
