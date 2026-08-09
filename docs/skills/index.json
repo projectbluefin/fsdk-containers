@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-08",
+  "generated_at": "2026-08-09",
   "schema_version": "1.0",
   "skills": [
     {
@@ -55,6 +55,82 @@
       "version": "1.0",
       "last_updated": "2026-08-08",
       "doc_type": "runbook"
+    },
+    {
+      "id": "bst-debugging",
+      "name": "bst-debugging",
+      "one_line_purpose": "Classify and fix BuildStream element build failures before escalating to a full image build.",
+      "entry_point": "docs/skills/bst-debugging.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "debugging",
+        "builds",
+        "cache",
+        "remote-execution"
+      ],
+      "description": "Debug BuildStream build failures. Use when `just build` fails, `bst show` errors, source fetch breaks, or an element builds but its content is missing from the final image.",
+      "version": "1.0",
+      "last_updated": "2026-08-09",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "bst-junctions",
+      "name": "bst-junctions",
+      "one_line_purpose": "Keep junction refs, patch queues, and options cache-key aligned so builds pull instead of compile.",
+      "entry_point": "docs/skills/bst-junctions.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "junctions",
+        "patches",
+        "cache-keys",
+        "freedesktop-sdk"
+      ],
+      "description": "How the freedesktop-sdk and gnome-build-meta junction refs, patch queues, and project options determine cache-key alignment. Use when bumping a junction, touching patches/, or diagnosing cache misses.",
+      "version": "1.0",
+      "last_updated": "2026-08-09",
+      "doc_type": "reference"
+    },
+    {
+      "id": "bst-packaging",
+      "name": "bst-packaging",
+      "one_line_purpose": "Build an upstream Go or Rust tool from source when FSDK ships no component for it.",
+      "entry_point": "docs/skills/bst-packaging.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "packaging",
+        "go",
+        "rust",
+        "provenance"
+      ],
+      "description": "Build an upstream project from source in a BuildStream element when FSDK has no component for it \u2014 Go (go_module), Rust (cargo2), and the pre-built-binary fallback.",
+      "version": "1.0",
+      "last_updated": "2026-08-09",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "buildstream",
+      "name": "buildstream",
+      "one_line_purpose": "BuildStream 2 syntax and mechanics reference for authoring and reviewing .bst elements.",
+      "entry_point": "docs/skills/buildstream.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "elements",
+        "reference",
+        "syntax",
+        "fsdk"
+      ],
+      "description": "BuildStream 2 syntax and mechanics reference for fsdk-containers element authors. Use when writing, reviewing, or validating `.bst` files and you need the correct kinds, variables, source kinds, directives, or graph commands.",
+      "version": "1.0",
+      "last_updated": "2026-08-09",
+      "doc_type": "reference"
     },
     {
       "id": "bump-fsdk-version",
