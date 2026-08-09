@@ -332,13 +332,13 @@ verify:
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         # lab-runner is the documented shell-enabled exception. Its CLI
-        # contract includes the 136MiB stripped Argo v4 binary and the 57MiB
-        # already-stripped kubectl binary, plus the terminfo database, the
-        # standard GNU userland, and the shellcheck/hadolint/actionlint
-        # linters (#89) — static Haskell and Go binaries that cannot be
-        # stripped further. The 576MiB ceiling leaves headroom over the
-        # measured ~536MiB x86_64 image with the linters included.
-        lab-runner) MAX_BYTES=$((576 * 1024 * 1024)) ;;
+        # contract includes the 136MiB stripped Argo v4 binary, the 57MiB
+        # already-stripped kubectl binary, and the ~73MiB of static
+        # shellcheck/hadolint/actionlint linters (#89), plus the terminfo
+        # database and the standard GNU userland. The slim recipe removes
+        # perl (~56MiB, git's unused scripting tail), which keeps the
+        # linter additions inside the existing 512MiB ceiling.
+        lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
