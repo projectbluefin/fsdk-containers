@@ -3,7 +3,7 @@ description: Fetch the Hadolint Dockerfile/Containerfile linter for lab-runner
 
 build-depends:
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
-  - freedesktop-sdk.bst:bootstrap/bash.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
   strip-binaries: ""
