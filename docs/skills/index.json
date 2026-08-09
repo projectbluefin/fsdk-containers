@@ -251,11 +251,12 @@
         "slim",
         "size",
         "distroless",
-        "optimization"
+        "optimization",
+        "split-rules"
       ],
       "description": "The SLIM recipe \u2014 what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "procedure"
     },
     {
