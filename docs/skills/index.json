@@ -105,11 +105,13 @@
         "standards",
         "verification",
         "tagging",
-        "compliance"
+        "compliance",
+        "non-root",
+        "security-context"
       ],
-      "description": "The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "description": "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one.",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "policy"
     },
     {
