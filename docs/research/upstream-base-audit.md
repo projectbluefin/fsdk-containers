@@ -245,3 +245,130 @@ reporting compressed and uncompressed figures separately.
 skopeo inspect --raw --override-os linux --override-arch amd64 docker://<ref>
 # resolve manifest list -> amd64 digest, then: jq '[.layers[].size] | add'
 ```
+
+## CORRECTION: the OpenSearch measurement
+
+The "What the numbers actually say" section above claimed the OS-replacement delta is
+"roughly constant, ~13-25 MB" and that OpenSearch would gain ~1%. **That was extrapolated
+from base-image sizes, never measured, and it is wrong.** The corrected findings follow.
+Where the two disagree, this section wins.
+
+### Layer breakdown of the official image
+
+`skopeo inspect --raw --override-os linux --override-arch amd64 docker://opensearchproject/opensearch:latest`
+
+| Layer | Compressed |
+| --- | --- |
+| AlmaLinux base + `dnf` install layers | **56 MB** |
+| OpenSearch payload | **1027 MB** |
+| misc | ~1 MB |
+| **Total** | **1084 MB** |
+
+The base is 56 MB, not the ~28 MB Ubuntu/Debian figure the generalization assumed.
+
+### Upstream publishes two distributions
+
+Measured via `curl -sfLI` `content-length` on artifacts.opensearch.org:
+
+| Distribution | Size |
+| --- | --- |
+| `opensearch-2.19.0-linux-x64.tar.gz` (bundle, all plugins) | 919.5 MB |
+| `opensearch-min-2.19.0-linux-x64.tar.gz` (min) | **242.6 MB** |
+| `opensearch-3.0.0-linux-x64.tar.gz` | 933.3 MB |
+| `opensearch-min-3.0.0-linux-x64.tar.gz` | 264.6 MB |
+
+The official image ships the **bundle**. No `-no-jdk` variant is published for either.
+
+### Composition of the min distribution
+
+`tar -xzf` then `du -sm`:
+
+| Component | Uncompressed |
+| --- | --- |
+| **`jdk/`** | **293 MB (68%)** |
+| `modules/` | 86 MB |
+| `lib/` | 50 MB |
+| config, bin, docs | ~3 MB |
+| **Total** | **429 MB** |
+
+Inside `jdk/`: `lib/` 209 MB (of which `lib/modules` 136 MB is the jimage, `server/` 54 MB
+is the HotSpot VM, `ct.sym` 11 MB), and `jmods/` 83 MB.
+
+### Lossless strip — measured
+
+Removed **only** build-time artifacts and dev tooling. No runtime module removed, nothing
+`jlink`ed, no capability lost:
+
+- `jdk/jmods` (83 MB) — inputs to `jlink`, never used at runtime
+- `jdk/lib/ct.sym` (11 MB) — `javac` cross-compilation data
+- `jdk/include`, `jdk/man`, `jdk/legal`, `jdk/lib/src.zip` — headers and docs
+- 27 dev binaries from `jdk/bin`: `javac`, `javadoc`, `javap`, `jshell`, `jdb`, `jdeps`,
+  `jdeprscan`, `jlink`, `jmod`, `jpackage`, `jar`, `jarsigner`, `jconsole`, `jfr`, `jinfo`,
+  `jmap`, `jps`, `jstack`, `jstat`, `jstatd`, `jcmd`, `jhsdb`, `jrunscript`, `jwebserver`,
+  `rmiregistry`, `serialver`. **Kept `java` and `keytool`.**
+- Top-level `README.md`, `NOTICE.txt`, `LICENSE.txt`
+
+| | Uncompressed | gzip | zstd-19 |
+| --- | --- | --- | --- |
+| min distribution | 429 MB | 243.0 MB | 208.6 MB |
+| after lossless strip | **334 MB** | **158.6 MB** | **128.0 MB** |
+| reduction | **-22%** | **-35%** | **-39%** |
+
+Smoke test after stripping: `./bin/opensearch --version` -> `Version: 2.19.0 … JVM: 21.0.6`.
+
+Note the compressed reduction (-35% to -39%) exceeds the uncompressed one (-22%): the
+removed artifacts (`jmods`, `ct.sym`, `src.zip`) are archives that compress poorly, so they
+weigh proportionally more in the shipped image than on disk. **Always quote the compressed
+delta for transfer claims.**
+
+### Rejected: jlink
+
+A `jlink`ed runtime with a hand-picked module set produced 63 MB (vs 293 MB) but **failed at
+launch**:
+
+```
+java.lang.module.FindException: Module jdk.incubator.vector not found
+```
+
+Lucene uses `jdk.incubator.vector` for SIMD, which underpins vector search — OpenSearch's
+headline feature. Adding it back plus `jdk.management.agent`, `jdk.naming.dns`, `java.rmi`
+and `jdk.net` got `--version` passing at 63 MB, but the failure demonstrates the hazard:
+**a hand-picked module set silently removes capabilities the application needs, and the
+failure mode is a runtime exception, not a build error.**
+
+This is re-architecting upstream, not packaging it. **Out of scope for this project.** We
+remove shells, package managers, docs, build-time artifacts and duplicate bloat. We do not
+redesign the applications we package. Documented so nobody retries it.
+
+### Corrected projection
+
+| | |
+| --- | --- |
+| Official image | 1084 MB |
+| FSDK base (measured) | ~16 MB |
+| min distribution + lossless strip (gzip) | ~158.6 MB |
+| **Projected total** | **~175 MB (~84% reduction)** |
+
+**Contingent on** min-plus-required-plugins being an acceptable product decision. The
+required plugin set has **not** been verified — that is scoping work for the exemplar build
+(#123), and the projection must not be published until it is.
+
+### The generalizable rule
+
+On fat images the win is **distribution choice** and **build-time-artifact removal**, not the
+base layer. The base swap is worth ~40 MB here; the packaging work is worth ~750 MB.
+
+For the JVM lane specifically: prefer upstream's `-min` distribution, then strip `jmods`,
+`ct.sym`, `src.zip`, headers and JDK dev tooling. This is a repeatable recipe and should
+become a `docs/skills/` JVM lane document.
+
+### Method
+
+```sh
+skopeo inspect --raw --override-os linux --override-arch amd64 docker://<ref> \
+  | jq '[.layers[].size] | add'
+curl -sfLI <artifact-url> | grep -i content-length
+tar -xzf opensearch-min-2.19.0-linux-x64.tar.gz && du -sm *
+# strip build-time artifacts + dev tooling, re-measure, smoke test
+tar -c <dir> | zstd -19 -T0 -c | wc -c
+```
