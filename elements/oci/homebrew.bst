@@ -20,7 +20,6 @@ build-depends:
   # content is not part of /layer, so it never reaches the image.
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/oci-builder.bst
-  - base/base-init-script.bst
   # The rootfs content, staged into /layer.
   - filename: homebrew/homebrew-runtime.bst
     config:
@@ -37,12 +36,17 @@ config:
     # --- Shared rootfs finalisation (linuxbrew user, locale) ---
     - "%{homebrew-rootfs-commands}"
 
-    - |
-      if [ -d /initial_scripts ]; then
-        for i in /initial_scripts/*; do
-          "${i}" /layer
-        done
-      fi
+    # NOTE: deliberately NO /initial_scripts loop here.
+    #
+    # The distroless images run base-init-script's collected integration scripts
+    # (ldconfig, ca-certificates) against /layer. This image must not: its rootfs
+    # already carries those integrations from homebrew-runtime, and running the
+    # scripts over a full system layer corrupted files in the *sandbox root*
+    # (a subuid line landed in /usr/lib/python3.14/compression/__init__.py,
+    # breaking build-oci's own interpreter).
+    #
+    # It is also a correctness requirement: the nspawn sibling does not run them,
+    # and both packagings must produce the SAME rootfs.
 
     - |
       cd "%{install-root}"
