@@ -53,9 +53,11 @@ bst *ARGS:
     # release via `(@): include/fsdk-version.yml` without re-parsing it
     # independently. Gitignored; never hand-edited. See
     # docs/skills/vm-podman-guest.md.
-    cat > include/fsdk-version.yml <<'EOF'
-    fsdk-version: "{{fsdk_version}}"
-    EOF
+    # Written atomically (temp + mv): several `just bst` invocations may run
+    # concurrently against this checkout, and a plain redirect truncates the
+    # file in place, so a sibling can read an empty include mid-write.
+    printf 'fsdk-version: "%s"\n' "{{fsdk_version}}" > include/.fsdk-version.yml.$$
+    mv -f include/.fsdk-version.yml.$$ include/fsdk-version.yml
     RE_FLAG=()
     PF_PID=""
     cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
@@ -67,13 +69,28 @@ bst *ARGS:
             echo "       Builds must run on the cluster. If it is down, rerun with BST_LOCAL=1." >&2
             exit 1
         fi
-        kubectl port-forward -n buildbarn svc/frontend 18980:8980 >/dev/null 2>&1 &
-        PF_PID=$!
-        for _ in $(seq 1 20); do
-            (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null && break
-            sleep 0.5
-        done
-        cat > .bst-re.conf <<'EOF'
+        # Reuse an already-open forward instead of racing for the port. The
+        # forward is a shared transport, not per-invocation state, and the
+        # port is fixed, so N concurrent invocations would otherwise leave one
+        # winner and N-1 failures ("address already in use") -- which is
+        # exactly the case when several agents build catalog images in
+        # parallel. Only the invocation that opened the tunnel tears it down;
+        # a borrowed one is left running for whoever else is using it.
+        if (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null; then
+            echo "==> Reusing existing BuildBarn port-forward on :18980" >&2
+        else
+            kubectl port-forward -n buildbarn svc/frontend 18980:8980 >/dev/null 2>&1 &
+            PF_PID=$!
+            for _ in $(seq 1 20); do
+                (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null && break
+                sleep 0.5
+            done
+            if ! (echo > /dev/tcp/127.0.0.1/18980) 2>/dev/null; then
+                echo "ERROR: port-forward to buildbarn/frontend never came up on :18980." >&2
+                exit 1
+            fi
+        fi
+        cat > .bst-re.conf.$$ <<'EOF'
     remote-execution:
       execution-service:
         url: grpc://127.0.0.1:18980
@@ -97,6 +114,7 @@ bst *ARGS:
           retry-delay: 1000
           request-timeout: 1800
     EOF
+        mv -f .bst-re.conf.$$ .bst-re.conf
         RE_FLAG=(--config /src/.bst-re.conf)
         echo "==> BuildStream remote execution: ghost cluster BuildBarn grid (via port-forward :18980). Set BST_LOCAL=1 for local builds." >&2
     else

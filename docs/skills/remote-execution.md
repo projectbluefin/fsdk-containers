@@ -54,7 +54,8 @@ run heavy workloads on workstations when the cluster exists to absorb them.
      (`kubectl get svc frontend -n buildbarn`, `KUBECONFIG` defaults to
      `~/.kube/bluespeed.yaml`) — **hard-fails if not**;
    - starts `kubectl port-forward -n buildbarn svc/frontend 18980:8980` for
-     the duration of the command;
+     the duration of the command — **unless one is already listening on
+     18980, in which case it is reused** (see "Running agents in parallel");
    - writes `.bst-re.conf` (git-ignored) pointing
      `execution-service`/`storage-service`/`action-cache-service` at
      `grpc://127.0.0.1:18980`;
@@ -70,6 +71,43 @@ run heavy workloads on workstations when the cluster exists to absorb them.
 Success evidence in the log: `Waiting for the remote build to complete` per
 built element. If you instead see local sandbox staging messages for build
 actions, RE is not active.
+
+## Running agents in parallel
+
+Several `just bst` invocations may run against one checkout at the same time —
+this is the normal case when a batch of agents each build a catalog image. Two
+things in the wrapper are shared state, and both are handled:
+
+- **The port-forward.** The local port is fixed at 18980, so N invocations each
+  opening their own forward would leave one winner and N-1 failures on
+  "address already in use". `just bst` therefore probes the port first and
+  **reuses an existing forward**, only opening (and only tearing down) one it
+  started itself. A borrowed forward is left running for whoever else is on it.
+- **`include/fsdk-version.yml` and `.bst-re.conf`.** Both are regenerated on
+  every invocation. A plain `>` redirect truncates in place, so a sibling can
+  read an empty file mid-write; both are written to a PID-suffixed temp file
+  and `mv`'d into place, which is atomic within a filesystem.
+
+Long-lived forward, if you want one that outlives any single command:
+
+```bash
+setsid kubectl port-forward -n buildbarn svc/frontend 18980:8980 \
+  >/tmp/pf.log 2>&1 </dev/null &
+```
+
+Every later `just bst` prints `==> Reusing existing BuildBarn port-forward on
+:18980` and leaves it alone.
+
+Two caveats that are *not* solved by the above:
+
+- **The grid is finite.** Two `worker-*` pods serve every agent, and dakota
+  builds queue on the same grid behind the `ghost-heavy-compute` mutex. Parallel
+  agents get parallel *scheduling*, not parallel *capacity* — a queued build is
+  the grid working as designed, not a fault.
+- **Shared repo files still conflict.** RE parallelism only removes the
+  transport collision. Agents concurrently editing `elements/targets.json`,
+  the `Justfile` or the workflows still produce N-way merge conflicts; that is
+  a work-partitioning problem, not an execution one.
 
 ## Endpoints
 
@@ -98,6 +136,7 @@ actions, RE is not active.
 | `Failed to query action cache: StatusCode.UNIMPLEMENTED (... 404)` | pointed at an mTLS endpoint (e.g. `:11002`) without client certs | use the port-forward path; never the external endpoint from this repo |
 | build hangs at `Waiting for the remote build to complete` | grid saturated, or worker pods down | `kubectl get pods -n buildbarn`; check the `ghost-heavy-compute` mutex — dakota builds queue on the same grid |
 | port-forward dies mid-build (long builds) | kubectl port-forward is not resilient | rerun; bst resumes from CAS. |
+| `bind: address already in use` on 18980 | an older `just bst` (pre-reuse) or a stray forward is holding the port | current `just bst` reuses it instead of failing; if the holder is dead, `ss -lptn 'sport = :18980'` and kill the PID |
 
 ## Verifying where a build ran
 
