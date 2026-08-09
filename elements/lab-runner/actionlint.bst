@@ -2,8 +2,9 @@ kind: manual
 description: Fetch the actionlint GitHub Actions workflow linter for lab-runner
 
 build-depends:
-  - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
+  - freedesktop-sdk.bst:bootstrap/bash.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
+  - freedesktop-sdk.bst:bootstrap/glibc.bst
 
 variables:
   strip-binaries: ""
