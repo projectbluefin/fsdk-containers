@@ -100,6 +100,75 @@ actions, RE is not active.
 | port-forward dies mid-build (long builds) | kubectl port-forward is not resilient | rerun; bst resumes from CAS. |
 | `Failed to obtain input file "...": Shard N: Object not found`, raised **after** the remote build already reported success | the default buildtree-caching step walks the whole input tree back against the bb-storage shards; a shard that 404s one input fails the command even though the build itself succeeded | retry — the identical cache key usually succeeds. If it repeats, `BST_FLAGS="--cache-buildtrees never" just bst build <element>` (turned 3 consecutive failures into an immediate success). **Do not suspect your element**: it names a random unrelated input file each time. |
 
+## Data-integrity failure: a build element corrupted the worker file pool
+
+**Symptom.** A build fails parsing a file that should be empty. The canonical
+case is Python: `compression/__init__.py` ships as a zero-byte file, but stages
+as 23 bytes containing `linuxbrew:100000:65536` (an `/etc/subuid` line), so
+`import` dies with a `SyntaxError`. The failing image has nothing to do with
+brew, and the same string turning up in an unrelated stdlib file is the
+fingerprint.
+
+**Mechanism.** `bb_worker` materialises an action's input root by **hardlinking**
+out of a persistent file pool (`worker.jsonnet`: `buildDirectories[0].native`,
+`cacheDirectoryPath: /worker/cache`, backed by a **hostPath**, so it survives
+pod restart *and* pod deletion). `runner.jsonnet` sets `runCommandsAs: {userId: 0}`
+with `chrootIntoInputRoot`, and root ignores the read-only bit. So a build
+command that writes **in place** over a staged file rewrites the shared inode:
+
+```sh
+echo 'linuxbrew:100000:65536' > "$L/etc/subuid"   # FSDK ships this file EMPTY
+```
+
+FSDK's `/etc/subuid` is zero bytes, so that single redirect stored 23 bytes
+under the **empty-file digest** — and every zero-byte file staged on that worker
+afterwards came back as those 23 bytes. One element, in one image, silently
+corrupts every build on the node.
+
+Truncation is the same hazard: `: > "$L/etc/machine-id"` stores zero bytes under
+whatever digest machine-id had.
+
+**The rule.** In any element that writes into a **staged** tree (`/layer` in the
+oci-builder elements — *not* `%{install-root}`, which starts empty), never
+redirect onto a path that may already exist. `rm -f` first, or write to a temp
+file and `mv` — `rename()` swaps the directory entry and leaves the pool inode
+alone. `rm` itself is safe: it unlinks.
+
+**Diagnosis — find mutated pool entries directly.** Pool entries are named
+`1-<digest>-<size>{-,+}x`, so an entry whose on-disk size disagrees with the
+size encoded in its own name has been written in place:
+
+```bash
+export KUBECONFIG=~/.kube/bluespeed.yaml
+for w in worker-fsgmc worker-n8z6v; do
+  kubectl exec -n buildbarn $w -c runner -- sh -c \
+    'cd /worker/cache && ls -l | awk "{n=\$NF; sz=\$5; split(n,a,\"-\"); if (a[3]!=\"\" && sz+0 != a[3]+0) print sz, n}"'
+done
+```
+
+Any output means worker-side pool corruption.
+
+**Do NOT wipe the `cas`/`ac` PVCs for this.** It destroys ~200 GiB of cache
+shared with dakota, kills in-flight builds, and fixes nothing — the pool is
+node-local hostPath state and the offending element re-poisons it on the next
+build. (Both CAS PVCs were recreated during this incident and the symptom
+persisted, which is what proved the CAS innocent.) Two supporting facts that
+also rule out the CAS: the corruption is injected *after* staging, node-locally,
+and a genuinely bad blob in a public pull cache would have a correct
+digest-to-bytes mapping and would reproduce locally, which it does not.
+
+**Recovery**, once the element is fixed: drain/stop the worker, move
+`/var/lib/buildbarn/worker/cache` aside, restart. Cost is a refetch from CAS.
+Never delete individual pool files under a running worker — its index will then
+hardlink missing inodes. There is precedent on disk: a
+`cache-purged-<timestamp>` sibling directory shows this has happened before.
+
+**Structural note.** The hardlink pool assumes actions never modify their
+inputs; chroot-as-root breaks that by construction. The virtual/FUSE build
+directory is the real mitigation, and `worker.jsonnet` records that the FUSE
+experiment failed and the workers must stay on native directories — so until
+that is revisited, the discipline above is the only guard.
+
 ## What remote execution does not preserve
 
 **File ownership and permission bits do not survive the grid.** The REAPI
