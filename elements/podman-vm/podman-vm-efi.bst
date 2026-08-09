@@ -31,6 +31,9 @@ description: |
   docs/skills/vm-podman-guest/SKILL.md for the full rationale.
 
 build-depends:
+# FSDK 26.08 removed the shell from runtime-minimal, and this script element's
+# commands are shell scripts, so declare the interpreter explicitly.
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - freedesktop-sdk.bst:components/fakecap.bst
 - freedesktop-sdk.bst:vm/deploy-tools.bst
 - freedesktop-sdk.bst:vm/prepare-image.bst
