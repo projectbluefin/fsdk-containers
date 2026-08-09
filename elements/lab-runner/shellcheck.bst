@@ -15,7 +15,7 @@ sources:
     (?):
       - arch == "x86_64":
           url: "https://github.com/koalaman/shellcheck/releases/download/%{shellcheck_version}/shellcheck-%{shellcheck_version}.linux.x86_64.tar.xz"
-          ref: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+          ref: 6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
       - arch == "aarch64":
           url: "https://github.com/koalaman/shellcheck/releases/download/%{shellcheck_version}/shellcheck-%{shellcheck_version}.linux.aarch64.tar.xz"
           ref: 324a7e89de8fa2aed0d0c28f3dab59cf84c6d74264022c00c22af665ed1a09bb
