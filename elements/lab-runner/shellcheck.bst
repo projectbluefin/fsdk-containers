@@ -18,12 +18,10 @@ sources:
       - arch == "aarch64":
           url: "https://github.com/koalaman/shellcheck/releases/download/%{shellcheck_version}/shellcheck-%{shellcheck_version}.linux.aarch64.tar.xz"
           ref: 324a7e89de8fa2aed0d0c28f3dab59cf84c6d74264022c00c22af665ed1a09bb
-    filename: shellcheck.tar.xz
 
 config:
   install-commands:
     - |
-      tar --no-same-owner -xf shellcheck.tar.xz --strip-components=1 "shellcheck-%{shellcheck_version}/shellcheck"
       mkdir -p "%{install-root}/usr/bin"
       cp shellcheck "%{install-root}/usr/bin/shellcheck"
       chmod 755 "%{install-root}/usr/bin/shellcheck"
