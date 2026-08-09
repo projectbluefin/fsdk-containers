@@ -148,20 +148,16 @@ done
 
 Any output means worker-side pool corruption.
 
-**Do NOT wipe the `cas`/`ac` PVCs for this.** It destroys ~200 GiB of cache
-shared with dakota, kills in-flight builds, and fixes nothing — the pool is
-node-local hostPath state and the offending element re-poisons it on the next
-build. (Both CAS PVCs were recreated during this incident and the symptom
-persisted, which is what proved the CAS innocent.) Two supporting facts that
-also rule out the CAS: the corruption is injected *after* staging, node-locally,
-and a genuinely bad blob in a public pull cache would have a correct
-digest-to-bytes mapping and would reproduce locally, which it does not.
+**Do NOT wipe the `cas`/`ac` PVCs for this.** It destroys cache shared with
+dakota, kills in-flight builds, and fixes nothing — the pool is node-local
+hostPath state. (Both CAS PVCs were recreated during this incident and the
+symptom persisted, which is what exonerated the CAS.)
 
-**Recovery**, once the element is fixed: drain/stop the worker, move
-`/var/lib/buildbarn/worker/cache` aside, restart. Cost is a refetch from CAS.
-Never delete individual pool files under a running worker — its index will then
-hardlink missing inodes. There is precedent on disk: a
-`cache-purged-<timestamp>` sibling directory shows this has happened before.
+**Cluster-side recovery is lab-owned, not ours.** The worker pool is configured
+by `manifests/buildbarn-worker.yaml` in `projectbluefin/lab`; that repo's
+`docs/skills/cluster-tooling/buildstream.md` already forbids node-local
+`hostPath` caches. Do not perform worker surgery from this repo — report it.
+Tracking: [projectbluefin/lab#637](https://github.com/projectbluefin/lab/issues/637).
 
 **Structural note.** The hardlink pool assumes actions never modify their
 inputs; chroot-as-root breaks that by construction. The virtual/FUSE build
