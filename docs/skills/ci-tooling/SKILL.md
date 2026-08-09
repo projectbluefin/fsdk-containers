@@ -1,6 +1,6 @@
 ---
 name: ci-tooling
-version: "1.1"
+version: "1.2"
 last_updated: 2026-08-09
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
@@ -137,6 +137,32 @@ When batching a loop over images, **do not `set -e` out of the loop.** Collect p
 results, print one line per image, and exit non-zero at the end — otherwise one bad image hides
 the other nine behind a single click.
 
+### Debugging a failed job — check for artifacts before concluding "no logs"
+
+`gh run view --log` / `--log-failed` show only what a step printed to stdout. Anything a job
+uploads with `actions/upload-artifact` — captured serial consoles, core dumps, test output — is
+**not in the logs** and must be downloaded separately:
+
+```console
+$ gh run view <run-id> --json jobs --jq '.jobs[] | select(.conclusion=="failure") | .name'
+$ gh run download <run-id> -n <artifact-name>
+```
+
+This is not hypothetical. #110 (`podman-vm` guest fails its boot test under FSDK 26.08) sat
+undiagnosed for ~12 hours with `main` red, recorded as *"CI logs for this job could not be
+retrieved [...] without the captured serial console there was nothing to diagnose from"* — while
+`vm-guest.yml` had been uploading `vm-boot-serial-<arch>` on every single failure. The whole
+diagnosis was one `gh run download` away.
+
+**Before writing "cannot reproduce" or "no logs available", list the run's artifacts.** If a job
+captures diagnostic state on failure, say so in the failure message itself so the next person
+does not have to know the artifact exists:
+
+```console
+FAIL: guest did not reach its ready point within 300s
+      (serial console uploaded as artifact 'vm-boot-serial-x86_64')
+```
+
 ## Common Rationalizations
 
 | Rationalization | Reality |
@@ -152,6 +178,7 @@ the other nine behind a single click.
 | "The publish step is skipped on PRs anyway." | An `if:` is one careless edit from being wrong. PR jobs have no publish code path at all. |
 | "GITHUB_TOKEN is fine for the bot's push." | It cannot trigger workflows, so the resulting PR carries no checks — and Renovate was set to auto-merge those. |
 | "Mergeraptor needs new permissions for that." | It is an org-level app; the permissions and secrets already exist. Reuse them. |
+| "The logs are empty, so there is nothing to diagnose." | Check `gh run download`. Artifacts are not in the logs, and #110 stalled 12 hours on exactly this. |
 
 ## Red Flags
 
