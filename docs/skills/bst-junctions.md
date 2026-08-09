@@ -121,6 +121,31 @@ does. For scale, dakota measured that removing a single divergent junction patch
 restored **1053 of 1090** elements from cache (96%) — so the effect size is large
 enough to be worth measuring properly.
 
+## Open lead: this repo's GBM junction still carries a patch queue
+
+Dakota removed the patch queue from its `gnome-build-meta` junction and measured
+**1053 of 1090 elements (96%)** restored from cache. **This repo still carries
+that queue.** Verified 2026-08-09:
+
+| | dakota | fsdk-containers |
+|---|---|---|
+| `elements/gnome-build-meta.bst` | no `patch_queue` (clean) | `patch_queue` -> `patches/gnome-build-meta` |
+| `patches/gnome-build-meta/` | directory does not exist | `disable-lorry-mirrors.patch` |
+
+It is the *same patch* dakota dropped.
+
+**Do not blindly delete it, and do not expect dakota's 96%.** The blast radius
+here is different: dakota imported its whole graph through GBM (WebKit included),
+whereas this repo uses GBM only for the `collect_initial_scripts` plugin and the
+FSDK override (see `project.conf`). The effect could be large or nearly nil.
+
+**Unverified — this is a hypothesis, not a finding.** What would settle it:
+compare `just bst show` cached/waiting state counts across the graph with the
+queue present vs removed, on the same FSDK pin. Until someone does that, quote
+no number. See also the `gbm.gnome.org` reuse table above — the FSDK junction
+diverges for three independent reasons, so fixing only the GBM queue may change
+nothing on its own.
+
 ## Upstream-first
 
 Local overrides are maintenance debt. The order of preference is always:
