@@ -2,7 +2,7 @@ name: Renovate
 
 # Renovate runs with a Mergeraptor GitHub App installation token, not the
 # default GITHUB_TOKEN. Pushes and pull requests made with GITHUB_TOKEN do not
-# trigger other workflows (docs/skills/ci-tooling.md), so Renovate's PRs used
+# trigger other workflows (docs/skills/ci-tooling/SKILL.md), so Renovate's PRs used
 # to arrive with no checks at all while renovate.json asked for them to be
 # auto-merged -- dependency bumps could merge without a single build ever
 # running. With an app token the pull-request gate in build.yml runs, and

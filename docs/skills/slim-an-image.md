@@ -1,11 +1,22 @@
 ---
 name: slim-an-image
-description: The SLIM recipe — what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.
+version: "1.0"
+last_updated: 2026-08-08
+id: slim-an-image
+one_line_purpose: Shrink an OCI image by extending the shared SLIM recipe and proving the removal.
+entry_point: docs/skills/slim-an-image.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [slim, size, distroless, optimization]
+description: "The SLIM recipe — what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block."
 metadata:
+  type: procedure
   context7-sources:
     - /apache/buildstream
     - /argoproj/argo-workflows
-    - /kubernetes/kubectl
 ---
 
 # Slim an Image

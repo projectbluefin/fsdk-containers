@@ -5,7 +5,7 @@ It is a [BuildStream 2](https://buildstream.build/) project. No Containerfiles f
 the images themselves, no package managers in the output — BST elements that carve
 runtime-only, slim-by-default OCI images out of FSDK `components/*`.
 
-Load **[docs/skills/README.md](docs/skills/README.md)** for the skill routing table.
+Load **[docs/SKILL.md](docs/SKILL.md)** for the skill routing table.
 Only load the docs relevant to your task.
 
 > **Before using any tool or library: look up its docs via Context7 first. Always.**
@@ -54,11 +54,11 @@ remote-execution grid by default (never built on the local machine);
 ```
 just validate   # resolve the element graph (no build)
 just build      # build + load ghcr.io/projectbluefin/base:build
-just verify     # 4 gates: no shell, CA certs, tzdata, slim-bloat-removed
+just verify     # per-image contract: size ceiling + 5 gates + smoke test
 just tags       # show FSDK-derived tags
 ```
 
-`just verify` is the contract. All four gates must pass before merge.
+`just verify` is the contract. All gates must pass before merge.
 
 ## Versioning
 

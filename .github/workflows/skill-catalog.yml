@@ -1,0 +1,52 @@
+name: skill-catalog
+
+# docs/skills/index.json and index.md are generated from skill front matter.
+# Without a gate they drift the moment someone edits a skill by hand, and a
+# stale catalog silently sends agents to the wrong file.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/skills/**'
+      - 'scripts/generate_skill_index.py'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/skills/**'
+      - 'scripts/generate_skill_index.py'
+
+permissions: {}
+
+jobs:
+  catalog:
+    name: Validate skill catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # Validates every skill's front matter against docs/skills/index.schema.json
+      # and fails if the committed index.json/index.md are not what the front
+      # matter generates.
+      - name: Check index is current and front matter is valid
+        run: python3 scripts/generate_skill_index.py --check
+
+      - name: Enforce the 500-line hard cap on skills
+        run: |
+          set -euo pipefail
+          status=0
+          while IFS= read -r f; do
+            n=$(wc -l < "$f")
+            if [ "$n" -gt 500 ]; then
+              echo "::error file=$f::$f is $n lines, over the 500-line hard max. Split it into a per-skill directory with references/."
+              status=1
+            elif [ "$n" -gt 200 ]; then
+              echo "::warning file=$f::$f is $n lines, over the 200-line soft max. Consider splitting it."
+            fi
+          done < <(find docs/skills -name '*.md' -not -name 'index.md')
+          exit "$status"
