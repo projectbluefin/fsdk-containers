@@ -149,3 +149,99 @@ comparison. This must be closed before any public delta claim is published.
 Where a project builds images via `ko`, `apko`, `melange`, Bazel `rules_oci` or GoReleaser
 rather than a Dockerfile, that config was read instead — Kyverno's `OUT` verdict comes from
 `.ko.yaml`, not a Dockerfile, and would have been missed otherwise.
+
+## Measured sizes
+
+Closes the gap flagged in the original version of this document, where no sizes were
+measured. Figures are **compressed registry transfer sizes** for `linux/amd64`, summed from
+manifest layer sizes via `skopeo inspect --raw` on 2026-08-09. They are *not* comparable to
+the uncompressed local Podman sizes that `just verify` gates on — those run roughly 2-3x
+larger. Use one metric or the other consistently; do not mix them.
+
+### Upstream targets
+
+| Target | Upstream image | Compressed |
+| --- | --- | --- |
+| pytorch | `pytorch/pytorch:latest` | 3490.5 MB |
+| opensearch | `opensearchproject/opensearch:latest` | 1084.0 MB |
+| node | `node:24-bookworm` | 390.0 MB |
+| go | `golang:1.25-bookworm` | 276.3 MB |
+| cloud-custodian | `cloudcustodian/c7n:latest` | 162.0 MB |
+| postgres | `postgres:latest` | 154.8 MB |
+| jre | `eclipse-temurin:25-jre` | 120.2 MB |
+| mariadb | `mariadb:latest` | 102.7 MB |
+| nginx | `nginx:mainline` | 60.2 MB |
+| valkey | `valkey/valkey:latest` | 42.3 MB |
+| python | `python:3.13-slim` | 41.0 MB |
+| curl | `curlimages/curl:latest` | 10.2 MB |
+
+### Baseline — this repo, and reference bases
+
+| Image | Compressed |
+| --- | --- |
+| `ghcr.io/projectbluefin/python:latest` | 37.2 MB |
+| `ghcr.io/projectbluefin/static:latest` | 15.9 MB |
+| `ghcr.io/projectbluefin/base:latest` | **15.8 MB** |
+| `ubuntu:24.04` | 28.4 MB |
+| `debian:trixie-slim` | 28.4 MB |
+| `gcr.io/distroless/base-debian12:nonroot` | 7.8 MB |
+| `alpine:latest` | 3.7 MB |
+| `gcr.io/distroless/static-debian12:nonroot` | 0.7 MB |
+
+## What the numbers actually say
+
+### 1. The FSDK base beats the distros it replaces
+
+`base` at **15.8 MB** is roughly **45% smaller than `ubuntu:24.04` or `debian:trixie-slim`
+(both 28.4 MB)**, while carrying no shell and no package manager. Against a classic-distro
+base the substitution is a straight win on every axis at once. This validates the IN rule.
+
+### 2. But the OS-replacement delta is roughly constant, ~13-25 MB
+
+Swapping a distro base for FSDK saves what the distro layer weighed — about 13 MB against
+Ubuntu/Debian. **That saving does not scale with image size.** Consequences:
+
+| Upstream size | OS delta | Proportional win |
+| --- | --- | --- |
+| curl (10 MB) | ~13 MB | dominant |
+| python (41 MB) | ~13 MB | large |
+| c7n (162 MB) | ~13 MB | ~8% |
+| opensearch (1084 MB) | ~13 MB | ~1% |
+| pytorch (3490 MB) | ~13 MB | **<0.5%** |
+
+The bulk of a large image is its *payload* — JDK, `site-packages`, CUDA, `node_modules` —
+which the SLIM recipe does not touch.
+
+### 3. This is decisive for the AI/ML lane (#124)
+
+On PyTorch the OS delta is **under half a percent**. Any pitch for distroless PyTorch on
+size grounds is not supportable by these numbers. If that lane proceeds it must be justified
+by shell/package-manager removal and provenance alone — and #124's caveats (proprietary
+CUDA, users expecting `kubectl exec`) apply at full force. Treat sceptically.
+
+### 4. The existing `python` image is a warning
+
+`ghcr.io/projectbluefin/python` (37.2 MB) is only **9% smaller** than `python:3.13-slim`
+(41.0 MB) — despite a base that is 45% lighter than Debian. Upstream `-slim` variants are
+already well optimised. **Do not benchmark against fat `:latest` tags when a `-slim` variant
+is what people actually deploy**, or the catalog will publish inflated delta claims.
+
+### 5. It confirms the map's "provenance, not size" decision — with evidence
+
+Map #113 decided value is provenance first and size is a report, not a gate. These numbers
+independently support that. The durable, size-independent wins are:
+
+- **No shell** — removes the post-exploitation surface entirely.
+- **No package manager** — removes `apt`/`apk`/`dnf` and their CVE stream. Directly relevant
+  to Cloud Custodian (`apt` retained) and Falco (`apk` retained).
+- **FSDK provenance** — CVE-patched, reproducible, one supply chain across the catalog.
+
+Where size *is* the headline, honesty requires comparing against the `-slim` variant, and
+reporting compressed and uncompressed figures separately.
+
+### Method
+
+```
+skopeo inspect --raw --override-os linux --override-arch amd64 docker://<ref>
+# resolve manifest list -> amd64 digest, then: jq '[.layers[].size] | add'
+```
