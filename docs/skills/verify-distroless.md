@@ -156,6 +156,48 @@ Follow the three-element pattern in `add-new-image.md`, then extend coverage:
    just validate && just build && just verify && just sbom <name>
    ```
 
+### Probe the operation, not the `--version` banner
+
+A `--version` probe proves the binary and its shared libraries loaded. It does
+**not** prove the tool can do the job, because Unix tools routinely shell out to
+helper binaries that are separate packages.
+
+`lab-runner` shipped for a full release line with GNU tar and no `gzip`
+(#87). `tar --version` passed the gate on every build, while `tar -xzf`
+failed on every `.tar.gz`:
+
+```
+tar (child): gzip: Cannot exec: No such file or directory
+tar: Child returned status 2
+```
+
+GNU tar does not link a gzip decompressor — it execs `gzip` only when it meets a
+gzip stream, so nothing short of touching a real archive detects the gap. `xz`
+and `zstd` are separate binaries and were fine, which made the failure look
+format-specific and easy to misread as a corrupt tarball.
+
+Two traps that hid it:
+
+- **A build-depend is not a runtime dep.** `actionlint.bst`, `just.bst` and
+  `argo.bst` all `build-depends` on `components/gzip.bst` to unpack their own
+  release tarballs, so gzip is present in every build sandbox and absent from
+  the composed runtime. Grepping the repo for `gzip` finds plenty of hits that
+  prove nothing about the image.
+- **Consumers route around it silently.** `projectbluefin/review` used
+  hand-rolled Python `tarfile` code, which links zlib directly, so the gap never
+  surfaced as a bug report for a long time.
+
+When a tool has pluggable back-ends — compressors, codecs, VCS helpers, editors
+— add a gate that exercises one end to end. For gzip that is a round trip:
+
+```
+tar -czf /tmp/p.tar.gz -C /tmp p && rm /tmp/p && tar -xzf /tmp/p.tar.gz -C /tmp
+```
+
+Unrelated but adjacent: `gzip: disabled` in `elements/oci/*.bst` is oci-builder's
+*layer compression* setting. It has nothing to do with the gzip binary, and
+changing it does not add or remove one.
+
 ### When adding a new FSDK series (e.g. `26.08`)
 
 A new upstream minor line can rename components, restructure runtime stacks, or

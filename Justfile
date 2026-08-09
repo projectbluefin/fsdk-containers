@@ -378,12 +378,15 @@ verify:
         echo "OK: shellcheck, hadolint, and actionlint present"
 
         echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file; do
+        # gzip is listed separately from tar on purpose: GNU tar execs the gzip
+        # binary rather than linking a decompressor, so tar can be present and
+        # working while every .tar.gz still fails (#87).
+        for tool in which xargs awk ps tar gzip diff patch less file; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+        echo "OK: which, xargs, awk, ps, tar, gzip, diff, patch, less, and file present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
@@ -462,8 +465,14 @@ verify:
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && gzip --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # A --version probe would not have caught #87: tar --version passed
+        # while every .tar.gz failed, because tar only execs gzip when it
+        # actually meets a gzip stream. Round-trip a real archive instead.
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "printf ok > /tmp/gzprobe && tar -czf /tmp/gzprobe.tar.gz -C /tmp gzprobe && rm /tmp/gzprobe && tar -xzf /tmp/gzprobe.tar.gz -C /tmp && grep -qx ok /tmp/gzprobe" >/dev/null; then
+            echo "FAIL: lab-runner cannot round-trip a .tar.gz — GNU tar needs the gzip binary on PATH"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi

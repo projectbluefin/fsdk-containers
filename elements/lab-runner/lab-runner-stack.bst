@@ -28,6 +28,14 @@ depends:
   - freedesktop-sdk.bst:components/file.bst
   - freedesktop-sdk.bst:components/findutils.bst
   - freedesktop-sdk.bst:components/gawk.bst
+  # GNU tar does not decompress gzip itself — it execs the `gzip` binary, so
+  # without this both `tar -xzf` and plain `tar -xf` fail on a .tar.gz with
+  # "gzip: Cannot exec: No such file or directory" (#87). xz and zstd are
+  # separate binaries and were already fine; zstd is built without zlib here,
+  # so `zstd --format=gzip` is not a substitute. Several lab-runner elements
+  # (actionlint, just, argo) already build-depend on gzip to unpack their own
+  # release tarballs, which is why the gap never showed up at build time.
+  - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:components/less.bst
   - freedesktop-sdk.bst:components/patch.bst
   - freedesktop-sdk.bst:components/procps.bst
