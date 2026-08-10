@@ -1,6 +1,7 @@
 # Source aliases — only those referenced by elements in this repo.
 aliases:
   pypi: https://files.pythonhosted.org/packages/
+  crates: https://static.crates.io/
 
   github: https://github.com/
   gitlab: https://gitlab.com/

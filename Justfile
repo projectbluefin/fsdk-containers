@@ -259,6 +259,7 @@ export:
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
+        custodian)  DESC="Distroless Cloud Custodian (c7n) rules engine built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -331,6 +332,11 @@ verify:
         python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
+        # Catalog image: per #122, size is a report, not a gate, so this
+        # ceiling is generous headroom over the first measured build (python
+        # base ~144MiB ceiling + c7n tree ~40MiB uncompressed). Tighten it to
+        # a regression gate once the first published build sets a baseline.
+        custodian)  MAX_BYTES=$((192 * 1024 * 1024)) ;;
         # lab-runner is the documented shell-enabled exception. Its CLI
         # contract includes the 136MiB stripped Argo v4 binary, the 57MiB
         # already-stripped kubectl binary, and the ~73MiB of static
@@ -450,6 +456,21 @@ verify:
             echo "FAIL: qemu-img failed to execute"; exit 1
         fi
         echo "OK: qemu-img executes successfully"
+    elif [ "$IMG" = "custodian" ]; then
+        # Non-root contract (#120): numeric 65532:65532 AND an /etc/passwd
+        # entry must BOTH ship in the image. --passwd=false stops podman from
+        # fabricating the entry (Kubernetes runtimes do not do this), so the
+        # image proves its own identity resolution. c7n is a Python app:
+        # without the passwd entry getpass.getuser()/pwd.getpwuid() raise.
+        if ! {{sudo_cmd}} podman run --rm --passwd=false "$REF" version >/dev/null; then
+            echo "FAIL: custodian failed to execute"; exit 1
+        fi
+        echo "OK: custodian executes successfully (non-root, no fabricated passwd)"
+        if ! {{sudo_cmd}} podman run --rm --passwd=false --entrypoint /usr/bin/python3 "$REF" \
+               -c 'import getpass, pwd, os; assert getpass.getuser() == "nonroot"; assert pwd.getpwuid(65532).pw_name == "nonroot"; assert os.getuid() == 65532' ; then
+            echo "FAIL: custodian image missing nonroot /etc/passwd entry for uid 65532"; exit 1
+        fi
+        echo "OK: /etc/passwd resolves uid 65532 (no podman fabrication)"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
             echo "FAIL: argo failed to execute"; exit 1
