@@ -20,6 +20,11 @@ depends:
   - freedesktop-sdk.bst:components/file.bst
   - freedesktop-sdk.bst:components/findutils.bst
   - freedesktop-sdk.bst:components/gawk.bst
+  # GNU tar execs `gzip` for .tar.gz streams rather than linking zlib itself;
+  # without this, both `tar -xzf` and plain `tar -xf` fail on any .tar.gz
+  # (gh/tmux/goose releases, etc.) with "gzip: Cannot exec: No such file or
+  # directory" — see issue 87.
+  - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:components/less.bst
   - freedesktop-sdk.bst:components/patch.bst
   - freedesktop-sdk.bst:components/procps.bst
