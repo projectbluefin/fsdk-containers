@@ -26,7 +26,15 @@ jobs:
   refresh:
     # Only act on Renovate's own PRs. Running this on contributor PRs would let an
     # untrusted branch trigger a write-back.
-    if: github.event.pull_request.user.login == 'renovate[bot]'
+    #
+    # Renovate opens PRs with the mergeraptor GitHub App installation token (see
+    # renovate.yml), not the default renovate[bot] identity, so the PR author is
+    # `mergeraptor[bot]` -- matching the identity this job already commits back
+    # as, below. Gating on `renovate[bot]` here always evaluated false, so this
+    # job silently skipped on every version bump and the corresponding `ref:`
+    # was never refreshed (confirmed reproducing on #156: this job "skipped",
+    # then `Build images` failed on a checksum mismatch).
+    if: github.event.pull_request.user.login == 'mergeraptor[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

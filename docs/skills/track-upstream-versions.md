@@ -1,7 +1,7 @@
 ---
 name: track-upstream-versions
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-13
 id: track-upstream-versions
 one_line_purpose: Keep every non-FSDK upstream package pinned at its latest release automatically.
 entry_point: docs/skills/track-upstream-versions.md
@@ -147,3 +147,20 @@ automerged; upstream software is not.
 (`.../bst2:64eb0b49...`). Renovate cannot order SHA tags, so it is **not** tracked. To
 automate it, the image must first be pinned by digest (`:tag@sha256:...`), after which the
 `docker` datasource can track the digest.
+
+## Gating a bot-triggered workflow on the wrong PR author silently defeats it (2026-08-13)
+
+`refresh-bst-refs.yml`'s `if: github.event.pull_request.user.login == ...` job condition
+must match the identity that *actually opens* the Renovate PR, not whichever bot ran
+Renovate historically. This repo's `renovate.yml` authenticates with a Mergeraptor GitHub
+App installation token (see the comment there), so every Renovate PR's author is
+`mergeraptor[bot]` -- not the default `renovate[bot]`. A stale `renovate[bot]` check made
+the job evaluate to `false` on every PR, so it always reported "skipped" instead of
+running, and no `ref:` was ever refreshed: every version bump PR (e.g. `just`, `kubectl`,
+`argo` in `elements/lab-runner/`) arrived with a checksum mismatch and failed `just verify`
+in CI (dakota#45's exact failure mode, confirmed reproducing on #156 after #103 merged).
+
+When a workflow gates on `github.event.pull_request.user.login` (or any bot identity),
+verify it against the token/app actually used to open the PR, and re-check after changing
+how a bot authenticates -- the job "skipped" cleanly with no error, so this went unnoticed
+for multiple bump cycles.
