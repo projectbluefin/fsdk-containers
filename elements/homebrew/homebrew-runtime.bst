@@ -7,7 +7,7 @@ description: |
   dropped.
 
 build-depends:
-  - brew/brew-deps.bst
+  - homebrew/homebrew-deps.bst
 
 config:
   exclude:

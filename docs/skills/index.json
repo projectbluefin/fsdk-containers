@@ -161,9 +161,9 @@
         "nspawn",
         "machinectl",
         "rootfs",
-        "brew"
+        "homebrew"
       ],
-      "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.",
+      "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like homebrew) instead of an OCI distroless image.",
       "version": "1.0",
       "last_updated": "2026-08-08",
       "doc_type": "procedure"

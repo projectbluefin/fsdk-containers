@@ -1,0 +1,35 @@
+# Shared rootfs finalisation for the Homebrew images.
+#
+# The OCI image and the nspawn machine image are two packagings of ONE rootfs,
+# so the bits that must be true of both live here and are included under an
+# element's variables: mapping with (@).
+#
+# NOTE: no heredocs for file content. The YAML block scalar keeps its leading
+# indentation, which corrupts files like /etc/passwd. Use printf.
+# NOTE: no grep. The assembly toolchain (base-stack) ships coreutils, not grep.
+
+homebrew-rootfs-commands: |
+  set -eu
+  L=/layer
+
+  # --- linuxbrew user (uid/gid 1001) -----------------------------------------
+  # Stable uid matters for both targets: nspawn runs PrivateUsers=no with a
+  # host bind mount, and the OCI image runs as this uid so a bind-mounted
+  # prefix has consistent ownership.
+  #
+  # Authoritative minimal passwd/group. systemd-sysusers regenerates the
+  # service users (systemd-network, etc.) from sysusers.d on first boot.
+  mkdir -p "$L/etc" "$L/home/linuxbrew" "$L/root" "$L/sbin"
+  printf 'root:x:0:0:root:/root:/bin/bash\nlinuxbrew:x:1001:1001::/home/linuxbrew:/bin/bash\n' > "$L/etc/passwd"
+  printf 'root:x:0:\nlinuxbrew:x:1001:\n' > "$L/etc/group"
+  echo 'linuxbrew:100000:65536' > "$L/etc/subuid"
+  echo 'linuxbrew:100000:65536' > "$L/etc/subgid"
+
+  # Ownership of /home/linuxbrew is NOT set here: the bst sandbox runs in a
+  # user namespace that cannot chown to uid 1001 (chown returns EINVAL).
+  # nspawn: the host establishes ownership via PrivateUsers=no + Bind=.
+  # OCI: podman applies the image config User at runtime.
+
+  # --- locale ----------------------------------------------------------------
+  # utf-locale provides C.UTF-8, a real UTF-8 locale brew is happy with.
+  echo 'LANG=C.UTF-8' > "$L/etc/locale.conf"

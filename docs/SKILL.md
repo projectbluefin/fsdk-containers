@@ -30,7 +30,7 @@ matches your task, load only that skill, then act.
 | Run local/agent builds on the ghost cluster (remote execution) | [`skills/remote-execution.md`](skills/remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [`skills/custom-builds-and-caching.md`](skills/custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [`skills/artifacthub-automation.md`](skills/artifacthub-automation.md) |
-| Verify the brew nspawn machine image | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
+| Verify the homebrew nspawn machine image | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
 | Container quality standards and SRE tagging | [`skills/container-standards.md`](skills/container-standards.md) |
 | Run or respond to a security audit / review | [`skills/security-review.md`](skills/security-review.md) |
 | Finishing a task (always) | [`skills/skill-improvement.md`](skills/skill-improvement.md) |

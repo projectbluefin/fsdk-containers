@@ -13,9 +13,16 @@ sources:
     track: 6.0.15
     ref: 7b0f22a4ab77567edef114c8dfc423fb96e2fbaa
 
-depends:
+build-depends:
   # coreutils + bash to run the install-commands. FSDK 26.08 removed both from
   # runtime-minimal, so name the shell stack that still provides them.
+  #
+  # These are BUILD dependencies, not runtime ones: they exist to execute the
+  # install-commands below, and the staged artifact is just a file tree. Declaring
+  # them under `depends:` staged them into /layer alongside this element, where
+  # their headers collided with homebrew-runtime.bst (which keeps devel), failing
+  # assembly with "is not permitted to overlap other elements". The shell brew
+  # needs at runtime comes from homebrew-runtime.bst, not from here.
   - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
 

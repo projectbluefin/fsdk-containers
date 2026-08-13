@@ -224,7 +224,9 @@ validate:
     while IFS= read -r img; do
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
-    just bst show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+    # homebrew ships two packagings of one rootfs: the OCI image comes from
+    # image-list above, the nspawn tarball is not an OCI target so it is named here.
+    just bst show --deps all "${ELEMENTS[@]}" homebrew/homebrew-nspawn.bst podman-vm/podman-vm-efi.bst
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -259,6 +261,7 @@ export:
         python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
         buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
         qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
+        homebrew)   DESC="Homebrew developer environment built on freedesktop-sdk" ;;
         *)          DESC="Project Bluefin distroless container image" ;;
     esac
 
@@ -396,6 +399,42 @@ verify:
             echo "FAIL: terminfo database looks incomplete ($TERMINFO_COUNT entries)"; exit 1
         fi
         echo "OK: full terminfo database present ($TERMINFO_COUNT entries)"
+    elif [ "$IMG" = "homebrew" ]; then
+        # Deliberately NOT distroless: this is a developer environment that
+        # builds formulas from source. The distroless gates do not apply --
+        # see docs/skills/nspawn-machine-image.md.
+        TOTAL=4
+        echo "==> [1/${TOTAL}] shell present (homebrew is intentionally shell-enabled)"
+        if ! grep -qE '(^|/)bash$' "$LISTING"; then
+            echo "FAIL: bash missing from homebrew -- brew shells out constantly"; exit 1
+        fi
+        echo "OK: bash present"
+
+        echo "==> [2/${TOTAL}] brew entrypoint present at the linuxbrew prefix"
+        for f in home/linuxbrew/.linuxbrew/bin/brew home/linuxbrew/.linuxbrew/Homebrew/bin/brew; do
+            if ! grep -qxF "$f" "$LISTING"; then
+                echo "FAIL: missing $f"; exit 1
+            fi
+        done
+        echo "OK: brew present at the prefix"
+
+        echo "==> [3/${TOTAL}] toolchain brew needs to build from source"
+        for tool in ruby git curl gcc make patchelf; do
+            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
+                echo "FAIL: ${tool} missing from homebrew -- source builds would fail"; exit 1
+            fi
+        done
+        echo "OK: ruby, git, curl, gcc, make, patchelf present"
+
+        echo "==> [4/${TOTAL}] linuxbrew user at uid 1001"
+        if ! grep -qxF 'etc/passwd' "$LISTING"; then
+            echo "FAIL: /etc/passwd missing from homebrew"; exit 1
+        fi
+        if ! {{sudo_cmd}} podman run --rm --user 0:0 --entrypoint /usr/bin/bash "$REF" \
+                -c 'grep -q "^linuxbrew:x:1001:1001:" /etc/passwd'; then
+            echo "FAIL: linuxbrew missing from /etc/passwd at uid 1001"; exit 1
+        fi
+        echo "OK: linuxbrew uid 1001"
     else
         TOTAL=5
         echo "==> [1/${TOTAL}] distroless: no shell present"
@@ -450,6 +489,13 @@ verify:
             echo "FAIL: qemu-img failed to execute"; exit 1
         fi
         echo "OK: qemu-img executes successfully"
+    elif [ "$IMG" = "homebrew" ]; then
+        # `brew --version` exercises the vendored Ruby, the prefix layout and
+        # the PATH/HOMEBREW_* env -- a real startup, not just file presence.
+        if ! {{sudo_cmd}} podman run --rm --entrypoint /home/linuxbrew/.linuxbrew/bin/brew "$REF" --version >/dev/null; then
+            echo "FAIL: brew failed to execute"; exit 1
+        fi
+        echo "OK: brew executes successfully"
     elif [ "$IMG" = "lab-runner" ]; then
         if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
             echo "FAIL: argo failed to execute"; exit 1
@@ -700,27 +746,28 @@ publish-podman-vm:
     trap - ERR
     echo "==> published the complete ${arch} asset set to release ${TAG}"
 
-# -- Homebrew nspawn machine image -------------------------------------------
+# -- Homebrew: OCI image + nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
 brew_version := "6.0.15"
 
-# Build the brew nspawn machine image (rootfs tarball, not OCI).
-[group('brew')]
-build-brew:
-    just bst build oci/brew-nspawn.bst
+# Build the homebrew nspawn machine image (rootfs tarball, not OCI).
+# The OCI packaging of the SAME rootfs is oci/homebrew.bst, built by `just build`.
+[group('homebrew')]
+build-homebrew-nspawn:
+    just bst build homebrew/homebrew-nspawn.bst
 
 # Export the rootfs tarball + SHA256SUMS to dist/.
-[group('brew')]
-export-brew: build-brew
+[group('homebrew')]
+export-homebrew-nspawn: build-homebrew-nspawn
     rm -rf dist
-    just bst artifact checkout oci/brew-nspawn.bst --directory dist
+    just bst artifact checkout homebrew/homebrew-nspawn.bst --directory dist
     @echo "==> wrote:" && ls -lh dist/
 
 # Verify the tarball is a machinectl-shaped rootfs with the required contents.
-[group('brew')]
-verify-brew: export-brew
+[group('homebrew')]
+verify-homebrew-nspawn: export-homebrew-nspawn
     #!/usr/bin/env bash
     set -euo pipefail
     T="dist/homebrew-env-{{brew_version}}.tar.zst"
@@ -745,11 +792,11 @@ verify-brew: export-brew
     else
         echo "MISS linuxbrew uid 1001 in /etc/passwd"; fail=1
     fi
-    [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }
+    [ "$fail" -eq 0 ] && echo "==> verify-homebrew-nspawn passed" || { echo "==> verify-homebrew-nspawn FAILED"; exit 1; }
 
-# Install and configure the local brew nspawn container (requires sudo).
-[group('brew')]
-install-brew: verify-brew
+# Install and configure the local homebrew nspawn container (requires sudo).
+[group('homebrew')]
+install-homebrew: verify-homebrew-nspawn
     #!/usr/bin/env bash
     set -euo pipefail
     T="dist/homebrew-env-{{brew_version}}.tar.zst"
@@ -789,11 +836,11 @@ install-brew: verify-brew
     echo "==> Waiting for systemd inside the container to boot..."
     sleep 3
     echo "==> Homebrew container successfully installed and booted!"
-    echo "==> You can now run brew commands using: just run-brew <command>"
+    echo "==> You can now run brew commands using: just run-homebrew <command>"
 
-# Run a brew command inside the imported homebrew container (e.g. just run-brew install hello).
-[group('brew')]
-run-brew *ARGS:
+# Run a brew command inside the imported homebrew container (e.g. just run-homebrew install hello).
+[group('homebrew')]
+run-homebrew *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! sudo machinectl list --no-legend | grep -q "^homebrew\b"; then
@@ -802,7 +849,7 @@ run-brew *ARGS:
             sudo machinectl start homebrew
             sleep 2
         else
-            echo "ERROR: homebrew container is not installed. Run 'just install-brew' first." >&2
+            echo "ERROR: homebrew container is not installed. Run 'just install-homebrew' first." >&2
             exit 1
         fi
     fi
@@ -811,8 +858,8 @@ run-brew *ARGS:
         -- /home/linuxbrew/.linuxbrew/bin/brew {{ARGS}}
 
 # Stop and remove the homebrew container and its files (requires sudo).
-[group('brew')]
-uninstall-brew:
+[group('homebrew')]
+uninstall-homebrew:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "==> Stopping homebrew container..."

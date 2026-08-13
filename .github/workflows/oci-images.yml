@@ -4,7 +4,7 @@ name: Build OCI images
 # published under `oci_images` in elements/targets.json). build.yml calls this
 # once per target so a slow or failed image never delays another image's
 # manifest, signing, or attestation. Deliberately excludes the podman-vm guest
-# disk (see vm-guest.yml) and the brew-nspawn machine image lane. See
+# disk (see vm-guest.yml) and the homebrew-nspawn machine image lane. See
 # docs/skills/ci-tooling/SKILL.md.
 
 on:

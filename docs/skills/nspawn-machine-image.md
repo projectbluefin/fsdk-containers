@@ -10,8 +10,8 @@ mcp_compliance_level: partial
 optimization_status: draft
 status: active
 dependencies: []
-tags: [nspawn, machinectl, rootfs, brew]
-description: "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image."
+tags: [nspawn, machinectl, rootfs, homebrew]
+description: "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like homebrew) instead of an OCI distroless image."
 metadata:
   type: procedure
 ---
@@ -20,8 +20,8 @@ metadata:
 
 Use when an image must be a **full Linux dev environment** booted by
 `systemd-nspawn` / `machinectl`, not a distroless OCI image. Reference
-implementation: the `brew` image (`elements/brew/*`, `elements/oci/brew-nspawn.bst`,
-spec in `docs/brew-nspawn-container-spec.md`).
+implementation: the `homebrew` image (`elements/homebrew/*`, `elements/homebrew/homebrew-nspawn.bst`,
+spec in `docs/homebrew-container-spec.md`).
 
 ## When NOT to Use
 
@@ -30,7 +30,7 @@ spec in `docs/brew-nspawn-container-spec.md`).
 
 ## How it differs from the distroless images
 
-| | Distroless OCI (`base`) | nspawn machine image (`brew`) |
+| | Distroless OCI (`base`) | nspawn machine image (`homebrew`) |
 |---|---|---|
 | Output | OCI image via `build-oci` | `.tar.zst` rootfs via `tar` |
 | Shell | removed | **kept** (`bash` required) |
@@ -38,6 +38,30 @@ spec in `docs/brew-nspawn-container-spec.md`).
 | Init | none | `systemd` + `/sbin/init` |
 | Locale/devel | stripped | kept (formulas build from source) |
 | Consumed by | `podman`/`docker` | `machinectl import-tar` |
+
+## One rootfs, two packagings
+
+`homebrew` ships **both** an OCI image and an nspawn tarball from the *same*
+rootfs. That is the point of the layout: the rootfs elements are shared, and
+only the final packaging element differs.
+
+```
+elements/homebrew/homebrew-deps.bst      stack    shared rootfs deps
+elements/homebrew/homebrew-runtime.bst   compose  shared chiselled rootfs
+elements/homebrew/homebrew-prefix.bst    manual   shared linuxbrew prefix
+include/homebrew-rootfs.yml              (@)      shared finalisation (user, locale)
+├─ elements/oci/homebrew.bst             script   -> OCI image
+└─ elements/homebrew/homebrew-nspawn.bst script   -> .tar.zst for machinectl
+```
+
+**Anything that must be true of both belongs in `include/homebrew-rootfs.yml`,
+not copy-pasted into the two assembly elements.** Only genuinely
+packaging-specific work stays in the leaf: the nspawn element adds `/sbin/init`
+and an empty `/etc/machine-id` (a booted machine needs them; a container does
+not), and the OCI element adds the `build-oci` config block.
+
+Note the nspawn element deliberately does **not** live under `elements/oci/` —
+it does not produce an OCI image, and putting it there misled readers before.
 
 ## Element chain
 
@@ -93,8 +117,8 @@ Get the artifact out with `bst artifact checkout <oci elem> --directory dist`.
 
 ## Verification
 
-`just verify-brew` exports the tarball and asserts the real `usr/bin/*` paths,
+`just verify-homebrew-nspawn` exports the tarball and asserts the real `usr/bin/*` paths,
 the init symlink, locale.conf, machine-id, and the app user at uid 1001. The
-scheduled/on-demand `.github/workflows/brew-nspawn.yml` job runs this check on a
+scheduled/on-demand `.github/workflows/homebrew-nspawn.yml` job runs this check on a
 native Ubuntu runner. Booting (`machinectl import-tar` + `machinectl start`)
 requires a systemd host and remains a separate integration step.
