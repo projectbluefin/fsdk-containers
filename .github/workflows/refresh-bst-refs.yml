@@ -13,6 +13,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
+      - 'elements/*.bst'
       - 'elements/**/*.bst'
 
 permissions:
@@ -26,7 +27,15 @@ jobs:
   refresh:
     # Only act on Renovate's own PRs. Running this on contributor PRs would let an
     # untrusted branch trigger a write-back.
-    if: github.event.pull_request.user.login == 'renovate[bot]'
+    #
+    # Renovate opens PRs with the mergeraptor GitHub App installation token (see
+    # renovate.yml), not the default renovate[bot] identity, so the PR author is
+    # `mergeraptor[bot]` -- matching the identity this job already commits back
+    # as, below. Gating on `renovate[bot]` here always evaluated false, so this
+    # job silently skipped on every version bump and the corresponding `ref:`
+    # was never refreshed (confirmed reproducing on #156: this job "skipped",
+    # then `Build images` failed on a checksum mismatch).
+    if: github.event.pull_request.user.login == 'mergeraptor[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -37,14 +46,17 @@ jobs:
           app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
           private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
 
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           token: ${{ steps.token.outputs.token }}
+          # Full history: the three-dot diff below needs a merge base, and two
+          # disjoint depth-1 fetches have no common history ("no merge base").
+          fetch-depth: 0
 
       - name: Install just
-        uses: extractions/setup-just@e33e0562bfb0175f4fca7ffd48f31fdfacb8c521 # v3.0.0
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
 
       - name: Determine changed elements
         id: changed
@@ -52,15 +64,21 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          mapfile -t FILES < <(git diff --name-only "$BASE_SHA"...HEAD -- 'elements/**/*.bst')
+          # 'elements/**/*.bst' alone misses top-level elements (e.g.
+          # elements/freedesktop-sdk.bst) — match both depths.
+          mapfile -t FILES < <(git diff --name-only "$BASE_SHA"...HEAD -- 'elements/*.bst' 'elements/**/*.bst')
+          # The FSDK junction is tracked by auto-update-fsdk.yml, not here:
+          # re-tracking it on a bump PR could move the version under review.
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "elements=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # `bst` addresses elements relative to element-path (elements/), not the repo root.
           ELEMENTS=()
-          for f in "${FILES[@]}"; do ELEMENTS+=("${f#elements/}"); done
+          for f in "${FILES[@]}"; do
+            [ "$f" = "elements/freedesktop-sdk.bst" ] && continue
+            ELEMENTS+=("${f#elements/}")
+          done
           echo "elements=${ELEMENTS[*]}" >> "$GITHUB_OUTPUT"
           printf 'Refreshing: %s\n' "${ELEMENTS[*]}"
 
@@ -68,7 +86,12 @@ jobs:
         if: steps.changed.outputs.elements != ''
         env:
           BST_LOCAL: '1'
-        run: just bst source track ${{ steps.changed.outputs.elements }}
+          # Via env, not ${{ }} interpolation: PR-derived filenames are a
+          # template-injection sink in a `run:` shell.
+          ELEMENTS: ${{ steps.changed.outputs.elements }}
+        run: |
+          # shellcheck disable=SC2086  # word splitting intended: multiple element args
+          just bst source track $ELEMENTS
 
       - name: Validate element graph
         if: steps.changed.outputs.elements != ''
@@ -80,12 +103,12 @@ jobs:
         if: steps.changed.outputs.elements != ''
         run: |
           set -euo pipefail
-          if git diff --quiet -- 'elements/**/*.bst'; then
+          if git diff --quiet -- 'elements/*.bst' 'elements/**/*.bst'; then
             echo "Refs already current; nothing to push."
             exit 0
           fi
           git config user.name 'mergeraptor[bot]'
           git config user.email '${{ secrets.MERGERAPTOR_APP_ID }}+mergeraptor[bot]@users.noreply.github.com'
-          git add 'elements/**/*.bst'
+          git add 'elements/*.bst' 'elements/**/*.bst'
           git commit -m 'chore(deps): refresh BuildStream source refs'
           git push
