@@ -269,6 +269,7 @@ export:
     LABEL_ARGS+=(--label "org.opencontainers.image.title={{image_name}}")
     LABEL_ARGS+=(--label "org.opencontainers.image.description=${DESC}")
     LABEL_ARGS+=(--label "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers")
+    LABEL_ARGS+=(--label "org.opencontainers.image.documentation=https://github.com/projectbluefin/fsdk-containers#readme")
     LABEL_ARGS+=(--label "org.opencontainers.image.licenses=Apache-2.0")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.version={{fsdk_version}}")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.ref={{fsdk_ref}}")
