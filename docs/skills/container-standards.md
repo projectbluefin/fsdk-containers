@@ -33,7 +33,7 @@ metadata:
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). Shell-enabled images explicitly pull the staged FSDK shell stack.
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
-- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, `file`, and `gzip` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. `gzip` in particular is not optional alongside `tar`: GNU tar execs `gzip` as a child process for `.tar.gz` streams, so `tar` being present is not sufficient to read a gzip-compressed archive — shipping `tar` without `gzip` fails `tar -xzf` with "Cannot exec: No such file or directory" even though `tar --version` works fine. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`, `gzip`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
 
 ---
 
@@ -132,11 +132,23 @@ the minor line below is the most permissive tag published.
 ### Dynamic Metadata Labeling
 Every image must be self-declaring and embed OCI labels for easy auditing by SRE cluster checkers:
 - `org.opencontainers.image.title`
+- `org.opencontainers.image.description`
+- `org.opencontainers.image.documentation`
+- `org.opencontainers.image.source` / `org.opencontainers.image.url`
+- `org.opencontainers.image.vendor` / `org.opencontainers.image.licenses`
 - `org.opencontainers.image.version` (FSDK version)
 - `org.opencontainers.image.revision` (Git commit SHA)
 - `org.opencontainers.image.created` (Creation timestamp)
 - `io.projectbluefin.fsdk.version`
 - `io.projectbluefin.fsdk.ref`
+
+The same set must also reach the **image index** as annotations: GHCR's
+package page and ArtifactHub read multi-arch metadata from index annotations,
+not from the child manifests' config labels. The manifest job in
+`.github/workflows/oci-images.yml` harvests the config labels and re-applies
+them with `docker buildx imagetools create --annotation index:...` (runner
+podman 4.9 has no index-annotation support; see
+[`ci-tooling/references/build-and-manifest-notes.md`](ci-tooling/references/build-and-manifest-notes.md)).
 
 The index annotation `org.opencontainers.image.ref.name` is set in each
 `elements/oci/*.bst` to `ghcr.io/projectbluefin/<name>:%{fsdk-version}`, i.e.
