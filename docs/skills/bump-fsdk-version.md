@@ -1,6 +1,6 @@
 ---
 name: bump-fsdk-version
-version: "1.1"
+version: "1.2"
 last_updated: 2026-08-20
 id: bump-fsdk-version
 one_line_purpose: Move the project to a new freedesktop-sdk release and refresh derived tags.
@@ -59,6 +59,28 @@ built and published for early testing.
    > within 24 hours, and it arrives as a routine "chore: bump freedesktop-sdk point release"
    > PR that looks like every other automated bump. Within the same line this is harmless and
    > intended — across lines it silently reverts your change.
+
+   > [!IMPORTANT]
+   > **Crossing a minor line freezes every tag on the old line, permanently.** `just tags`
+   > (used by `oci-images.yml`'s `manifest` job on every push to `main`) derives the *entire*
+   > published tag set from whichever FSDK ref is *currently* pinned — there is no mechanism
+   > that republishes an old minor line's tag from new commits once the pin has moved on. The
+   > moment `ref:`/`track:` cross from e.g. `25.08.x` to `26.08beta.x`, the `:25.08` tag stops
+   > being "the most recent 25.08 build" and becomes "whatever commit happened to be on `main`
+   > the instant before the bump" — forever. Every unrelated code change merged afterwards
+   > (new elements, linter additions, size-budget fixes, doc updates) publishes only under
+   > `:26.08` / `:26.08beta.*`; `:25.08` is not stale, it is inert. See
+   > [fsdk-containers#89](https://github.com/projectbluefin/fsdk-containers/issues/89) for a
+   > case where this made a merged, working fix (adding linters to `lab-runner`) invisible on
+   > the `:25.08` tag a downstream consumer was still pinned to — the fix had shipped, just
+   > under a different, newer tag.
+   >
+   > If a fix genuinely needs to reach the old line, it must be built and published from a
+   > commit where the old FSDK ref is still pinned (e.g. a maintenance branch cut before the
+   > bump) — merging it to `main` after the bump only ever reaches the new line's tags. When
+   > filing or triaging "tool X is missing" reports, always check *which* tag/digest was
+   > actually tested against, and cross-reference it with the FSDK line `main` was pinned to
+   > when that tag was last published (`git log -1 --format=%cI <tag's org.opencontainers.image.revision label>` against `elements/freedesktop-sdk.bst`'s history).
 
 3. Re-check patches still apply — FSDK ships local patches under
    `patches/freedesktop-sdk/`. If a release changed the patched files, refresh or
