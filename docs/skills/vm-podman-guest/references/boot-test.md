@@ -32,14 +32,19 @@ that the serial getty reached the login prompt, and that systemd activated
 `donate-clanker-bootstrap.service`.
 
 The switch-root marker is the one that catches this guest's real failure
-mode. The loader entry's `root=UUID=` and the ext4 root UUID come from two
+mode. The boot cmdline's `root=UUID=` and the ext4 root UUID come from two
 different BuildStream builds; when they disagree the initrd waits on
 `Expecting device dev-disk-by-uuid-...` forever. Observed on the published
 `donate-clanker-vm-25.08.14-x86_64.raw` (built before the loader-entry
 rewrite in `podman-vm-efi.bst` landed): loader entry
 `root=UUID=9e71ad99-5ddc-5b20-8b9c-f3f6b4e570e1`, actual ext4 root UUID
-`a5e5b74b-7aa6-58b1-8408-e4147a36da17`. The login prompt then proves the
-real root userspace came up. On failure the captured serial log is printed
+`a5e5b74b-7aa6-58b1-8408-e4147a36da17`. The same mismatch returned when FSDK
+26.08 moved the cmdline from loader entries into the UKI's `.cmdline` section
+(plus an upstream-added `quiet` that hid every boot message from the serial
+log): the 25.08-era rewrite loop found no entries, silently did nothing, and
+the initrd waited on FSDK's namespace UUID forever. `podman-vm-efi.bst` now
+patches whichever layout is staged and fails the build if it finds neither.
+The login prompt then proves the real root userspace came up. On failure the captured serial log is printed
 to stdout, so a CI failure is diagnosable without downloading an artifact.
 
 The bootstrap virtio-serial port is wired anyway, so the guest boots against

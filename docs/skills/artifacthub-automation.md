@@ -47,7 +47,7 @@ Before automating submissions, ensure the image is built with the required metad
 * `io.artifacthub.package.license`
 * `io.artifacthub.package.category`
 
-ArtifactHub parses these labels from the OCI image index to display full package metadata.
+ArtifactHub parses these labels from the OCI image **index** to display full package metadata. Config labels on the per-arch child manifests are not enough for a multi-arch image: the manifest job in `.github/workflows/oci-images.yml` promotes them onto the index as annotations at publish time (`docker buildx imagetools create --annotation index:...`). GHCR's package page reads `org.opencontainers.image.description` from the same index annotations.
 
 ### 2. API Registration (GitHub Actions)
 When a new image is added to the repository, it can be registered on ArtifactHub using an API call.
