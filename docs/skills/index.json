@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09",
+  "generated_at": "2026-08-20",
   "schema_version": "1.0",
   "skills": [
     {
@@ -35,7 +35,7 @@
       ],
       "description": "Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
@@ -256,7 +256,7 @@
       ],
       "description": "The SLIM recipe \u2014 what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.",
       "version": "1.1",
-      "last_updated": "2026-08-09",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
@@ -274,7 +274,7 @@
       ],
       "description": "Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
@@ -292,7 +292,7 @@
       ],
       "description": "Run and understand the distroless + slim verification gates. Use when validating an image before merge, debugging a failed gate, or adding a new gate.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
