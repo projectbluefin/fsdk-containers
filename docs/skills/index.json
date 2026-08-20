@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-08",
+  "generated_at": "2026-08-09",
   "schema_version": "1.0",
   "skills": [
     {
@@ -70,8 +70,8 @@
         "tags"
       ],
       "description": "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "runbook"
     },
     {
@@ -85,11 +85,13 @@
         "ci",
         "github-actions",
         "workflows",
-        "publishing"
+        "publishing",
+        "scaling",
+        "attestation"
       ],
-      "description": "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, or adding a new CI step.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "description": "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, adding a new CI step, or checking a change against the org-wide CI job budget.",
+      "version": "1.2",
+      "last_updated": "2026-08-09",
       "doc_type": "reference"
     },
     {
@@ -103,11 +105,13 @@
         "standards",
         "verification",
         "tagging",
-        "compliance"
+        "compliance",
+        "non-root",
+        "security-context"
       ],
-      "description": "The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "description": "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one.",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "policy"
     },
     {
@@ -247,11 +251,12 @@
         "slim",
         "size",
         "distroless",
-        "optimization"
+        "optimization",
+        "split-rules"
       ],
       "description": "The SLIM recipe \u2014 what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
       "doc_type": "procedure"
     },
     {
