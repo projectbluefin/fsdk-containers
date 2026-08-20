@@ -1,7 +1,7 @@
 ---
 name: add-new-image
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: add-new-image
 one_line_purpose: Scaffold a new distroless OCI image carved from FSDK components.
 entry_point: docs/skills/add-new-image.md
@@ -140,5 +140,6 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 - **`tzdata` pulls in `runtime-minimal` transitively.** `tzdata.bst` has a runtime
   dep on `runtime-minimal`, which includes glibc, gcc runtimes (libasan, libgfortran),
   and terminfo. Even a "static" image (no glibc by design) that includes tzdata will
-  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + terminfo
-  removal) to every image without exception — see `slim-an-image.md`.
+  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + locale
+  removal) to every image without exception — see `slim-an-image.md`. (terminfo
+  itself is kept, not removed — #101.)
