@@ -4,7 +4,7 @@ description: Compile qemu-img from source.
 sources:
   - kind: tar
     url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
-    ref: da5fcffc32762820568b828ed430a728864d34d50b6d2f30358597760cbb0523
+    ref: 6ee1d1a61f68212476b27108c26da5f449dc09b626d42f8279ba0dc2e08fa858
 
 build-depends:
   # FSDK 26.08 removed the shell from runtime-minimal; these commands
