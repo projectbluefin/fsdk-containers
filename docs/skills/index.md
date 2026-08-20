@@ -14,7 +14,7 @@ Generated: 2026-08-20 · schema 1.0 · 17 skills
 | [ci-tooling](ci-tooling/SKILL.md) | ci-ops | active | Write and debug the GitHub Actions workflows that build and publish images. |
 | [container-standards](container-standards.md) | meta | active | Define the build, verification and tagging standard every image must meet. |
 | [custom-builds-and-caching](custom-builds-and-caching.md) | ci-ops | active | Configure custom BuildStream builds and CAS cache servers for forks and CI. |
-| [donate-clanker-vm-artifacts](donate-clanker-vm-artifacts.md) | ci-ops | active | Build the bootable donate-clanker VM guest disk from the FSDK VM graph. |
+| [go-module-source](go-module-source.md) | ci-ops | active | Build Go projects from source with the go_module plugin — vendored deps, no network at build time. |
 | [nspawn-machine-image](nspawn-machine-image.md) | ci-ops | active | Build a non-distroless systemd-nspawn machine image rootfs from FSDK. |
 | [remote-execution](remote-execution.md) | ci-ops | active | Run BuildStream builds on the ghost cluster BuildBarn remote-execution grid. |
 | [security-review](security-review.md) | meta | active | Review pull requests and workflows for supply-chain and container security issues. |

@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.2"
-last_updated: 2026-08-09
+version: "1.3"
+last_updated: 2026-08-20
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -38,7 +38,7 @@ Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
 
 ```yaml
 # correct
-- uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2
+- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
 
 # wrong — mutable tag, supply-chain risk
 - uses: taiki-e/install-action@v2
@@ -50,7 +50,7 @@ current pinned SHA of any action before adding it.
 ### Installing `just` — taiki-e/install-action, not snap/cargo/apt
 
 ```yaml
-- uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2
+- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
   with:
     tool: just
 ```
@@ -82,9 +82,17 @@ Personal Access Tokens (PATs) are strictly banned in this organization. To perfo
 
 ### Atomic BuildStream source updates
 
-Only git repository sources with a commit-resolving datasource are Renovate-managed. The `buildah.bst` annotation uses Renovate's `git-refs` datasource and captures both `track:` and the matching `ref:` in one regex manager match. Renovate therefore updates the source selector and commit ref together. The manager's package name is the fully qualified GitHub URL (`https://github.com/{{depName}}.git`), as required by the `git-refs` datasource.
+`renovate.json` has one `custom.regex` manager driven by `# renovate:
+datasource=... depName=...` annotations in `.bst` files and the Justfile. For
+`git_repo` sources the annotation sits on `track:` (e.g. `buildah.bst`:
+`datasource=github-tags depName=containers/buildah`); Renovate bumps the tag,
+then `refresh-bst-refs.yml` re-runs `bst source track` on the PR branch to
+write the matching commit `ref:` — neither tool does both halves alone. See
+`track-upstream-versions.md` for the full contract.
 
-Archive and remote binary sources remain intentionally unautomated unless an authoritative upstream checksum manifest or verifiable signature can be integrated. Do not restore the old generic regex manager: a release version alone cannot identify or verify the exact archive artifact.
+Archive and remote binary sources pin a sha256 `ref:` refreshed by the same
+workflow. Do not restore the old generic regex manager: a release version
+alone cannot identify or verify the exact archive artifact.
 
 ### Triggering Workflows (Pushes vs. Repository Dispatch)
 Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Actions workflows. To trigger downstream workflows or standard build runs from an automated update:
@@ -128,9 +136,10 @@ Build time is not the constraint and has never been: the entire 7-image catalog 
 in ~40 minutes on `x86_64` (~29 on `aarch64`) against a 180-minute job timeout. Fan-out is
 mostly scheduling overhead.
 
-The agreed remedy (#127) is **sharding**: matrix entries are batches of 10 images, not single
-images, giving `jobs = 5 x ceil(N / 10)`. The shard count is derived from
-`elements/targets.json` in the `matrix` job, so adding image N+1 changes no workflow file.
+Today the `matrix` job resolves `oci_images` from `elements/targets.json` and
+the build fans out **one reusable call per image** — adding image N+1 changes
+no workflow file. The agreed remedy (#127) if the budget binds is **sharding**:
+matrix entries become batches of ~10 images, giving `jobs = 5 x ceil(N / 10)`.
 Re-derive the batch size when any single image's build exceeds ~18 minutes.
 
 When batching a loop over images, **do not `set -e` out of the loop.** Collect per-image
@@ -206,50 +215,16 @@ FAIL: guest did not reach its ready point within 300s
 
 ### GitHub artifact attestations
 
-The manifest job uses the current GitHub `actions/attest` action with a
-SHA-pinned ref. It requires `contents: read`, `packages: write`,
-`attestations: write`, and `id-token: write`. The subject is the fully-qualified
-repository name plus the resolved multi-arch `sha256:` digest, and
-`push-to-registry: true` stores the attestation beside the image.
-
-Consumers verify with:
-
-```console
-$ gh attestation verify oci://IMAGE:TAG -R projectbluefin/fsdk-containers \
-    --signer-repo projectbluefin/fsdk-containers
-```
-
-**The signer flag is not optional here.** Our images are attested from the *reusable* workflow
-`oci-images.yml`, and `gh attestation verify` documents that when an attestation is generated
-via a reusable workflow, that reusable workflow is the signer — so `--signer-workflow` or
-`--signer-repo` must be supplied. A bare `-R ORG/REPO` fails against these images.
-
-#### `push-to-registry` takes a single subject only
-
-`actions/attest` states that `push-to-registry` "requires that the resolved subject is a
-**single** fully-qualified OCI image reference with a SHA-256 digest". GitHub Actions has **no
-step-level loop**, so a job that handles N images cannot call `actions/attest` N times, and
-cannot pass N subjects while also pushing to the registry. This constrains any batching of the
-publish path (see the job budget above).
-
-The way through is `subject-checksums` — many subjects, one attestation — with
-`push-to-registry: false`. Verification survives, because `gh attestation verify` **fetches via
-the GitHub API by default**; pulling from the registry instead is the opt-in `--bundle-from-oci`
-path. What is lost is the attestation-as-registry-referrer for consumers who pass that flag.
-
-By contrast, the SPDX SBOM referrer is plain `oras attach` + `cosign sign` in shell, so it
-batches by simply looping. Cosign signing also scales without per-image configuration: a generic
-OIDC identity over the index digest.
-
-The `podman-vm` guest disk has no OCI registry to attach to, so it uses the
-same `actions/attest` action with `subject-path` (a glob over the `.raw`/
-`.qcow2` files) instead of `subject-name`/`subject-digest`, and
-`push-to-registry: false`. A second `actions/attest` call adds `sbom-path`
-pointing at the `buildstream-sbom`-generated SPDX file to create a proper
-GitHub SBOM attestation for the same subjects. Both are per-arch, matching
-the "Independent architecture asset publication" pattern below.
-
-Source-verified via Context7: `/websites/github_en_actions`.
+The manifest job uses SHA-pinned `actions/attest` with `contents: read`,
+`packages: write`, `attestations: write`, `id-token: write`; the subject is the
+fully-qualified repo name plus resolved multi-arch digest, pushed to the
+registry. For the gotchas that constrain CI authoring — mandatory
+`--signer-repo` on verify (reusable-workflow signer), `push-to-registry`'s
+single-subject limit vs. the `subject-checksums` escape hatch, and the VM
+disk's `subject-path` pattern — see
+[signing-and-sbom.md](../signing-and-sbom.md). The single-subject limit is why
+any batching of the publish path must loop `oras`/`cosign` in shell instead
+(see the job budget above).
 
 ## Reference material
 

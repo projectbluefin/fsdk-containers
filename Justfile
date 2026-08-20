@@ -52,7 +52,7 @@ bst *ARGS:
     # pinned ref) so BuildStream elements can consume the exact point
     # release via `(@): include/fsdk-version.yml` without re-parsing it
     # independently. Gitignored; never hand-edited. See
-    # docs/skills/vm-podman-guest.md.
+    # docs/skills/vm-podman-guest/SKILL.md.
     cat > include/fsdk-version.yml <<'EOF'
     fsdk-version: "{{fsdk_version}}"
     EOF
@@ -339,7 +339,9 @@ verify:
         # database and the standard GNU userland. The slim recipe removes
         # perl (~56MiB, git's unused scripting tail), which keeps the
         # linter additions inside the existing 512MiB ceiling.
-        lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
+        # skopeo (+ its containers-common/gpgme bundle) put the image at
+        # 524 MiB measured (#169) — 640 MiB leaves ~20% headroom.
+        lab-runner) MAX_BYTES=$((640 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
@@ -379,12 +381,12 @@ verify:
         echo "OK: shellcheck, hadolint, and actionlint present"
 
         echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file; do
+        for tool in which xargs awk ps tar diff patch less file gzip; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and gzip present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         # x/xterm-ghostty is not in ncurses (upstream names the entry
@@ -465,7 +467,7 @@ verify:
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
         fi
         # skopeo --version proves the binary loads, not that the inspect code
@@ -476,6 +478,11 @@ verify:
         # over the fixed payloads, so no sha256sum is needed at verify time.
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && cd \"\$d\" && mkdir -p blobs/sha256 && printf '%s' '{}' > blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}' > blobs/sha256/f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268 && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268\",\"size\":246}]}' > index.json && printf '%s' '{\"imageLayoutVersion\":\"1.0.0\"}' > oci-layout && skopeo inspect \"oci:\$d\" >/dev/null && cd / && rm -rf \"\$d\"" >/dev/null; then
             echo "FAIL: lab-runner skopeo cannot inspect a local OCI layout"; exit 1
+        # tar --version passing does not prove tar can read .tar.gz: GNU tar
+        # execs gzip as a child process for the codec, so this only fails if
+        # gzip is missing or broken (the exact regression from issue #87).
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && echo hi > \"\$d/f\" && tar -czf \"\$d/f.tar.gz\" -C \"\$d\" f && tar -xzf \"\$d/f.tar.gz\" -C \"\$d\" && rm -rf \"\$d\"" >/dev/null; then
+            echo "FAIL: lab-runner cannot create/extract .tar.gz — gzip missing or broken"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi
@@ -484,7 +491,7 @@ verify:
 
 # -- Donate-clanker VM guest disk image --------------------------------------
 # Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
-# docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
+# docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
@@ -543,7 +550,7 @@ export-podman-vm-qcow2: export-podman-vm
 #   donate-clanker-vm-<version>-<arch>.raw.sha256      (verifies the disk after
 #                                                       decompression)
 # and the same three names for .qcow2 when a QCOW2 was exported. This is the
-# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest.md.
+# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest/SKILL.md.
 [group('vm')]
 compress-podman-vm:
     #!/usr/bin/env bash
@@ -566,7 +573,7 @@ compress-podman-vm:
 # Publish this architecture's VM guest assets to the current FSDK
 # point-release tag (vX.Y.Z) as an all-or-nothing transaction.
 #
-# Publication is per architecture by design (see docs/skills/ci-tooling.md,
+# Publication is per architecture by design (see docs/skills/ci-tooling/SKILL.md,
 # "Independent architecture asset publication"), so the unit of atomicity is
 # one architecture's complete asset set: the compressed disks, their download
 # checksums, the decompressed-disk checksums, and the SBOM. The rules:
@@ -588,11 +595,11 @@ compress-podman-vm:
 # Operates on whatever is already in dist-vm/ (from `just export-podman-vm`,
 # `just export-podman-vm-qcow2`, and `just compress-podman-vm`) rather than
 # forcing a rebuild. Never publishes a mutable "latest" URL for launcher
-# consumption -- see docs/skills/vm-podman-guest.md. Requires `gh`
+# consumption -- see docs/skills/vm-podman-guest/SKILL.md. Requires `gh`
 # authenticated with `contents: write` on THIS repo (the workflow's default
 # GITHUB_TOKEN is sufficient -- this is a same-repo release upload, not a
 # cross-repo write, so the org's PAT ban / Mergeraptor requirement does not
-# apply; see docs/skills/ci-tooling.md).
+# apply; see docs/skills/ci-tooling/SKILL.md).
 [group('vm')]
 publish-podman-vm:
     #!/usr/bin/env bash
