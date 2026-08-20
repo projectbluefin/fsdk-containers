@@ -1,7 +1,7 @@
 ---
 name: slim-an-image
 version: "1.1"
-last_updated: 2026-08-09
+last_updated: 2026-08-20
 id: slim-an-image
 one_line_purpose: Shrink an OCI image by extending the shared SLIM recipe and proving the removal.
 entry_point: docs/skills/slim-an-image.md
@@ -67,8 +67,8 @@ it:
 417560  usr/lib/debug/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2.debug
 ```
 
-Every catalog image is carved from `base`, so every image carries it (~2.3% of a ~40 MB
-rootfs). Nothing at runtime reads separated DWARF, so it is a safe unconditional `rm`.
+Every base-derived image carries it (~2.3% of a ~45 MB
+rootfs; `static` is not carved from `base`). Nothing at runtime reads separated DWARF, so it is a safe unconditional `rm`.
 
 **The rule: never trust `compose exclude:` on its own — verify against the built rootfs.**
 
@@ -88,7 +88,7 @@ Even an image *intended* to be static (no glibc by design, e.g. one that only ad
 tzdata + CA certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a runtime dep on
 `runtime-minimal`, which carries glibc, gcc runtimes (libasan, libtsan, libgfortran),
 and terminfo into any compose that includes it. Skipping the SLIM recipe on a
-"minimal" image will fail gate `[4/4]` of `just verify`.
+"minimal" image will fail the slim gate of `just verify`.
 
 This is not hypothetical: the repo's own `static` tier intended exactly that and **ships full
 glibc anyway** — 88 shared objects, 15.9 MB compressed, differing from `base` by two files
@@ -113,7 +113,6 @@ rm -rf _sizecheck
 ## Risk tiers
 
 **Zero risk — always cut:**
-- `usr/share/terminfo` (~12 MB) — terminal capability DB, useless in containers.
 - gcc sanitizer runtimes `lib{asan,tsan,lsan,ubsan,hwasan}.so*` (~5 MB) — debug only.
 - `libgfortran.so*` (~3.6 MB) — FORTRAN runtime pulled by gcc-libs.
 - glibc `locale-archive`, `usr/share/i18n/charmaps` (~3 MB).
@@ -132,17 +131,22 @@ rm -rf _sizecheck
   make you `pip install tzdata`.
 - CA certificates + `usr/share/pki` trust source.
 - `libstdc++`, `libgcc_s`, `libgomp` — C++ / OpenMP runtimes apps link.
+- `usr/share/terminfo` (~12 MB unpacked, ~0.5 MB compressed) — kept since #101:
+  without it a container must lie about the host TERM or vendor entries, both
+  of which caused real color/rendering bugs downstream. `x/xterm-ghostty` is
+  compiled in on top by `base/terminfo-ghostty.bst` (#105) — see
+  `verify-distroless.md`.
 
 ## Prebuilt static binaries
 
 Do not assume every upstream Go binary is already stripped, or that changing
 versions will make it smaller. Inspect and measure each release artifact with
 `file` and `stat`, then smoke-test the stripped copy before changing its element.
-For example, Argo v4.0.8 contains debug data: GNU
-`strip --strip-unneeded` reduces the amd64 CLI from 190,044,513 to 142,699,000
-bytes while preserving its command surface. Argo v3.7.17 is nearly the same
-size as v4 before and after stripping, so downgrading does not recover space.
-kubectl v1.36.3 is already stripped and does not benefit from another pass.
+Measured on Argo v4.0.8 (current pin: v4.1.1): the release contains debug data,
+and GNU `strip --strip-unneeded` reduced the amd64 CLI from 190,044,513 to
+142,699,000 bytes while preserving its command surface. Argo v3.7.17 was nearly
+the same size as v4 before and after stripping, so downgrading does not recover
+space. kubectl v1.36.3 is already stripped and does not benefit from another pass.
 
 Manual elements cannot rely on BuildStream's automatic stripping when
 `freedesktop-sdk-stripper` is absent from the sandbox. Keep
@@ -218,4 +222,5 @@ cut that must stay gone, so it fails the build if it creeps back.
 
 ## Reference result
 
-`base`: ~73 MB rootfs → **~40 MB image** after slim, all `just verify` gates green.
+`base`: ~73 MB rootfs → **~45 MB image** after slim (enforced ceiling: 64 MiB
+uncompressed in `just verify`), all gates green.

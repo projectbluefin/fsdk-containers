@@ -1,7 +1,7 @@
 ---
 name: track-upstream-versions
 version: "1.0"
-last_updated: 2026-08-13
+last_updated: 2026-08-20
 id: track-upstream-versions
 one_line_purpose: Keep every non-FSDK upstream package pinned at its latest release automatically.
 entry_point: docs/skills/track-upstream-versions.md
@@ -24,7 +24,7 @@ metadata:
 
 **Nothing in this repo may sit behind upstream.** Every non-FSDK package is pinned in a
 BuildStream element, and every one of those pins is discovered by Renovate and refreshed
-automatically. If upstream releases it, we want it.
+automatically (one known gap: the `bst2` builder image — see the end of this doc). If upstream releases it, we want it.
 
 FSDK itself is not covered here — its junction is tracked by
 `.github/workflows/auto-update-fsdk.yml`. See [bump-fsdk-version.md](bump-fsdk-version.md).
@@ -55,6 +55,55 @@ URL. **Neither tool can do this alone**, so we run both:
 
 For `kind: git_repo` sources, `bst source track` resolves `track:` to a commit, so step 2
 covers those too.
+
+## When the refresh workflow is skipped (manual repair)
+
+`refresh-bst-refs.yml` only acts when its job gate matches the PR author. If the gate
+drifts from reality, the job reports **skipped** and the Renovate PR keeps a stale `ref:`,
+failing CI with:
+
+```
+FAILURE ... File downloaded from <url> has sha256sum '<actual>', not '<pinned>'!
+```
+
+Known instance: Renovate here authenticates through the Mergeraptor GitHub App, so its PRs
+are authored by `mergeraptor[bot]` while the workflow originally gated on `renovate[bot]`
+— every run silently skipped until the gate was fixed (#158). If a renovate PR's refresh
+job shows "skipped", re-check the gate against the *current* PR author first:
+
+The general lesson: when a workflow gates on `github.event.pull_request.user.login`
+(or any bot identity), verify it against the token/app that *actually opens* the PR, and
+re-check after changing how a bot authenticates — the job "skipped" cleanly with no error,
+so this went unnoticed for multiple bump cycles.
+
+```
+gh run list --workflow=refresh-bst-refs.yml --limit 20   # "skipped" on the renovate PR = gate miss
+```
+
+Manual repair is exactly what `bst source track` does for `tar`/`remote` sources (it
+downloads the URL and writes back the sha256 — see `/apache/buildstream`
+`DownloadableFileSource.track`), so either works:
+
+```
+# Option A: compute the digest of the artefact at the BUMPED url and hand-edit ref:
+curl -sL <url> | sha256sum
+
+# Option B: on a checkout of the renovate branch (rewrites the file in
+# BuildStream's canonical YAML style — expect whole-file reflow):
+BST_LOCAL=1 just bst source track <element>
+```
+
+Then `just validate` and, to prove the fetch end-to-end, `just bst source fetch <element>`.
+
+Two shortcuts worth knowing:
+
+- The CI failure log prints the **actual** digest (`has sha256sum '<actual>'`); it is
+  trustworthy, but recompute it yourself anyway — that check is the supply-chain
+  guarantee, not a formality.
+- When several Renovate PRs are stuck on the same drift, landing one PR on main that
+  applies the bumps **with** correct refs makes the Renovate PRs obsolete; Renovate
+  autocloses them on its next run. That is usually less churn than force-pushing fixes
+  onto each bot branch.
 
 ## Adding a new upstream package
 
@@ -147,20 +196,3 @@ automerged; upstream software is not.
 (`.../bst2:64eb0b49...`). Renovate cannot order SHA tags, so it is **not** tracked. To
 automate it, the image must first be pinned by digest (`:tag@sha256:...`), after which the
 `docker` datasource can track the digest.
-
-## Gating a bot-triggered workflow on the wrong PR author silently defeats it (2026-08-13)
-
-`refresh-bst-refs.yml`'s `if: github.event.pull_request.user.login == ...` job condition
-must match the identity that *actually opens* the Renovate PR, not whichever bot ran
-Renovate historically. This repo's `renovate.yml` authenticates with a Mergeraptor GitHub
-App installation token (see the comment there), so every Renovate PR's author is
-`mergeraptor[bot]` -- not the default `renovate[bot]`. A stale `renovate[bot]` check made
-the job evaluate to `false` on every PR, so it always reported "skipped" instead of
-running, and no `ref:` was ever refreshed: every version bump PR (e.g. `just`, `kubectl`,
-`argo` in `elements/lab-runner/`) arrived with a checksum mismatch and failed `just verify`
-in CI (dakota#45's exact failure mode, confirmed reproducing on #156 after #103 merged).
-
-When a workflow gates on `github.event.pull_request.user.login` (or any bot identity),
-verify it against the token/app actually used to open the PR, and re-check after changing
-how a bot authenticates -- the job "skipped" cleanly with no error, so this went unnoticed
-for multiple bump cycles.

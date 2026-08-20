@@ -1,7 +1,7 @@
 ---
 name: bump-fsdk-version
 version: "1.1"
-last_updated: 2026-08-09
+last_updated: 2026-08-20
 id: bump-fsdk-version
 one_line_purpose: Move the project to a new freedesktop-sdk release and refresh derived tags.
 entry_point: docs/skills/bump-fsdk-version.md
@@ -82,14 +82,15 @@ Before merging a bump:
 
 - [ ] `just validate` passes (element graph resolves with new ref)
 - [ ] If the bump crosses a minor line, `track:` was moved to the new line too — otherwise the nightly auto-update reverts it
-- [ ] `just tags` output matches the expected `YY.MM / YY.MM.PP` pair and
-      contains no `latest`
+- [ ] `just tags` output matches the expected pair — `YY.MM / YY.MM.PP` on a
+      release line, `YY.MM / YY.MMbeta.N` (or rc) while tracking a pre-release
+      line (currently `26.08 / 26.08beta.3`) — and contains no `latest`
 - [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
 - [ ] `just build && just verify` — size ceiling, all gates, and the smoke test pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
 - Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components or restructure runtime stacks:
-  - **FSDK 26.08 "Choose Your Own Userland" (verified on `26.08beta.2`).**
+  - **FSDK 26.08 "Choose Your Own Userland" (verified on `26.08beta.3`).**
     `public-stacks/runtime-minimal.bst` no longer contains bash or coreutils —
     they now live only in `public-stacks/runtime-gnu.bst`. Additionally,
     `integration/ldconfig.bst` changed from `depends:` to `build-depends:` on
@@ -107,8 +108,8 @@ Before merging a bump:
       `bootstrap/coreutils.bst` in `build-depends:`. Before 26.08 only
       `oci/qemu-img.bst` declared these; the rest inherited a shell by accident.
   - **`components/systemd-base.bst` was removed in 26.08.** The
-    `gnome-build-meta` systemd overrides in `elements/freedesktop-sdk.bst` must
-    be dropped: gnome-build-meta (both `gnome-50` and `master`) is still pinned
+    `gnome-build-meta` systemd overrides (in `elements/gnome-build-meta.bst`)
+    must stay dropped: gnome-build-meta (both `gnome-50` and `master`) is still pinned
     to FSDK 25.08 and still references `systemd-base.bst`, so keeping the
     overrides fails to load the junction entirely.
   - Re-confirm `components/*` and `public-stacks/*` names against the staged junction before assuming a dep still exists.
@@ -133,5 +134,5 @@ Before merging a bump:
 
 FSDK releases (point releases and beta/pre-releases) are tracked automatically via the `.github/workflows/auto-update-fsdk.yml` GHA workflow.
 - **Trigger:** Daily cron schedule at `03:00 UTC` and manual `workflow_dispatch`.
-- **Mechanism:** Runs `just bst source track freedesktop-sdk.bst` to check for newer refs on the tracking line. If the junction ref changes, the workflow validates the element graph, opens an automated PR on a version-specific branch (`auto/update-fsdk-<version>`), and dispatches a verification build via `repository_dispatch`.
-- **Build Loop:** The dispatched build workflow checks out the PR branch, rebuilds, verifies, and publishes the new release tags and manifests. Rolling and minor-line manifests are only assembled when both `x86_64` and `aarch64` builds succeed, preventing a single failed architecture from overwriting multi-arch tags.
+- **Mechanism:** Runs `just bst source track freedesktop-sdk.bst` to check for newer refs on the tracking line. If the junction ref changes, the workflow validates the element graph, pushes the fixed branch `auto/update-fsdk`, opens an automated PR from it, and dispatches a verification build via `repository_dispatch`.
+- **Build Loop:** The dispatched build workflow checks out the PR branch, rebuilds, and verifies only — publication (tags/manifests) is gated to `push`/`workflow_dispatch` in `oci-images.yml`, so an unreviewed bump branch never moves production tags. Manifests are only assembled when both `x86_64` and `aarch64` builds succeed, preventing a single failed architecture from overwriting multi-arch tags.
