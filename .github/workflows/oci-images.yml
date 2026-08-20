@@ -139,6 +139,25 @@ jobs:
 
           echo "==> Found per-architecture images for ${IMAGE} at ${POINT_TAG}: ${AVAIL_ARCHS[*]}"
 
+          # Harvest the OCI + ArtifactHub labels baked into the per-arch image
+          # config (elements/oci/*.bst + `just export`). GHCR renders the
+          # package page from the INDEX annotations for multi-arch images, and
+          # ArtifactHub likewise reads the image index -- config labels on the
+          # child manifests alone leave both blank (#97). podman 4.9 on
+          # ubuntu-24.04 cannot annotate an index (no `manifest create
+          # --annotation`, no `manifest annotate --index`), so the index is
+          # assembled with `docker buildx imagetools create --annotation
+          # index:...` instead (docker CLI reuses the GHCR credentials the
+          # login step wrote to ~/.docker/config.json).
+          INDEX_LABELS="$(skopeo inspect --no-tags --config --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-x86_64:${POINT_TAG}" \
+            | jq -r '.config.Labels // {} | to_entries[]
+                     | select(.key | startswith("org.opencontainers.image.") or startswith("io.artifacthub.package."))
+                     | "\(.key)=\(.value)"')"
+          if ! grep -q '^org\.opencontainers\.image\.description=.' <<< "${INDEX_LABELS}"; then
+            echo "ERROR: ${REPO}-x86_64:${POINT_TAG} has no org.opencontainers.image.description label to promote to the index" >&2
+            exit 1
+          fi
+
           # Step 1: Create, annotate, and push tags.
           # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
@@ -150,12 +169,20 @@ jobs:
             if [[ -z "${FIRST_TAG}" ]]; then
               FIRST_TAG="${t}"
             fi
-            podman manifest create "${REPO}:${t}"
+            SOURCES=()
             for arch in "${AVAIL_ARCHS[@]}"; do
-              podman manifest add "${REPO}:${t}" "docker://${REPO}-${arch}:${t}"
+              SOURCES+=("${REPO}-${arch}:${t}")
             done
 
-            podman manifest push --all "${REPO}:${t}" "docker://${REPO}:${t}"
+            # Promote every harvested label to an index annotation, plus
+            # ref.name pointing at this exact tag (never :latest; the tag set
+            # comes from `just tags`).
+            ANNOTATION_ARGS=(--annotation "index:org.opencontainers.image.ref.name=${REPO}:${t}")
+            while IFS= read -r kv; do
+              ANNOTATION_ARGS+=(--annotation "index:${kv}")
+            done <<< "${INDEX_LABELS}"
+
+            docker buildx imagetools create -t "${REPO}:${t}" "${ANNOTATION_ARGS[@]}" "${SOURCES[@]}"
             echo "==> published ${REPO}:${t} (${AVAIL_ARCHS[*]})"
           done < <(just tags)
 
