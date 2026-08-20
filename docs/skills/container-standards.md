@@ -33,7 +33,7 @@ metadata:
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). Shell-enabled images explicitly pull the staged FSDK shell stack.
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
-- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`), the image-inspection tool downstream automation verifies published tags with (`skopeo` — review's landing agent runs `skopeo inspect docker://<image>:stable`, issue #164), and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`), dedicated elements (`lab-runner/*.bst`), and the catalog's own `skopeo/skopeo-stack.bst` (FSDK `components/skopeo.bst` plus its containers-common/gpgme dependency bundle) — depend on that stack rather than relisting its components, so the bundle is maintained in exactly one place. Do not satisfy any of this with a Containerfile overlay or a hand-written shim in a derived image.
 
 ---
 
@@ -53,8 +53,9 @@ Distroless images (all except `lab-runner`):
 | **Gate 5** | Locale/build-tool bloat removed | No `locale-archive`, charmaps, `ldconfig`, `pcre2` tooling. |
 
 `lab-runner` is the documented shell-enabled exception and is verified against an
-inverted contract instead — bash present, the `argo`/`just`/`kubectl` CLI
-contract present, the standard POSIX/GNU userland present, and the full terminfo
+inverted contract instead — bash present, the `argo`/`just`/`kubectl`/`skopeo` CLI
+contract present (including a functional, network-free `skopeo inspect` of a local
+OCI layout), the standard POSIX/GNU userland present, and the full terminfo
 database present.
 
 Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
