@@ -1,9 +1,19 @@
 ---
 name: verify-distroless
-description: Run and understand the distroless + slim verification gates. Use when validating an image before merge, debugging a failed gate, or adding a new gate.
+version: "1.0"
+last_updated: 2026-08-08
+id: verify-distroless
+one_line_purpose: Run and extend the per-image verify contract that gates every merge.
+entry_point: docs/skills/verify-distroless.md
+category: test-authoring
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [verification, testing, distroless, gates]
+description: "Run and understand the distroless + slim verification gates. Use when validating an image before merge, debugging a failed gate, or adding a new gate."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # Verify Distroless
@@ -54,7 +64,7 @@ distroless images (everything except the shell-enabled `lab-runner`):
    transfer size; it catches silent runtime-rootfs creep.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
-present and that `argo`, `just`, and `kubectl` are on disk.
+present and that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and `actionlint` are on disk and executable.
 
 ## Graph validation
 

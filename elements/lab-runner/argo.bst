@@ -2,6 +2,7 @@ kind: manual
 description: Fetch the Argo Workflows CLI for lab-runner
 
 build-depends:
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/binutils.bst
   - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
@@ -10,6 +11,7 @@ variables:
   # The automatic FSDK stripper is unavailable in manual-element sandboxes.
   # Keep it disabled and strip this upstream binary explicitly below.
   strip-binaries: ""
+  # renovate: datasource=github-releases depName=argoproj/argo-workflows
   argo_version: v4.0.8
 
 sources:

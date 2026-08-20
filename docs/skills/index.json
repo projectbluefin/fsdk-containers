@@ -1,0 +1,317 @@
+{
+  "generated_at": "2026-08-09",
+  "schema_version": "1.0",
+  "skills": [
+    {
+      "id": "add-fsdk-component",
+      "name": "add-fsdk-component",
+      "one_line_purpose": "Add an FSDK component and stack element without building an OCI image.",
+      "entry_point": "docs/skills/add-fsdk-component/SKILL.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "fsdk",
+        "elements",
+        "components"
+      ],
+      "description": "Add a component + stack element (no OCI image) composed from FSDK, e.g. a tool consumed by a future VM/appliance image. Use when the deliverable is `elements/<name>/<name>.bst` + `<name>-stack.bst` only, not a full distroless image.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "add-new-image",
+      "name": "add-new-image",
+      "one_line_purpose": "Scaffold a new distroless OCI image carved from FSDK components.",
+      "entry_point": "docs/skills/add-new-image.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "oci",
+        "distroless",
+        "images"
+      ],
+      "description": "Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "artifacthub-automation",
+      "name": "artifacthub-automation",
+      "one_line_purpose": "Submit and verify an ArtifactHub repository for published OCI images.",
+      "entry_point": "docs/skills/artifacthub-automation.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "artifacthub",
+        "publishing",
+        "oci",
+        "metadata"
+      ],
+      "description": "Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "bump-fsdk-version",
+      "name": "bump-fsdk-version",
+      "one_line_purpose": "Move the project to a new freedesktop-sdk release and refresh derived tags.",
+      "entry_point": "docs/skills/bump-fsdk-version.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "fsdk",
+        "versioning",
+        "junction",
+        "tags"
+      ],
+      "description": "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "ci-tooling",
+      "name": "ci-tooling",
+      "one_line_purpose": "Write and debug the GitHub Actions workflows that build and publish images.",
+      "entry_point": "docs/skills/ci-tooling/SKILL.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "ci",
+        "github-actions",
+        "workflows",
+        "publishing",
+        "scaling",
+        "attestation"
+      ],
+      "description": "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, adding a new CI step, or checking a change against the org-wide CI job budget.",
+      "version": "1.2",
+      "last_updated": "2026-08-09",
+      "doc_type": "reference"
+    },
+    {
+      "id": "container-standards",
+      "name": "container-standards",
+      "one_line_purpose": "Define the build, verification and tagging standard every image must meet.",
+      "entry_point": "docs/skills/container-standards.md",
+      "category": "meta",
+      "status": "active",
+      "tags": [
+        "standards",
+        "verification",
+        "tagging",
+        "compliance",
+        "non-root",
+        "security-context"
+      ],
+      "description": "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one.",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
+      "doc_type": "policy"
+    },
+    {
+      "id": "custom-builds-and-caching",
+      "name": "custom-builds-and-caching",
+      "one_line_purpose": "Configure custom BuildStream builds and CAS cache servers for forks and CI.",
+      "entry_point": "docs/skills/custom-builds-and-caching.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "caching",
+        "cas",
+        "forks"
+      ],
+      "description": "Guide for developers and agents to configure custom BuildStream builds and cache servers, including GHA caching.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "donate-clanker-vm-artifacts",
+      "name": "donate-clanker-vm-artifacts",
+      "one_line_purpose": "Build the bootable donate-clanker VM guest disk from the FSDK VM graph.",
+      "entry_point": "docs/skills/donate-clanker-vm-artifacts.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "vm",
+        "buildstream",
+        "disk-image",
+        "donate-clanker"
+      ],
+      "description": "Build the bootable donate-clanker VM guest from the FSDK VM graph.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "nspawn-machine-image",
+      "name": "nspawn-machine-image",
+      "one_line_purpose": "Build a non-distroless systemd-nspawn machine image rootfs from FSDK.",
+      "entry_point": "docs/skills/nspawn-machine-image.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "nspawn",
+        "machinectl",
+        "rootfs",
+        "brew"
+      ],
+      "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "remote-execution",
+      "name": "remote-execution",
+      "one_line_purpose": "Run BuildStream builds on the ghost cluster BuildBarn remote-execution grid.",
+      "entry_point": "docs/skills/remote-execution.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "buildstream",
+        "remote-execution",
+        "buildbarn",
+        "cluster"
+      ],
+      "description": "How local/agent BuildStream builds in this repo are submitted to the ghost cluster's BuildBarn remote-execution grid instead of running on the local machine. Use when running `just build`/`just bst`, debugging RE failures, or deciding when local...",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "security-review",
+      "name": "security-review",
+      "one_line_purpose": "Review pull requests and workflows for supply-chain and container security issues.",
+      "entry_point": "docs/skills/security-review.md",
+      "category": "meta",
+      "status": "active",
+      "tags": [
+        "security",
+        "review",
+        "supply-chain",
+        "workflows"
+      ],
+      "description": "Guidance on performing security reviews for fsdk-containers. Use when reviewing pull requests, auditing workflows, or using the /security-review command.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "policy"
+    },
+    {
+      "id": "signing-and-sbom",
+      "name": "signing-and-sbom",
+      "one_line_purpose": "Sign published images and attach SPDX SBOMs as OCI referrers.",
+      "entry_point": "docs/skills/signing-and-sbom.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "signing",
+        "sbom",
+        "cosign",
+        "supply-chain"
+      ],
+      "description": "Guides supply chain security implementation for fsdk-containers, focusing on BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM signing with Sigstore Cosign.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "skill-improvement",
+      "name": "skill-improvement",
+      "one_line_purpose": "Capture every session learning back into docs/skills before handoff.",
+      "entry_point": "docs/skills/skill-improvement.md",
+      "category": "meta",
+      "status": "active",
+      "tags": [
+        "meta",
+        "skills",
+        "documentation",
+        "process"
+      ],
+      "description": "The skill-improvement mandate for fsdk-containers. Every session produces work + a skill update. Use when finishing any task, deciding whether a learning belongs in docs/skills, or verifying the work+learning loop before handoff.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "slim-an-image",
+      "name": "slim-an-image",
+      "one_line_purpose": "Shrink an OCI image by extending the shared SLIM recipe and proving the removal.",
+      "entry_point": "docs/skills/slim-an-image.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "slim",
+        "size",
+        "distroless",
+        "optimization",
+        "split-rules"
+      ],
+      "description": "The SLIM recipe \u2014 what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.",
+      "version": "1.1",
+      "last_updated": "2026-08-09",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "track-upstream-versions",
+      "name": "track-upstream-versions",
+      "one_line_purpose": "Keep every non-FSDK upstream package pinned at its latest release automatically.",
+      "entry_point": "docs/skills/track-upstream-versions.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "renovate",
+        "versioning",
+        "buildstream",
+        "dependencies"
+      ],
+      "description": "Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    },
+    {
+      "id": "verify-distroless",
+      "name": "verify-distroless",
+      "one_line_purpose": "Run and extend the per-image verify contract that gates every merge.",
+      "entry_point": "docs/skills/verify-distroless.md",
+      "category": "test-authoring",
+      "status": "active",
+      "tags": [
+        "verification",
+        "testing",
+        "distroless",
+        "gates"
+      ],
+      "description": "Run and understand the distroless + slim verification gates. Use when validating an image before merge, debugging a failed gate, or adding a new gate.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "vm-podman-guest",
+      "name": "vm-podman-guest",
+      "one_line_purpose": "Build, boot-test and publish the podman VM guest image.",
+      "entry_point": "docs/skills/vm-podman-guest/SKILL.md",
+      "category": "test-authoring",
+      "status": "active",
+      "tags": [
+        "vm",
+        "testing",
+        "podman",
+        "qemu"
+      ],
+      "description": "Build the lean donate-clanker raw VM disk from FSDK.",
+      "version": "1.0",
+      "last_updated": "2026-08-08",
+      "doc_type": "runbook"
+    }
+  ]
+}

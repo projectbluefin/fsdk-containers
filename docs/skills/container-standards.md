@@ -1,8 +1,19 @@
 ---
 name: container-standards
-description: The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance.
+version: "1.1"
+last_updated: 2026-08-09
+id: container-standards
+one_line_purpose: Define the build, verification and tagging standard every image must meet.
+entry_point: docs/skills/container-standards.md
+category: meta
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [standards, verification, tagging, compliance, non-root, security-context]
+description: "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one."
 metadata:
-  type: standard
+  type: policy
 ---
 
 # Container Standard of Quality
@@ -22,20 +33,72 @@ metadata:
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). Shell-enabled images explicitly pull the staged FSDK shell stack.
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
-- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
 
 ---
 
-## 2. The Four Verification Gates
+## 2. The Verification Gates
 
-All OCI images (except explicit exceptions) must pass the `just verify` validation suite containing four automated gates before merge:
+`just verify` is the merge contract. Every OCI image must pass a per-image size
+ceiling, the gates below, and a smoke test that executes the image's binary.
+
+Distroless images (all except `lab-runner`):
 
 | Gate | Validation | Why It Matters |
 | --- | --- | --- |
-| **Gate 1** | Distroless Assertion | Ensures no shell binaries exist in the rootfs. |
-| **Gate 2** | CA Certificate Bundle | Verifies secure HTTPS communication works out-of-the-box. |
-| **Gate 3** | Timezone Data (`tzdata`) | Keeps `usr/share/zoneinfo/UTC` so runtimes/Python do not crash. |
-| **Gate 4** | Zero-Bloat Recipe | Assures removal of terminfo databases, GCC compiler sanitizers, and Gconv charsets. |
+| **Gate 1** | No shell present | The distroless guarantee: no `sh`/`bash` in the rootfs. |
+| **Gate 2** | CA certificate bundle | HTTPS works out of the box. |
+| **Gate 3** | Timezone data | Keeps `usr/share/zoneinfo/UTC` so runtimes do not crash. |
+| **Gate 4** | Sanitizer/fortran bloat removed | No `libasan`, `libtsan`, `libgfortran` and friends. |
+| **Gate 5** | Locale/build-tool bloat removed | No `locale-archive`, charmaps, `ldconfig`, `pcre2` tooling. |
+
+`lab-runner` is the documented shell-enabled exception and is verified against an
+inverted contract instead — bash present, the `argo`/`just`/`kubectl` CLI
+contract present, the standard POSIX/GNU userland present, and the full terminfo
+database present.
+
+Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
+removing it produced real colour and rendering bugs downstream.
+
+### The non-root contract (decided in #120, not yet implemented)
+
+**Default `65532:65532`, numeric, with a matching `/etc/passwd` entry.** Both halves are
+required — see below for why the second one is not optional.
+
+The UID must be **numeric** in the image config, never a name. The kubelet only supports
+numeric users for `runAsNonRoot` (`kuberuntime_container.go:354` — *"Non-root verification only
+supports numeric user"*; `security_context_others.go:48-53` returns a hard error otherwise). A
+named user is rejected outright, not degraded. `65532` matches `gcr.io/distroless`'s `nonroot`.
+
+**A bare UID is not enough — ship the passwd entry too.** Running as a UID with no
+`/etc/passwd` record, `buildah` fails before it starts:
+
+```
+level=error msg="unable to resolve HOME directory: user: unknown userid 65532"
+```
+
+Python is quieter but still broken — `getpass.getuser()` raises `OSError`, `pwd.getpwuid()`
+raises `KeyError`, and `os.path.expanduser("~")` silently returns `/`. Anything calling
+`getpwuid` is at risk. With the entry present, every image in the catalog runs non-root.
+
+`/home/nonroot` is root-owned and **not writable**: the BST sandbox cannot `chown` to a UID
+(`EINVAL`). This is deliberate — a workload needing a writable home mounts an `emptyDir`. Do not
+try to defeat the sandbox constraint.
+
+Assert the gate by **inspecting the image config**, not at runtime:
+
+```console
+$ podman image inspect --format '{{.Config.User}}' "$REF"   # numeric uid:gid, uid != 0
+```
+
+A runtime `id -u` is impossible — there is no shell to run it in.
+
+> [!WARNING]
+> **`podman run --passwd` defaults to `true`** and invents a `/etc/passwd` entry for any
+> `--user` UID that is missing, complete with a fabricated `pw_gecos='container user'`.
+> Kubernetes runtimes do **not** do this. A smoke test written as plain `podman run --user ...`
+> therefore passes on an image that cannot start in-cluster. **Always pass `--passwd=false`
+> when testing non-root behaviour**, or you are testing podman rather than the image.
 
 ---
 
@@ -88,6 +151,9 @@ never be a hardcoded tag (and never `:latest`, which is no longer published).
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
 - A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.
 - Images published to GHCR without point-release tagging.
+- A non-root image config using a *named* user — the kubelet cannot verify it and rejects the pod.
+- A numeric `User` set without a matching `/etc/passwd` entry — `buildah` and anything calling `getpwuid` break at startup.
+- Any `podman run --user ...` test without `--passwd=false` — podman fabricates the missing identity and the test lies.
 
 ---
 

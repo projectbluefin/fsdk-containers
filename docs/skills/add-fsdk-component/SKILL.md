@@ -1,10 +1,21 @@
 ---
 name: add-fsdk-component
-description: Add a component + stack element (no OCI image) composed from FSDK, e.g. a tool consumed by a future VM/appliance image. Use when the deliverable is `elements/<name>/<name>.bst` + `<name>-stack.bst` only, not a full distroless image.
+version: "1.0"
+last_updated: 2026-08-08
+id: add-fsdk-component
+one_line_purpose: Add an FSDK component and stack element without building an OCI image.
+entry_point: docs/skills/add-fsdk-component/SKILL.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [buildstream, fsdk, elements, components]
+description: "Add a component + stack element (no OCI image) composed from FSDK, e.g. a tool consumed by a future VM/appliance image. Use when the deliverable is `elements/<name>/<name>.bst` + `<name>-stack.bst` only, not a full distroless image."
 metadata:
+  type: procedure
   context7-sources:
     - /apache/buildstream
-    - /canonical/cloud-init
 ---
 
 # Add an FSDK Component (no OCI image)
@@ -12,7 +23,7 @@ metadata:
 Use when a task asks for a buildable, checkout-able BuildStream component and
 its stack, but explicitly *not* an OCI image (`elements/oci/*.bst`) — e.g. a
 piece that a later VM/appliance task will consume. For the full three-element
-OCI image pattern, see [add-new-image.md](add-new-image.md) instead.
+OCI image pattern, see [add-new-image.md](../add-new-image.md) instead.
 
 Worked example in this repo: `elements/cloud-init/` (cloud-init 26.2, built
 for a cloud-image lane that needs the NoCloud datasource).
@@ -147,122 +158,7 @@ BUILD_IMAGE_NAME=lab-runner just build && BUILD_IMAGE_NAME=lab-runner just verif
 
 `just validate` resolves the graph and would have passed for all four.
 
-## Cloud-init specifics (for anyone extending this work)
+## Reference material
 
-- FSDK does **not** package `jsonpatch`, `jsonpointer`, `configobj`,
-  `oauthlib`, or `jsonschema` as `python3-*` components. `jsonpatch`,
-  `jsonpointer`, and `configobj` were added here (see next point for why
-  `configobj` is mandatory, not optional); add `oauthlib`/`jsonschema` only
-  if a later task's distro/datasource scope actually requires them
-  (re-verify against upstream source first, and re-read the next point
-  before assuming a hard-imported dep is skippable just because the
-  *feature* it backs looks inactive/irrelevant).
-- **`configobj` is a mandatory runtime dependency, not an optional one —
-  this was gotten wrong in an earlier pass of this work and corrected
-  after review.** The original reasoning ("only RHEL/sysconfig distro
-  modules and cc_landscape/cc_mcollective import it, none of which are on
-  the NoCloud+generic-distro path") was checking the wrong thing: it
-  matters whether upstream's Meson-rendered `cloud.cfg` *lists* a module by
-  name in `cloud_config_modules`/`cloud_final_modules`, not whether that
-  module's feature will ultimately activate. cloud-init's module loader
-  (`cloudinit/config/modules.py:_fixup_modules`) imports **every** listed
-  module unconditionally — the `_is_active()` activate-by-schema-key gate
-  only runs *after* the import, in `run_section`. `cc_mcollective.py` is
-  unconditionally listed in `cloud_final_modules` for **every** distro
-  variant (`config/cloud.cfg.tmpl`), and `cc_landscape.py` is listed for
-  the `debian`/`ubuntu`/`unknown` variants; both hard-import `from
-  configobj import ConfigObj` at module scope. A missing `configobj`
-  therefore breaks cloud-init's entire final stage on every boot, not just
-  those two features — a `datasource_list` grep or any check that stops at
-  "is NoCloud recognized" will never catch this class of bug. **Lesson:**
-  when scoping a hard-imported dependency as skippable, check what's
-  *listed* in the rendered default config's module lists, not just what
-  functionality you expect to use.
-- **The rendered `cloud.cfg`'s module lists are not fully deterministic.**
-  `tools/render-template` defaults `--variant` to
-  `cloudinit.util.system_info()["variant"]` (auto-detected from the
-  *build sandbox's* `/etc/os-release`) when Meson's `cloud.cfg` custom_target
-  doesn't pass `--variant` explicitly (and it doesn't, as of 26.2). This
-  means which variant-gated modules (e.g. `landscape`, `snap`,
-  `apt_configure`) appear in the installed `cloud.cfg` can vary depending on
-  what the build sandbox's OS identifies as. `cc_mcollective` is the one
-  constant across all variants; don't rely solely on grepping the installed
-  `cloud.cfg` to decide whether a hard-imported dependency is needed —
-  check upstream's `config/cloud.cfg.tmpl` source directly for whether a
-  module is *ever* unconditionally or commonly listed, and test-import it
-  regardless of what happens to render in your own build.
-- The NoCloud datasource (needed for a `cidata.iso` seed) is recognized
-  without any extra config: it's first in cloud-init's built-in
-  `CFG_BUILTIN["datasource_list"]` fallback (`cloudinit/settings.py`), and
-  this element's rendered `/etc/cloud/cloud.cfg` does not override
-  `datasource_list`, so the default applies as-is.
-- `bash_completion` is disabled (`-Dbash_completion=false`) since distroless
-  images ship no shell/completions (AGENTS.md hard rule 4).
-- The runtime closure also needs `freedesktop-sdk.bst:components/
-  util-linux-full.bst` (provides `blkid`/`mount`, used by `ds-identify` and
-  `cc_disk_setup`/`cc_mounts` to find and mount a labelled NoCloud
-  `cidata`/`CIDATA` ISO9660 volume — this pulls in
-  `components/util-linux.bst`, which is where `blkid` itself lives, as its
-  own runtime-dep, so depending on `util-linux-full` alone is sufficient)
-  and `freedesktop-sdk.bst:components/shadow.bst` (provides `useradd`/
-  `usermod`, used by `cc_users_groups` to create/update a user injected
-  dynamically via `--uid`). Both are `runtime-depends` on
-  `cloud-init.bst` itself (needed only when cloud-init *runs*, not to build
-  it), not stack-level additions — matching how cloud-init's own mandatory
-  Python deps are attached directly to the component.
-
-## Validating a hard-import dependency fix (not just config-text presence)
-
-A `datasource_list`/`grep`-only check can pass while a hard-imported
-dependency is still missing (see the `configobj` case above) — the failure
-only shows up when the actual module is imported, which for cloud-init only
-happens on a real boot. Catch this at build time instead, inside the
-element's own sandbox where the just-installed package tree and all its
-staged dependencies are both present:
-
-```yaml
-install-commands:
-- |
-  env DESTDIR="%{install-root}" meson install -C %{build-dir} --no-rebuild
-- |
-  site_packages="$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib"))')"
-  PYTHONPATH="%{install-root}${site_packages}" python3 -c "
-  import importlib
-  importlib.import_module('cloudinit.config.cc_mcollective')
-  importlib.import_module('cloudinit.config.cc_landscape')
-  "
-```
-
-`PYTHONPATH` must point at `%{install-root}`'s site-packages (where the
-package-under-build's own files just landed via `DESTDIR`), while its
-*dependencies* (jinja2, configobj, etc.) are already on the default
-`sys.path` because they were staged at the real sandbox root via
-`depends`/`build-depends`. See `elements/cloud-init/cloud-init.bst`'s
-install-commands for the full version, which derives the module name list
-from the installed `cloud.cfg` itself plus an explicit allowlist for
-modules known to be variant-gated (see the non-determinism point above).
-
-## Validating discovery/provisioning tools without a live VM
-
-When a task needs evidence that runtime tools (`blkid`, `mount`,
-`useradd`, ...) actually work for their intended purpose, but a live VM
-boot is out of scope, exercise the *extracted* artifact's binaries
-directly on the host — FSDK's glibc-linked binaries generally run
-standalone outside the BuildStream sandbox:
-
-- **`blkid -p <file>`** probes a filesystem/ISO image without mounting
-  (no root needed) — build a labelled test image with
-  `xorrisofs -volid cidata -joliet -rock -output cidata.iso meta-data
-  user-data` and confirm `blkid -p` reports `LABEL="cidata"
-  TYPE="iso9660"`, exactly what NoCloud/`ds-identify` key off of.
-- **`useradd -P <scratch-dir> --uid <n> <name>`** (`-P`/`--prefix`, not
-  `-R`/`--root`/chroot) points `useradd` at an alternate `/etc/passwd` etc.
-  without requiring root or a real chroot — seed a scratch dir with empty
-  `passwd`/`shadow`/`group`/`gshadow`/`subuid`/`subgid` and a minimal
-  `login.defs`, then confirm the resulting `passwd` entry has the exact
-  UID requested, simulating dynamic per-VM user injection.
-- An actual `mount -o loop` of a test ISO will fail without root/CAP_SYS_ADMIN
-  in a non-VM environment — that's expected and is the real boundary of
-  "without a live VM"; use `xorriso -indev <iso> -find /` and `-osirrox on
-  -extract` to enumerate/read the ISO's contents read-only as
-  content-equivalent evidence instead.
+- [`references/cloud-init.md`](references/cloud-init.md) — Adding an FSDK Component — cloud-init specifics
+- [`references/validation.md`](references/validation.md) — Adding an FSDK Component — validation recipes

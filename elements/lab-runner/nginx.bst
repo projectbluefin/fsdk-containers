@@ -3,10 +3,11 @@ description: Build nginx from source for the lab-runner utility image.
 
 sources:
   - kind: tar
-    url: https://nginx.org/download/nginx-1.27.5.tar.gz
-    ref: e96acebb9c2a6db8a000c3dd1b32ecba1b810f0cd586232d4d921e376674dd0e
+    url: https://nginx.org/download/nginx-%{nginx_version}.tar.gz
+    ref: a7657c50811c2d92d9895395e8b873ef60398142c4db21eb647811c38f6dd525
 
 build-depends:
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/gcc.bst
   - freedesktop-sdk.bst:components/make.bst
   - freedesktop-sdk.bst:bootstrap/pcre2.bst
@@ -16,7 +17,7 @@ build-depends:
   # to sed, grep and awk without checking for them, so a missing one silently
   # produces an objs/Makefile with an empty object list and the build dies at
   # link time with "cc: fatal error: no input files". Declare every tool the
-  # build runs (docs/skills/ci-tooling.md, "Build-time utility dependencies").
+  # build runs (docs/skills/ci-tooling/SKILL.md, "Build-time utility dependencies").
   - freedesktop-sdk.bst:components/sed.bst
   - freedesktop-sdk.bst:components/grep.bst
   - freedesktop-sdk.bst:components/gawk.bst
@@ -24,6 +25,8 @@ build-depends:
 
 variables:
   strip-binaries: ""
+  # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
+  nginx_version: 1.31.3
 
 config:
   configure-commands:

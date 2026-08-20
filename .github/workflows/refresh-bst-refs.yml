@@ -1,0 +1,91 @@
+name: Refresh BuildStream refs
+
+# Renovate can bump a version (a `<tool>_version:` variable or a `track:` pin) but it
+# cannot recompute the BuildStream `ref:` that accompanies it — a sha256 for `tar`/
+# `remote` sources, a commit for `git_repo` sources. Without the matching ref the build
+# fails on a checksum mismatch, so every Renovate PR that touches an element needs
+# `bst source track` run against it.
+#
+# This workflow does that automatically and pushes the refreshed refs back onto the PR
+# branch, so a Renovate PR arrives ready to build. See docs/skills/track-upstream-versions.md.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'elements/**/*.bst'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-bst-refs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    # Only act on Renovate's own PRs. Running this on contributor PRs would let an
+    # untrusted branch trigger a write-back.
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Get mergeraptor token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Install just
+        uses: extractions/setup-just@e33e0562bfb0175f4fca7ffd48f31fdfacb8c521 # v3.0.0
+
+      - name: Determine changed elements
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          mapfile -t FILES < <(git diff --name-only "$BASE_SHA"...HEAD -- 'elements/**/*.bst')
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "elements=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # `bst` addresses elements relative to element-path (elements/), not the repo root.
+          ELEMENTS=()
+          for f in "${FILES[@]}"; do ELEMENTS+=("${f#elements/}"); done
+          echo "elements=${ELEMENTS[*]}" >> "$GITHUB_OUTPUT"
+          printf 'Refreshing: %s\n' "${ELEMENTS[*]}"
+
+      - name: Track sources
+        if: steps.changed.outputs.elements != ''
+        env:
+          BST_LOCAL: '1'
+        run: just bst source track ${{ steps.changed.outputs.elements }}
+
+      - name: Validate element graph
+        if: steps.changed.outputs.elements != ''
+        env:
+          BST_LOCAL: '1'
+        run: just validate
+
+      - name: Commit refreshed refs
+        if: steps.changed.outputs.elements != ''
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- 'elements/**/*.bst'; then
+            echo "Refs already current; nothing to push."
+            exit 0
+          fi
+          git config user.name 'mergeraptor[bot]'
+          git config user.email '${{ secrets.MERGERAPTOR_APP_ID }}+mergeraptor[bot]@users.noreply.github.com'
+          git add 'elements/**/*.bst'
+          git commit -m 'chore(deps): refresh BuildStream source refs'
+          git push

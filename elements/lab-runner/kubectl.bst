@@ -2,10 +2,16 @@ kind: manual
 description: Fetch kubectl static binary for lab-runner
 
 build-depends:
+  # FSDK 26.08 removed the shell from runtime-minimal; these commands
+
+  # are shell scripts, so declare the interpreter explicitly.
+
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:components/make.bst
 
 variables:
   strip-binaries: ""
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.36.3
 
 sources:

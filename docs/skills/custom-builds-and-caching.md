@@ -1,9 +1,19 @@
 ---
 name: custom-builds-and-caching
-description: Guide for developers and agents to configure custom BuildStream builds and cache servers, including GHA caching.
+version: "1.0"
+last_updated: 2026-08-08
+id: custom-builds-and-caching
+one_line_purpose: Configure custom BuildStream builds and CAS cache servers for forks and CI.
+entry_point: docs/skills/custom-builds-and-caching.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [buildstream, caching, cas, forks]
+description: "Guide for developers and agents to configure custom BuildStream builds and cache servers, including GHA caching."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # Custom Builds and Caching
