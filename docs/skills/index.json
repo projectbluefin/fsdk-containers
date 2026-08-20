@@ -274,7 +274,7 @@
       ],
       "description": "Keep every non-FSDK upstream package current automatically. Use when adding software to an image, or when a pin has drifted behind upstream.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
