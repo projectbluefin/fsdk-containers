@@ -89,7 +89,9 @@ jobs:
           # Via env, not ${{ }} interpolation: PR-derived filenames are a
           # template-injection sink in a `run:` shell.
           ELEMENTS: ${{ steps.changed.outputs.elements }}
-        run: just bst source track $ELEMENTS
+        run: |
+          # shellcheck disable=SC2086  # word splitting intended: multiple element args
+          just bst source track $ELEMENTS
 
       - name: Validate element graph
         if: steps.changed.outputs.elements != ''
