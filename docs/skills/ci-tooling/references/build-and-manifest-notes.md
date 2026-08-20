@@ -17,16 +17,29 @@ Keep this explicit for downloaded binary elements such as the lab-runner CLI too
 
 ## Manifest Annotation Compatibility (GitHub Runners)
 
-Runner podman versions vary, and both `podman manifest annotate --index` and
-`podman manifest create --annotation ...` may be unavailable depending on the
-image. For maximum compatibility, keep manifest assembly to:
+GHCR renders a package page from the image **index** annotations for
+multi-arch images, and ArtifactHub reads the index as well — config labels on
+the per-arch child manifests alone leave both blank (#97). The published index
+must therefore carry the full `org.opencontainers.image.*` +
+`io.artifacthub.package.*` label set as annotations, plus
+`org.opencontainers.image.ref.name` set to the exact tag being pushed.
+
+Runner podman is 4.9 (ubuntu-24.04): neither `podman manifest create
+--annotation` nor `podman manifest annotate --index` exists there (index
+annotations landed in podman 5.x), so do not reach for them. The manifest job
+instead harvests the labels from the published per-arch image config
+(`skopeo inspect --config`) and assembles the annotated index with:
 
 ```bash
-podman manifest create "${REPO}:${TAG}"
-podman manifest add "${REPO}:${TAG}" "docker://${REPO}-x86_64:${TAG}"
-podman manifest add "${REPO}:${TAG}" "docker://${REPO}-aarch64:${TAG}"
-podman manifest push --all "${REPO}:${TAG}" "docker://${REPO}:${TAG}"
+docker buildx imagetools create -t "${REPO}:${TAG}" \
+  --annotation "index:org.opencontainers.image.description=..." \
+  "${REPO}-x86_64:${TAG}" "${REPO}-aarch64:${TAG}"
 ```
+
+`docker buildx imagetools create` needs no builder instance and reuses the
+GHCR credentials the job already writes to `~/.docker/config.json` via
+`podman login --compat-auth-file`. The `index:` prefix targets the index
+itself; a bare `key=value` would annotate every child manifest instead.
 
 Use `oras attach --format json --no-tty` and capture `.digest` directly when you
 need the SBOM referrer digest to sign, instead of selecting the first match from
