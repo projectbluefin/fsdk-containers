@@ -1,7 +1,7 @@
 ---
 name: slim-an-image
 version: "1.1"
-last_updated: 2026-08-09
+last_updated: 2026-08-20
 id: slim-an-image
 one_line_purpose: Shrink an OCI image by extending the shared SLIM recipe and proving the removal.
 entry_point: docs/skills/slim-an-image.md
@@ -113,7 +113,6 @@ rm -rf _sizecheck
 ## Risk tiers
 
 **Zero risk — always cut:**
-- `usr/share/terminfo` (~12 MB) — terminal capability DB, useless in containers.
 - gcc sanitizer runtimes `lib{asan,tsan,lsan,ubsan,hwasan}.so*` (~5 MB) — debug only.
 - `libgfortran.so*` (~3.6 MB) — FORTRAN runtime pulled by gcc-libs.
 - glibc `locale-archive`, `usr/share/i18n/charmaps` (~3 MB).
@@ -132,6 +131,11 @@ rm -rf _sizecheck
   make you `pip install tzdata`.
 - CA certificates + `usr/share/pki` trust source.
 - `libstdc++`, `libgcc_s`, `libgomp` — C++ / OpenMP runtimes apps link.
+- `usr/share/terminfo` (~12 MB unpacked, ~0.5 MB compressed) — kept since #101:
+  without it a container must lie about the host TERM or vendor entries, both
+  of which caused real color/rendering bugs downstream. `x/xterm-ghostty` is
+  compiled in on top by `base/terminfo-ghostty.bst` (#105) — see
+  `verify-distroless.md`.
 
 ## Prebuilt static binaries
 
