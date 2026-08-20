@@ -339,7 +339,9 @@ verify:
         # database and the standard GNU userland. The slim recipe removes
         # perl (~56MiB, git's unused scripting tail), which keeps the
         # linter additions inside the existing 512MiB ceiling.
-        lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
+        # skopeo (+ its containers-common/gpgme bundle) put the image at
+        # 524 MiB measured (#169) — 640 MiB leaves ~20% headroom.
+        lab-runner) MAX_BYTES=$((640 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
@@ -363,12 +365,12 @@ verify:
         echo "OK: bash present"
         TOTAL=4
         echo "==> [2/${TOTAL}] lab-runner CLI tools present"
-        for tool in argo just kubectl; do
+        for tool in argo just kubectl skopeo; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner"; exit 1
             fi
         done
-        echo "OK: argo, just, and kubectl present"
+        echo "OK: argo, just, kubectl, and skopeo present"
 
         echo "==> [3/${TOTAL}] lab-runner linter suite present"
         for tool in shellcheck hadolint actionlint; do
@@ -457,7 +459,7 @@ verify:
         if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
             echo "FAIL: argo failed to execute"; exit 1
         fi
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version && skopeo --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "shellcheck --version >/dev/null && hadolint --version >/dev/null && actionlint --version >/dev/null" >/dev/null; then
@@ -467,6 +469,15 @@ verify:
         # missing shared library or interpreter shows up only on execution.
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # skopeo --version proves the binary loads, not that the inspect code
+        # path review's landing agent depends on works (issue #164). Build a
+        # minimal OCI layout and inspect it via the oci: transport — the same
+        # code path as `skopeo inspect docker://<image>:stable` minus the
+        # network, which the gate must not require. Digests are precomputed
+        # over the fixed payloads, so no sha256sum is needed at verify time.
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && cd \"\$d\" && mkdir -p blobs/sha256 && printf '%s' '{}' > blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}' > blobs/sha256/f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268 && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268\",\"size\":246}]}' > index.json && printf '%s' '{\"imageLayoutVersion\":\"1.0.0\"}' > oci-layout && skopeo inspect \"oci:\$d\" >/dev/null && cd / && rm -rf \"\$d\"" >/dev/null; then
+            echo "FAIL: lab-runner skopeo cannot inspect a local OCI layout"; exit 1
         fi
         # tar --version passing does not prove tar can read .tar.gz: GNU tar
         # execs gzip as a child process for the codec, so this only fails if
