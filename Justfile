@@ -386,7 +386,9 @@ verify:
         echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
-        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
+        # x/xterm-ghostty is not in ncurses (upstream names the entry
+        # "ghostty"); it is compiled in by base/terminfo-ghostty.bst (#105).
+        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct x/xterm-ghostty; do
             if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
                 echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
             fi
