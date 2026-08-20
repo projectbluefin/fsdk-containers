@@ -24,6 +24,15 @@ depends:
   # that answers `which`, `xargs`, `awk`, `ps`, `tar`, `diff` and `patch` with
   # exit 127 forces every consumer to either hand-roll a replacement or work
   # around the gap; both cost more than carrying the real GNU tools.
+  # projectbluefin/review's worktree-guard wrapper sandboxes agent commands
+  # with bwrap (read-only root, writable worktree bind, private /tmp) when
+  # bubblewrap is available, and silently degrades to worktree-only isolation
+  # when it is not (issue #109). Ship it here at the FSDK seam rather than
+  # shimming it into the derived contributor image. Rootless nested
+  # sandboxing needs unprivileged user namespaces, so presence alone is not
+  # proof: `just verify` probes `bwrap --ro-bind / / true` — the exact probe
+  # review uses — inside the container.
+  - freedesktop-sdk.bst:components/bubblewrap.bst
   - freedesktop-sdk.bst:components/diffutils.bst
   - freedesktop-sdk.bst:components/file.bst
   - freedesktop-sdk.bst:components/findutils.bst
