@@ -35,7 +35,7 @@
   ],
   "canary_image": "base",
 
-  "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload.",
+  "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest/SKILL.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload.",
   "vm_guest_paths": [
     "elements/podman-vm/",
     "tests/vm-boot.sh",

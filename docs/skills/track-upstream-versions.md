@@ -24,7 +24,7 @@ metadata:
 
 **Nothing in this repo may sit behind upstream.** Every non-FSDK package is pinned in a
 BuildStream element, and every one of those pins is discovered by Renovate and refreshed
-automatically. If upstream releases it, we want it.
+automatically (one known gap: the `bst2` builder image — see the end of this doc). If upstream releases it, we want it.
 
 FSDK itself is not covered here — its junction is tracked by
 `.github/workflows/auto-update-fsdk.yml`. See [bump-fsdk-version.md](bump-fsdk-version.md).
@@ -68,7 +68,8 @@ FAILURE ... File downloaded from <url> has sha256sum '<actual>', not '<pinned>'!
 
 Known instance: Renovate here authenticates through the Mergeraptor GitHub App, so its PRs
 are authored by `mergeraptor[bot]` while the workflow originally gated on `renovate[bot]`
-— every run silently skipped until the gate was fixed. Diagnose before hand-fixing:
+— every run silently skipped until the gate was fixed (#158). If a renovate PR's refresh
+job shows "skipped", re-check the gate against the *current* PR author first:
 
 ```
 gh run list --workflow=refresh-bst-refs.yml --limit 20   # "skipped" on the renovate PR = gate miss
