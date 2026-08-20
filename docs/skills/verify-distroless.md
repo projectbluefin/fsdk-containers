@@ -1,7 +1,7 @@
 ---
 name: verify-distroless
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: verify-distroless
 one_line_purpose: Run and extend the per-image verify contract that gates every merge.
 entry_point: docs/skills/verify-distroless.md
@@ -56,15 +56,42 @@ distroless images (everything except the shell-enabled `lab-runner`):
    compose exclude.
 2. **CA certificates present** — `etc/(ssl|pki)/.*(ca-bundle|cert)` in the rootfs.
 3. **tzdata present** — `usr/share/zoneinfo/UTC`. A kept crash-preventer.
-4. **Slim bloat removed** — fails if `terminfo`, sanitizer/Fortran runtimes,
+4. **Slim bloat removed** — fails if sanitizer/Fortran runtimes,
    locale archives/charmaps, leaked locale/build tools, or extra PCRE2 widths
-   reappear. Regression guard for the shared SLIM recipe.
+   reappear. Regression guard for the shared SLIM recipe. (terminfo is NOT
+   bloat: it has been deliberately kept in every image since #101 — see the
+   terminfo section below.)
 5. **Image size ceiling** — compares Podman's uncompressed local `.Size` against
    a per-image ceiling with FSDK growth headroom. This is not compressed registry
    transfer size; it catches silent runtime-rootfs creep.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
-present and that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and `actionlint` are on disk and executable.
+present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and
+`actionlint` are on disk and executable, and that the full terminfo database
+is present — the direct-color pairs (`xterm-direct`/`tmux-direct`,
+`xterm-256color`/`screen-256color`), a >=1000-entry completeness floor, and
+`xterm-ghostty` (see the terminfo section below).
+
+## The terminfo seam (#101, #105)
+
+Every image keeps the ncurses terminfo database (~0.5 MB compressed): without
+it a container must lie about the host TERM or vendor its own entries, both of
+which produced real color/rendering bugs downstream (projectbluefin/review).
+
+One entry is NOT upstream's: ncurses' terminfo.src carries Ghostty's
+description only under the name `ghostty`, but Ghostty sets
+`TERM=xterm-ghostty` by default, so `podman exec -it <container> tmux attach`
+died with `missing or unsuitable terminal: xterm-ghostty` for Ghostty users
+(#105). `elements/base/terminfo-ghostty.bst` compiles Ghostty's own entry
+(vendored at `elements/base/files/xterm-ghostty.terminfo`, with the `ghostty`
+alias dropped so it never shadows ncurses' own `g/ghostty`) using the
+FSDK-pinned ncurses' `tic`, and `base/base-stack.bst` depends on it so it
+lands in every image. The lab-runner terminfo gate asserts
+`usr/share/terminfo/x/xterm-ghostty` exists.
+
+To refresh the vendored entry after a Ghostty change: on a host running the
+new Ghostty, regenerate with `infocmp -x xterm-ghostty`, drop the `ghostty`
+alias from the names line again, and keep the provenance header current.
 
 ## Graph validation
 

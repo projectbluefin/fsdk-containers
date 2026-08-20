@@ -15,5 +15,10 @@ depends:
   - freedesktop-sdk.bst:components/ca-certificates.bst
   - freedesktop-sdk.bst:components/tzdata.bst
   - freedesktop-sdk.bst:components/os-release.bst
+  # xterm-ghostty terminfo entry (#105): ncurses ships the entry only as
+  # "ghostty", but Ghostty sets TERM=xterm-ghostty, so tmux/ncurses lookups
+  # from a Ghostty host fail without it. Lands in every image via this stack,
+  # same as the #101 keep-terminfo decision.
+  - base/terminfo-ghostty.bst
   - freedesktop-sdk.bst:integration/extra-fs.bst
   - freedesktop-sdk.bst:integration/ldconfig.bst
