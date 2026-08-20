@@ -1,7 +1,7 @@
 ---
 name: add-new-image
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: add-new-image
 one_line_purpose: Scaffold a new distroless OCI image carved from FSDK components.
 entry_point: docs/skills/add-new-image.md
@@ -103,13 +103,16 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **BuildStream source updates:** Use the atomic `git-refs` custom manager in `renovate.json` only for git repository sources whose pinned commit ref can be updated together with `track:`:
+- **BuildStream source updates:** annotate pins with `# renovate:` so the single
+  `custom.regex` manager in `renovate.json` picks them up. For `git_repo`
+  sources the annotation sits on `track:` and CI (`refresh-bst-refs.yml`)
+  rewrites the commit `ref:`:
   ```yaml
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
-  ref: <matching commit SHA>
+  ref: <matching commit SHA>   # refreshed by CI, never hand-edited
   ```
-  `track:` and `ref:` must be captured by the same manager match. Archive and remote sources without an authoritative checksum manifest or verifiable signature remain manual; when bumping them, update the selector and `ref` together yourself.
+  See `track-upstream-versions.md` for the full two-tool contract.
 
 ## Wire it up
 
@@ -140,5 +143,29 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 - **`tzdata` pulls in `runtime-minimal` transitively.** `tzdata.bst` has a runtime
   dep on `runtime-minimal`, which includes glibc, gcc runtimes (libasan, libgfortran),
   and terminfo. Even a "static" image (no glibc by design) that includes tzdata will
-  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + terminfo
-  removal) to every image without exception — see `slim-an-image.md`.
+  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + locale
+  removal) to every image without exception — see `slim-an-image.md`. (terminfo
+  itself is kept, not removed — #101.)
+- **A binary can link a library you never declared.** Everything in the build
+  sandbox is linkable, so an autotools/CMake `configure` that probes for an
+  optional library will find one that arrived transitively through a *build*
+  dependency and hard-link it. The runtime image, which stages only declared
+  runtime deps, then dies at startup with
+  `error while loading shared libraries: ...`.
+
+  Measured on `nginx`: `components/gcc.bst` runtime-depends on
+  `bootstrap/libxcrypt.bst`, so `configure` found `crypt()` and the binary came
+  out `NEEDED libcrypt.so.2` — a library nothing in the runtime stack provided.
+  (`elements/lab-runner/nginx.bst` has the same link and is saved only by
+  accident, via `openssh` → `libxcrypt`.)
+
+  So after building, check the real artifact rather than trusting the element:
+
+  ```bash
+  bst artifact checkout --directory /tmp/chk <image>/<image>-runtime.bst
+  readelf -d /tmp/chk/usr/bin/<binary> | grep NEEDED
+  ```
+
+  **Every `NEEDED` entry must be provided by a declared runtime dep.** Check out
+  to `/tmp`, never into the repo. This is also the only reliable way to catch
+  the reverse problem — a declared dep the binary never actually uses.

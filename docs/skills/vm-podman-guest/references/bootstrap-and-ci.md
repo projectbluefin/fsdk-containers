@@ -14,6 +14,16 @@ is therefore baked into the published disk -- verified with `debugfs` against
 `donate-clanker-vm-25.08.15-aarch64.raw`. Do not add a second enablement
 mechanism; there is nothing to fix there.
 
+`elements/podman-vm/donate-clanker-vm-config.bst` installs the bootstrap
+consumer, its systemd unit, and `/etc/donate-clanker/{worker.source,
+goose.yaml, local-agent-policy.md}`, pinned to a `projectbluefin/donate-clanker`
+commit. `elements/podman-vm/donate-clanker-worker.bst` compiles
+`cmd/contributor` with the FSDK Go toolchain, `CGO_ENABLED=0 GOPROXY=off`, and
+a separately pinned `gorilla/websocket` tree wired via a local `go.mod`
+replace. The consumer opens the virtio-serial port as an unbuffered binary
+stream (virtio ports are non-seekable) and retries until the launcher's
+version-2 envelope arrives.
+
 `/usr/libexec/donate-clanker-bootstrap` sits between two schemas, and it has to
 match **both** or the VM boots to an idle login prompt:
 
@@ -41,6 +51,9 @@ GOOSE_MODEL                <- goose_model
 GITHUB_COPILOT_TOKEN       <- provider_secret
 ```
 
+The bootstrap additionally exports `DONATE_CLANKER_RUN_ID` (from the
+envelope's `run_id`) alongside these.
+
 Exporting `DONATE_CLANKER_*` equivalents instead leaves the worker with no
 credentials at all. Check `elements/podman-vm/donate-clanker-worker.bst`'s
 pinned ref before changing this table.
@@ -53,9 +66,10 @@ Only one process may hold the port open at a time.
 
 ## CI pipeline
 
-See docs/skills/ci-tooling.md for the full workflow structure. In short,
-`.github/workflows/vm-guest.yml` is a reusable workflow (called from
-`build.yml`) with a single matrix job (arch: x86_64, aarch64). Each leg
+See [ci-tooling](../../ci-tooling/SKILL.md) for the full workflow structure. In
+short, `.github/workflows/vm-guest.yml` is a reusable workflow (called from
+`build.yml`) with a per-arch matrix job (x86_64, aarch64) plus an aggregate
+`verify-release` job. Each leg
 builds the raw disk, converts it to QCOW2, verifies both checksums,
 generates the SBOM, boot-tests it under plain QEMU (both architectures, via
 `tests/vm-boot.sh`), and
@@ -65,9 +79,9 @@ attests them (build provenance + SBOM attestation) via `actions/attest` with
 `subject-path`. Publish and attestation stay inside the same per-arch job as
 steps rather than a separate downstream job, so one architecture's asset is
 never stranded behind another architecture's build or test — see
-"Independent architecture asset publication" in docs/skills/ci-tooling.md.
+"Independent architecture asset publication" in [ci-tooling](../../ci-tooling/SKILL.md).
 
 `just publish-podman-vm` publishes one architecture's set as an
 all-or-nothing transaction, and the `verify-release` job fails the run when
 the tag ends up missing any asset for either architecture. See "Atomic
-release asset publication" in docs/skills/ci-tooling.md.
+release asset publication" in [ci-tooling](../../ci-tooling/SKILL.md).

@@ -39,7 +39,7 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 | Keep non-FSDK upstream packages current / add a tracked version pin | [`skills/track-upstream-versions.md`](skills/track-upstream-versions.md) |
 | Prove an image is still distroless | [`skills/verify-distroless.md`](skills/verify-distroless.md) |
 | Supply chain security (signing and SBOM) | [`skills/signing-and-sbom.md`](skills/signing-and-sbom.md) |
-| Add donate-clanker VM artifacts | [`skills/donate-clanker-vm-artifacts.md`](skills/donate-clanker-vm-artifacts.md) |
+| Add donate-clanker VM artifacts | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
 | Write or debug a CI workflow | [`skills/ci-tooling/SKILL.md`](skills/ci-tooling/SKILL.md) |
 | Run local/agent builds on the ghost cluster (remote execution) | [`skills/remote-execution.md`](skills/remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [`skills/custom-builds-and-caching.md`](skills/custom-builds-and-caching.md) |

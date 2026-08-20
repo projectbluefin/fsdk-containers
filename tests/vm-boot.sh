@@ -9,7 +9,7 @@
 # bootstrap port the guest's own `donate-clanker-bootstrap.service` opens.
 #
 # It does NOT use Lima, cloud-init, SSH or Podman. The guest ships none of
-# them (see docs/skills/vm-podman-guest.md), so a harness that expects them
+# them (see docs/skills/vm-podman-guest/SKILL.md), so a harness that expects them
 # reports failures the disk is not responsible for.
 #
 # The test asserts on the serial console, in order:

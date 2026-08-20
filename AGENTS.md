@@ -23,7 +23,7 @@ Only load the docs relevant to your task.
   image. Keep only cheap crash-preventers (tzdata, common charsets, CA certs).
 - **One documented exception — machine images.** A non-distroless lane exists for
   full dev-environment containers booted by `systemd-nspawn`/`machinectl` (e.g.
-  `brew`): a rootfs `.tar.gz`, with shell/init/locale kept and the SLIM recipe NOT
+  `brew`): a rootfs `.tar.zst`, with shell/init/locale kept and the SLIM recipe NOT
   applied. This is deliberate and scoped — see
   [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Do not
   generalise it to the OCI images.
@@ -63,9 +63,9 @@ just tags       # show FSDK-derived tags
 ## Versioning
 
 The version axis is the **FSDK release**, parsed from the pinned junction ref in
-`elements/freedesktop-sdk.bst`: `:25.08` (FSDK minor line — the most rolling
-tag published; there is deliberately no `:latest`), `:25.08.13` (point
-release, immutable). Every image self-declares its base via
+`elements/freedesktop-sdk.bst`: `:26.08` (FSDK minor line — the most rolling
+tag published; there is deliberately no `:latest`), `:26.08beta.3` (point
+release or pre-release, immutable). Every image self-declares its base via
 `io.projectbluefin.fsdk.version` and `io.projectbluefin.fsdk.ref` labels. Follow
 the FSDK lifecycle — see [docs/skills/bump-fsdk-version.md](docs/skills/bump-fsdk-version.md).
 
@@ -86,3 +86,21 @@ Every session produces two outputs:
 
 Output 1 without Output 2 leaves the project no smarter. Before handoff, update or
 add the relevant skill file. See [docs/skills/skill-improvement.md](docs/skills/skill-improvement.md).
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `projectbluefin/fsdk-containers`, via the `gh` CLI.
+See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Mapped onto this repo's existing numbered label workflow (`1-triage`,
+`2-discussing`, `3-clanker-queue`, `3-human-queue`) rather than the canonical
+skill names. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily by
+`/domain-modeling`. See [docs/agents/domain.md](docs/agents/domain.md).
