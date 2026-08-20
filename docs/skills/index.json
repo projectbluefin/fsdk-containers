@@ -70,7 +70,7 @@
         "tags"
       ],
       "description": "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.",
-      "version": "1.1",
+      "version": "1.2",
       "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
@@ -130,6 +130,26 @@
       "description": "Guide for developers and agents to configure custom BuildStream builds and cache servers, including GHA caching.",
       "version": "1.0",
       "last_updated": "2026-08-20",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "go-module-source",
+      "name": "go-module-source",
+      "one_line_purpose": "Build Go projects from source with the go_module plugin \u2014 vendored deps, no network at build time.",
+      "entry_point": "docs/skills/go-module-source.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "go",
+        "go_module",
+        "vendoring",
+        "source-plugin",
+        "provenance",
+        "catalog"
+      ],
+      "description": "The proven recipe for the buildstream-plugins-community go_module source plugin: YAML shape, bst source track workflow, the modules.txt/replace trap, RE-grid env (GOROOT triplet), and vanity-import workarounds. Use when adding any Go-based catalog element.",
+      "version": "1.0",
+      "last_updated": "2026-08-09",
       "doc_type": "procedure"
     },
     {
