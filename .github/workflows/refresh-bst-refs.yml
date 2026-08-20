@@ -75,7 +75,7 @@ jobs:
           fi
           # `bst` addresses elements relative to element-path (elements/), not the repo root.
           ELEMENTS=()
-          for f in "${FILES[@]"; do
+          for f in "${FILES[@]}"; do
             [ "$f" = "elements/freedesktop-sdk.bst" ] && continue
             ELEMENTS+=("${f#elements/}")
           done
