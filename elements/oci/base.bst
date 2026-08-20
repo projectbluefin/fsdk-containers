@@ -1,6 +1,11 @@
 kind: script
 
 build-depends:
+  # FSDK 26.08 removed the shell from runtime-minimal, so the script
+  # sandbox no longer gets /bin/sh implicitly. The SLIM recipe is a
+  # shell script, so declare its interpreter explicitly.
+  - freedesktop-sdk.bst:bootstrap/bash.bst
+  - freedesktop-sdk.bst:bootstrap/coreutils.bst
   - freedesktop-sdk.bst:components/oci-builder.bst
   - base/base-init-script.bst
   - filename: base/base-runtime.bst
@@ -21,7 +26,7 @@ config:
     #
     # FSDK split-rule domains only cover devel/debug/doc/sysconf/tests/
     # shells/static-blocklist/license/locale/vm-only/zoneinfo. They do NOT
-    # cover the largest runtime-domain bloat (terminfo, gconv charset
+    # cover the largest runtime-domain bloat (gconv charset
     # modules, gcc sanitizer/fortran runtimes, glibc locale-archive,
     # build-time tools). Those are removed explicitly here, same pattern as
     # the bash removal. Cuts the base rootfs roughly in half (~73M -> ~45M)

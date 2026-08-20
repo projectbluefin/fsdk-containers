@@ -1,5 +1,16 @@
 ---
 name: skill-improvement
+version: "1.0"
+last_updated: 2026-08-08
+id: skill-improvement
+one_line_purpose: Capture every session learning back into docs/skills before handoff.
+entry_point: docs/skills/skill-improvement.md
+category: meta
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [meta, skills, documentation, process]
 description: "The skill-improvement mandate for fsdk-containers. Every session produces work + a skill update. Use when finishing any task, deciding whether a learning belongs in docs/skills, or verifying the work+learning loop before handoff."
 metadata:
   type: procedure

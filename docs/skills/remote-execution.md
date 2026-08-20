@@ -1,14 +1,19 @@
 ---
 name: remote-execution
-description: >
-  How local/agent BuildStream builds in this repo are submitted to the ghost
-  cluster's BuildBarn remote-execution grid instead of running on the local
-  machine. Use when running `just build`/`just bst`, debugging RE failures,
-  or deciding when local execution is acceptable.
+version: "1.0"
+last_updated: 2026-08-08
+id: remote-execution
+one_line_purpose: Run BuildStream builds on the ghost cluster BuildBarn remote-execution grid.
+entry_point: docs/skills/remote-execution.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [buildstream, remote-execution, buildbarn, cluster]
+description: "How local/agent BuildStream builds in this repo are submitted to the ghost cluster's BuildBarn remote-execution grid instead of running on the local machine. Use when running `just build`/`just bst`, debugging RE failures, or deciding when local..."
 metadata:
   type: runbook
-  context7-sources:
-    - /apache/buildstream
 ---
 
 # BuildStream Remote Execution on the Ghost Cluster
@@ -24,7 +29,7 @@ metadata:
 ## When NOT to Use
 
 - CI workflow debugging — CI is deliberately local-execution (see
-  [ci-tooling.md](ci-tooling.md))
+  [ci-tooling/SKILL.md](ci-tooling/SKILL.md))
 - Cache-server (pull-cache) configuration — see
   [custom-builds-and-caching.md](custom-builds-and-caching.md); RE and
   artifact caching are separate mechanisms

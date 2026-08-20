@@ -1,9 +1,19 @@
 ---
 name: donate-clanker-vm-artifacts
-description: Build the bootable donate-clanker VM guest from the FSDK VM graph.
+version: "1.0"
+last_updated: 2026-08-08
+id: donate-clanker-vm-artifacts
+one_line_purpose: Build the bootable donate-clanker VM guest disk from the FSDK VM graph.
+entry_point: docs/skills/donate-clanker-vm-artifacts.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [vm, buildstream, disk-image, donate-clanker]
+description: "Build the bootable donate-clanker VM guest from the FSDK VM graph."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: runbook
 ---
 
 # Donate-clanker VM artifacts
@@ -38,7 +48,7 @@ donate-clanker-vm-<fsdk-version>-<arch>.raw.sha256
 
 The release assets are the zstd-compressed disks, not the raw install-root
 files: a GitHub Release asset must be under 2 GiB and the raw disk is larger.
-See "Release asset contract" in docs/skills/vm-podman-guest.md.
+See "Release asset contract" in docs/skills/vm-podman-guest/SKILL.md.
 
 `podman-vm/podman-vm-efi.bst` assembles the full rootfs plus EFI tree with
 `genimage` and copies the resulting raw GPT disk to the install root. QEMU
@@ -54,7 +64,7 @@ validates it, encodes a version-2 `control_ack`, keeps credentials in memory,
 and execs `/usr/libexec/donate-clanker-worker` with the `HIVE_*`/`AGENT_*`/
 `GOOSE_*` names that worker actually reads. Both schemas belong to
 donate-clanker -- see "Guest bootstrap contract" in
-docs/skills/vm-podman-guest.md before touching either end.
+docs/skills/vm-podman-guest/SKILL.md before touching either end.
 
 The EFI tree is staged separately from the root filesystem. Before `genimage`
 copies it into the disk, `podman-vm-efi.bst` rewrites each loader entry's
