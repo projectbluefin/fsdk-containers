@@ -56,3 +56,9 @@ depends:
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
   - lab-runner/nginx.bst
+  # Image inspection: downstream review's landing agent verifies published
+  # tags with `skopeo inspect docker://<image>:stable` (issue #164). Depend
+  # on the catalog's skopeo stack rather than relisting its components so
+  # the dependency bundle (containers-common, gpgme, libassuan, sqlite,
+  # libgpg-error, glib) stays maintained in exactly one place.
+  - skopeo/skopeo-stack.bst
