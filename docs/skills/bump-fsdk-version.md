@@ -1,7 +1,7 @@
 ---
 name: bump-fsdk-version
-version: "1.1"
-last_updated: 2026-08-09
+version: "1.2"
+last_updated: 2026-08-20
 id: bump-fsdk-version
 one_line_purpose: Move the project to a new freedesktop-sdk release and refresh derived tags.
 entry_point: docs/skills/bump-fsdk-version.md
@@ -84,7 +84,7 @@ Before merging a bump:
 - [ ] If the bump crosses a minor line, `track:` was moved to the new line too — otherwise the nightly auto-update reverts it
 - [ ] `just tags` output matches the expected `YY.MM / YY.MM.PP` pair and
       contains no `latest`
-- [ ] Both CAS-config patches (`0001`, `0002`) applied cleanly (no patch failure in `just validate`)
+- [ ] The CAS-config patch (`0001`, GNOME CAS servers) applied cleanly (no patch failure in `just validate`)
 - [ ] `just build && just verify` — size ceiling, all gates, and the smoke test pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
@@ -118,11 +118,13 @@ Before merging a bump:
   resolve.
 - A point-release tag is immutable: once `:25.08.13` is published, never republish
   different bits under it.
-- **Only the systemd-* overrides and two CAS-config patches remain.** When Dakota
-  syncs a new FSDK pin, check whether `patches/freedesktop-sdk/0001` and `0002`
-  (CAS limits + GNOME CAS servers) still apply cleanly. All other dakota patches
-  (openssh, lvm2, pipewire, cross-compilers, frei0r, kernel-v3) were stripped
-  because this repo never builds those components.
+- **Only one CAS-config patch remains.** FSDK 26.08rc.1 absorbed the old `0001`
+  CAS-limits patch (upstream `project.conf` now sets `retry-limit`/`retry-delay`/
+  `request-timeout` itself), so `patches/freedesktop-sdk/` carries only `0001`
+  (GNOME CAS servers). When Dakota syncs a new FSDK pin, check whether it still
+  applies cleanly — if upstream adds `gbm.gnome.org:11003` natively, drop it too.
+  All other dakota patches (openssh, lvm2, pipewire, cross-compilers, frei0r,
+  kernel-v3) were stripped because this repo never builds those components.
 - **Junction overrides are only meaningful for components your local elements
   reference directly.** The 25 GNOME sdk/* overrides (cairo, gtk3, pango, glib,
   gdk-pixbuf…) were dead weight — none of our `base-stack`, `brew-deps` etc. ever
