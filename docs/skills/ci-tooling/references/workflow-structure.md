@@ -39,15 +39,14 @@ Supporting workflows, none of which touch publication:
 | `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per architecture (x86_64 + aarch64) for that one image: build + verify + tag-push |
 | `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
 | `publish-smoke` (`oci-images.yml`) | after `manifest` succeeds | native-runner pull of each architecture tag, OCI-config smoke execution, manifest signature verification, and SBOM referrer discovery |
-| `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the raw disk + QCOW2 + checksums + SBOM as GitHub Release assets and attests them |
+| `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the zstd-compressed disks (`.raw.zst`, `.qcow2.zst`) + checksum sidecars + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
 The **canonical manifest** for the OCI image lane is `elements/targets.json`
-(`oci_images` list). Adding a package means adding one entry there — `just
-image-list`/`just image-matrix` are the only places that read it, and
-`build.yml`'s `matrix` job, `just validate`, and `just sbom`/`sboms` all
-derive their image lists from it. Nothing else hand-maintains a copy of the
-image list.
+(`oci_images` list). Adding a package means adding one entry there —
+`build.yml`'s `matrix` job reads it directly, and `just image-list`/
+`image-matrix`/`validate`/`sbom`/`sboms` all derive their image lists from it.
+Nothing else hand-maintains a copy of the image list.
 
 `repository_dispatch` (used by the automated FSDK bump PR check) is
 **verification-only**: it checks out the payload branch and runs both native
@@ -105,7 +104,7 @@ jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-wor
 `.github/workflows/brew-nspawn.yml`; it runs `just verify-brew` without
 requiring a systemd host. `podman-vm` (bootable VM disk) is
 deliberately excluded from the OCI publishing matrix — see
-docs/skills/vm-podman-guest.md for the VM guest's own build/test/publish
+[vm-podman-guest](../../vm-podman-guest/SKILL.md) for the VM guest's own build/test/publish
 pipeline.
 
 ### The pull-request build gate
@@ -196,28 +195,30 @@ publish pipeline attached with `oras discover --format json` (`.referrers[]`,
 not `.manifests[]`), pulls it, and scans that. It reports; it never gates — a
 CVE in an FSDK component is fixed by bumping FSDK, not by failing this repo.
 
-### Required repository settings (admin, not in git)
+### Repository settings that make the gate real (admin, not in git)
 
-The build gate only helps if merges are blocked when it fails, and `main`
-currently has **no branch protection at all** (`GET /branches/main/protection`
-returns 404). A repo admin needs to configure, once:
+Branch protection on `main` (verify: `gh api
+repos/projectbluefin/fsdk-containers/branches/main/protection`):
 
-- Require a pull request before merging, with at least one approving review.
-- Require status checks to pass, and mark these required:
-  `validate`, `changed-targets`, `actionlint`, and the gate jobs
-  (`pr-build-oci` / `pr-build-vm-guest` — both are skipped, and therefore
-  green, when the diff does not affect them).
-- Require branches to be up to date before merging (so the gate runs against
-  what will actually land).
-- Require linear history; block force pushes and deletions on `main`.
+- Required status checks: **`validate` and `changed-targets` only** — the PR
+  build jobs (`pr-build-oci`/`pr-build-vm-guest`) are *not* required (they are
+  path-scoped and would wedge PRs that skip them), so a red gate job does not
+  block the merge button. Read the full rollup before merging.
+- **Strict mode**: the head branch must be up to date with `main`, so every
+  merge invalidates the remaining queue — update-branch → checks → merge,
+  serially. There is no merge queue and repo-level auto-merge is off.
+- **`enforce_admins` is on**: `--admin` does not bypass anything.
+- Reviews: 0 approvals required, but a changes-requested review from a writer
+  blocks merging, and approvals dismiss stale on new pushes.
+- Squash merges only; force pushes disabled on `main`.
 
-A merge queue is optional here. If one is enabled, note the caveat from
-`projectbluefin/actions`' `reusable-renovate-automerge.yml`: queue entries
-created by `github-actions[bot]` never dispatch required checks, so the queue
-wedges unless the merge is performed with an app token.
-
-Until protection exists, treat the gate as advisory: it will still turn a PR
-red, but nothing stops a merge.
+Two merge-time gotchas observed in practice: right after
+`PUT /pulls/N/update-branch` the PR's check rollup still shows the *old*
+head's results for ~a minute (require green twice ~30s apart before merging),
+and some branches (forks, bot pushes) land their workflow runs in
+`action_required` — visible as zero check runs on the head commit — until a
+maintainer approves them (`POST /actions/runs/<id>/approve`;
+`gh run approve` prompts interactively, the API does not).
 
 ### Point-release tag immutability
 
@@ -240,7 +241,7 @@ up: there is no rolling equivalent at all (GitHub Release assets
 are inherently tied to their tag), and `just publish-podman-vm` guards
 re-uploads with a `gh release view --json assets` existence check, skipping
 an asset name that's already published on that tag instead of overwriting
-it. See docs/skills/vm-podman-guest.md.
+it. See [vm-podman-guest](../../vm-podman-guest/SKILL.md).
 
 Set `fail-fast: false` on image and architecture matrices to prevent a single
 container build failure from canceling unrelated container builds.

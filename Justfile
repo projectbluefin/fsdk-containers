@@ -52,7 +52,7 @@ bst *ARGS:
     # pinned ref) so BuildStream elements can consume the exact point
     # release via `(@): include/fsdk-version.yml` without re-parsing it
     # independently. Gitignored; never hand-edited. See
-    # docs/skills/vm-podman-guest.md.
+    # docs/skills/vm-podman-guest/SKILL.md.
     cat > include/fsdk-version.yml <<'EOF'
     fsdk-version: "{{fsdk_version}}"
     EOF
@@ -481,7 +481,7 @@ verify:
 
 # -- Donate-clanker VM guest disk image --------------------------------------
 # Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
-# docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
+# docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
@@ -540,7 +540,7 @@ export-podman-vm-qcow2: export-podman-vm
 #   donate-clanker-vm-<version>-<arch>.raw.sha256      (verifies the disk after
 #                                                       decompression)
 # and the same three names for .qcow2 when a QCOW2 was exported. This is the
-# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest.md.
+# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest/SKILL.md.
 [group('vm')]
 compress-podman-vm:
     #!/usr/bin/env bash
@@ -563,7 +563,7 @@ compress-podman-vm:
 # Publish this architecture's VM guest assets to the current FSDK
 # point-release tag (vX.Y.Z) as an all-or-nothing transaction.
 #
-# Publication is per architecture by design (see docs/skills/ci-tooling.md,
+# Publication is per architecture by design (see docs/skills/ci-tooling/SKILL.md,
 # "Independent architecture asset publication"), so the unit of atomicity is
 # one architecture's complete asset set: the compressed disks, their download
 # checksums, the decompressed-disk checksums, and the SBOM. The rules:
@@ -585,11 +585,11 @@ compress-podman-vm:
 # Operates on whatever is already in dist-vm/ (from `just export-podman-vm`,
 # `just export-podman-vm-qcow2`, and `just compress-podman-vm`) rather than
 # forcing a rebuild. Never publishes a mutable "latest" URL for launcher
-# consumption -- see docs/skills/vm-podman-guest.md. Requires `gh`
+# consumption -- see docs/skills/vm-podman-guest/SKILL.md. Requires `gh`
 # authenticated with `contents: write` on THIS repo (the workflow's default
 # GITHUB_TOKEN is sufficient -- this is a same-repo release upload, not a
 # cross-repo write, so the org's PAT ban / Mergeraptor requirement does not
-# apply; see docs/skills/ci-tooling.md).
+# apply; see docs/skills/ci-tooling/SKILL.md).
 [group('vm')]
 publish-podman-vm:
     #!/usr/bin/env bash
