@@ -45,7 +45,8 @@ log): the 25.08-era rewrite loop found no entries, silently did nothing, and
 the initrd waited on FSDK's namespace UUID forever. `podman-vm-efi.bst` now
 patches whichever layout is staged and fails the build if it finds neither.
 The login prompt then proves the real root userspace came up. On failure the captured serial log is printed
-to stdout, so a CI failure is diagnosable without downloading an artifact.
+to stderr and uploaded as an artifact by the composite action, so a CI failure
+is diagnosable without downloading anything.
 
 The bootstrap virtio-serial port is wired anyway, so the guest boots against
 the device topology donate-clanker gives it. Nothing is written to it: the

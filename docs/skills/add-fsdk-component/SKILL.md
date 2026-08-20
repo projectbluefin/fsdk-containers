@@ -1,7 +1,7 @@
 ---
 name: add-fsdk-component
-version: "1.0"
-last_updated: 2026-08-08
+version: "1.1"
+last_updated: 2026-08-20
 id: add-fsdk-component
 one_line_purpose: Add an FSDK component and stack element without building an OCI image.
 entry_point: docs/skills/add-fsdk-component/SKILL.md
@@ -25,140 +25,119 @@ its stack, but explicitly *not* an OCI image (`elements/oci/*.bst`) — e.g. a
 piece that a later VM/appliance task will consume. For the full three-element
 OCI image pattern, see [add-new-image.md](../add-new-image.md) instead.
 
-Worked example in this repo: `elements/cloud-init/` (cloud-init 26.2, built
-for a cloud-image lane that needs the NoCloud datasource).
+Live examples: `elements/qemu-img/` (meson), `elements/lab-runner/*.bst`
+(tar/binary manual elements).
 
 ## 1. Research with Context7 first
 
-Resolve the upstream project's *current* build system and packaging docs
-before picking versions or dependency elements — build systems change
-between major versions (cloud-init switched from setuptools/distutils to
-Meson in 25.3; guessing from stale blog posts/READMEs would have produced a
-broken element). Don't stop at `requirements.txt`: verify which imports are
-actually hard/unconditional vs. optional (try/except or lazily imported) by
-reading the upstream source directly, scoped to the datasource/distro path
-your task actually needs. For cloud-init + NoCloud + a generic/Debian-like
-distro: `jinja2`, `pyyaml`, `requests`, and `jsonpatch` (+ its own
-`jsonpointer` dependency) are mandatory; `configobj`, `oauthlib`, and
-`jsonschema` are not (distro-specific modules, lazy MAAS-only import, and a
-try/except-guarded schema-validation extra, respectively).
+Resolve the upstream project's *current* build-system and packaging docs
+before picking versions or dependency elements — build systems change between
+major versions. Don't stop at the dependency manifest: verify which imports
+are hard vs. optional (try/except, lazy) by reading upstream source, scoped to
+the feature path your task needs.
 
 ## 2. Element kind: `manual` only
 
 This project's `project.conf` does **not** register the `meson` or
-`pyproject` BuildStream element kinds (those only exist inside
-freedesktop-sdk's own internal project). Every hand-authored element here
-must use `kind: manual` with hand-written shell commands — see
-`elements/qemu-img/qemu-img.bst` and `elements/cloud-init/cloud-init.bst` for
-the pattern (meson invoked directly: `meson setup` / `ninja` / `meson
-install`, or `python3 -m build` / `python3 -m installer` for pure-Python
-deps with only a legacy `setup.py`, no `pyproject.toml`).
+`pyproject` element kinds (those live inside freedesktop-sdk's own project).
+Every hand-authored element here uses `kind: manual` with hand-written shell —
+see `elements/qemu-img/qemu-img.bst` (invokes `meson setup`/`ninja`/`meson
+install` directly).
 
-A bare `kind: manual` element with no/minimal `build-depends` has **no
-shell** in its sandbox — `mkdir`, `cat`, etc. fail with "Staged artifacts do
-not provide command 'sh'". Add
-`freedesktop-sdk.bst:public-stacks/runtime-minimal.bst` (bash + coreutils +
-glibc) to `build-depends` if the element needs to run shell commands beyond
-invoking a single prebuilt tool.
+A bare `kind: manual` element with minimal `build-depends` has **no shell** in
+its sandbox — `mkdir`, `cat`, etc. fail with "Staged artifacts do not provide
+command 'sh'". Add a shell stack (e.g.
+`freedesktop-sdk.bst:public-stacks/runtime-minimal.bst`; on FSDK 26.08 bash
+moved, so check which stack provides it — `elements/brew/brew-prefix.bst`
+stages `runtime-gnu` + `runtime-minimal` for this reason) to `build-depends`.
 
-## 3. Dependency type is not just "does it need to be there" — it's *when*
+## 3. Dependency type is *when*, not just *whether*
 
-This is the single easiest mistake to make and it fails silently with a
-confusing downstream error (e.g. `ModuleNotFoundError` deep inside a
-build-time script, not a clear "dependency missing" message):
+The single easiest mistake; it fails silently with a confusing downstream
+error (e.g. `ModuleNotFoundError` deep inside a build-time script):
 
-- `build-depends` — staged **only** while building *this* element. Not
-  passed on to anything that later depends on this element.
-- `runtime-depends` — the opposite: **not staged during this element's own
-  build**, only required by/visible to elements that depend on *this*
-  element at their runtime. If your own `install-commands`/`build-commands`
-  invoke a tool that imports something, listing that something under
-  `runtime-depends` will NOT make it available — it must be `build-depends`
-  or plain `depends`.
-- `depends` (no `type:`, or `type: all`) — staged for building this element
-  **and** required at runtime by anything that depends on it. Use this for
-  anything needed both to build and to run (e.g. cloud-init needs
-  `jinja2`/`pyyaml`/`requests`/`jsonpatch` both to render its systemd unit
-  templates at *install* time via `tools/render-template`, and to actually
-  run at cloud-init runtime — so all of them are `depends`, not
-  `runtime-depends`).
+- `build-depends` — staged **only** while building *this* element.
+- `runtime-depends` — **not staged during this element's own build**, only
+  visible to elements that depend on this one. A tool your own build commands
+  invoke must NOT be listed here.
+- `depends` (or `type: all`) — staged for this build **and** propagated to
+  dependents' runtime. Use for anything needed both to build and to run.
 
-Symptom of getting this wrong: `cloud-init.bst` initially listed jinja2 etc.
-under `runtime-depends`; the Meson build got past configure and most of
-ninja, then failed with `ModuleNotFoundError: No module named 'jinja2'`
-while rendering `cloud-init-local.service` via `tools/render-template` — the
-dependency existed and was correctly built, it just was never staged into
-*this* element's own sandbox. Switching to plain `depends:` fixed it
-immediately, no other changes required.
+Symptom: build passes configure and most of compile, then dies on a missing
+module/tool while rendering/installing — the dep exists and built fine, it was
+just never staged into *this* sandbox. Fix: move it to `depends`.
 
-## 4. Avoid forcing an expensive, uncached component just for pkg-config metadata
+## 4. Don't force an expensive component for pkg-config metadata
 
-If your build only needs a `dependency('foo')` pkg-config lookup for a
-handful of path variables (not to actually link/use the library), and no
-other element in this repo already build-depends on that FSDK component
-(cold shared-cache path), building it can be wildly disproportionate. Case
-in point: `freedesktop-sdk.bst:components/systemd.bst` pulls in a
-large transitive closure (lvm2, cryptsetup, kbd, tpm2-tss, ...) and nothing
-else here forces it, so it triggered a full from-scratch build just to
-answer `systemdsystemunitdir`/`systemdsystemgeneratordir`/`udevdir`.
+If a build only needs `dependency('foo')` for a few path variables (not to
+link), and nothing else here already build-depends on that FSDK component,
+building it can be wildly disproportionate (e.g. `components/systemd.bst`
+pulls lvm2/cryptsetup/tpm2-tss just to answer `systemdsystemunitdir`).
 
-Workaround used by `elements/cloud-init/systemd-unitdir-pkgconfig.bst`: hand
--author a tiny build-depends-only shim element that writes minimal
-`.pc` files with values taken verbatim from the upstream project's *actual*
-`.pc.in` templates (not guessed) evaluated at this repo's `prefix=/usr`
-convention, then point `PKG_CONFIG_PATH` at it via the consuming element's
-`environment:` block. Document the shim clearly as build-time-only and
-revisit if the real component ever becomes cheap to build here (e.g.
-another element starts depending on it for real).
+Pattern: a tiny build-depends-only shim element that writes minimal `.pc`
+files with values taken verbatim from upstream's actual `.pc.in` templates,
+evaluated at this repo's `prefix=/usr`; point `PKG_CONFIG_PATH` at it via the
+consumer's `environment:`. Document it as build-time-only and revisit if the
+real component becomes cheap. (First used by the since-removed
+`cloud-init/systemd-unitdir-pkgconfig.bst` — see git history for the shape.)
 
 ## 5. Track, fetch, build, verify
 
 ```
-just bst source track cloud-init/cloud-init.bst   # writes the real `ref:` (git-describe form)
-just bst source fetch cloud-init/cloud-init.bst
-just bst build cloud-init/cloud-init.bst
-just bst artifact checkout cloud-init/cloud-init.bst --directory <dir>
+just bst source track <name>/<name>.bst   # writes the real `ref:`
+just bst source fetch <name>/<name>.bst
+just bst build <name>/<name>.bst
+just bst artifact checkout <name>/<name>.bst --directory <dir>
 ```
 
 Never hand-write a `git_repo` `ref:` — it's a git-describe string
-(`<tag>-<N>-g<sha>`), not a plain tag or commit SHA; always generate it via
-`source track`.
+(`<tag>-<N>-g<sha>`), always generate via `source track`.
 
-To confirm a build-only shim never leaks into the runtime closure of the
-stack:
+Confirm a build-only shim never leaks into the runtime closure:
 
 ```
-just bst show --deps run cloud-init/cloud-init-stack.bst | grep <shim-element>   # expect no match
+just bst show --deps run <name>/<name>-stack.bst | grep <shim>   # expect no match
 ```
 
 ## 6. Manual-element failure modes that look like something else
 
-Every one of these was found in a single session, in `elements/lab-runner/*`,
-and none of them says what it means. Recognise them by their error text:
+All found in `elements/lab-runner/*`; none says what it means:
 
 | Error | Real cause | Fix |
 |---|---|---|
-| `tar: X: Cannot change ownership to uid N, gid N: Invalid argument`, then `tar: Exiting with failure status` | The release tarball records a build-machine uid/gid. The sandbox cannot restore it, so `tar` exits non-zero even though the member extracted correctly. | `tar -xzf archive.tar.gz --no-same-owner member` |
-| `gzip: X.gz has 1 other link -- file ignored` (exit 2) | `gunzip` rewrites in place, and BuildStream may stage the source as a hardlink. | `gunzip -c X.gz > X` — never decompress a staged source in place |
-| `cc: fatal error: no input files` together with `sh: sed: command not found` | A configure script that shells out to `sed`/`grep`/`awk` *without checking for them*, generating a Makefile with an empty object list. The link failure is the symptom; the missing tool is the cause. | Declare every tool the build runs in `build-depends` (`components/sed.bst`, `components/grep.bst`, `components/gawk.bst`, `bootstrap/coreutils.bst`) |
-| `FAILURE Staging dependencies` / `Destination is a symlink, not a directory: /usr/sbin` | freedesktop-sdk is a merged-usr sysroot: `/usr/sbin`, `/bin`, `/lib` are symlinks. An element that installs a *real* directory there cannot be staged. | Install into `/usr/bin` (e.g. autotools `--sbin-path=/usr/bin/foo`) |
+| `tar: X: Cannot change ownership to uid N, gid N: Invalid argument` | Release tarball records a build-machine uid/gid the sandbox cannot restore. | `tar -xzf archive.tar.gz --no-same-owner member` |
+| `gzip: X.gz has 1 other link -- file ignored` (exit 2) | `gunzip` rewrites in place; BuildStream may stage the source as a hardlink. | `gunzip -c X.gz > X` — never decompress a staged source in place |
+| `cc: fatal error: no input files` + earlier `sh: sed: command not found` | configure shells out to `sed`/`grep`/`awk` unchecked; the link failure is the symptom. | Declare every tool in `build-depends` (`components/sed.bst`, `grep.bst`, `gawk.bst`, ...) |
+| `FAILURE Staging dependencies` / `Destination is a symlink, not a directory: /usr/sbin` | FSDK is merged-usr: `/usr/sbin`, `/bin`, `/lib` are symlinks; a real directory there cannot stage. | Install into `/usr/bin` (autotools: `--sbin-path=/usr/bin/foo`) |
 
-The general rule behind all four: **a manual element's sandbox contains only
-what you declared**, and the tools it lacks usually fail silently before the
-step that actually reports an error. When a build fails at link or staging
-time, read upward in the log for a `command not found` first.
+General rule: **a manual element's sandbox contains only what you declared**;
+missing tools fail silently before the step that reports the error. On a
+link/staging failure, read upward for a `command not found` first.
 
-Verify a fix against the real thing, not the graph:
+`just validate` resolves the graph and passes for all four — verify against
+the real build:
 
 ```
-just bst build lab-runner/nginx.bst          # the element alone
-just bst build lab-runner/lab-runner-runtime.bst   # its staging into the compose
-BUILD_IMAGE_NAME=lab-runner just build && BUILD_IMAGE_NAME=lab-runner just verify
+just bst build <name>/<name>.bst && just bst build <name>/<name>-runtime.bst
 ```
 
-`just validate` resolves the graph and would have passed for all four.
+## 7. Validate installed payloads by importing them (not grepping config)
 
-## Reference material
+A config-text check can pass while a hard-imported dependency is still
+missing — the failure only shows on first real import. Catch it at build
+time, inside the element's own sandbox where both the just-installed tree and
+its staged dependencies are present:
 
-- [`references/cloud-init.md`](references/cloud-init.md) — Adding an FSDK Component — cloud-init specifics
-- [`references/validation.md`](references/validation.md) — Adding an FSDK Component — validation recipes
+```yaml
+install-commands:
+- |
+  env DESTDIR="%{install-root}" meson install -C %{build-dir} --no-rebuild
+- |
+  site_packages="$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib"))')"
+  PYTHONPATH="%{install-root}${site_packages}" python3 -c "import importlib; importlib.import_module('<module>')"
+```
+
+`PYTHONPATH` points at `%{install-root}`'s site-packages (where the package's
+own files just landed); its dependencies are already on the default
+`sys.path` because they were staged at the sandbox root via
+`depends`/`build-depends`.

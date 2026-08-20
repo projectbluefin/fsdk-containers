@@ -1,7 +1,7 @@
 ---
 name: vm-podman-guest
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: vm-podman-guest
 one_line_purpose: Build, boot-test and publish the podman VM guest image.
 entry_point: docs/skills/vm-podman-guest/SKILL.md

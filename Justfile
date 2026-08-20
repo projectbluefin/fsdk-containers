@@ -52,7 +52,7 @@ bst *ARGS:
     # pinned ref) so BuildStream elements can consume the exact point
     # release via `(@): include/fsdk-version.yml` without re-parsing it
     # independently. Gitignored; never hand-edited. See
-    # docs/skills/vm-podman-guest.md.
+    # docs/skills/vm-podman-guest/SKILL.md.
     cat > include/fsdk-version.yml <<'EOF'
     fsdk-version: "{{fsdk_version}}"
     EOF
@@ -379,12 +379,12 @@ verify:
         echo "OK: shellcheck, hadolint, and actionlint present"
 
         echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file bwrap; do
+        for tool in which xargs awk ps tar diff patch less file gzip bwrap; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and bwrap present"
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, gzip, and bwrap present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         # x/xterm-ghostty is not in ncurses (upstream names the entry
@@ -465,18 +465,26 @@ verify:
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # tar --version passing does not prove tar can read .tar.gz: GNU tar
+        # execs gzip as a child process for the codec, so this only fails if
+        # gzip is missing or broken (the exact regression from issue #87).
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && echo hi > \"\$d/f\" && tar -czf \"\$d/f.tar.gz\" -C \"\$d\" f && tar -xzf \"\$d/f.tar.gz\" -C \"\$d\" && rm -rf \"\$d\"" >/dev/null; then
+            echo "FAIL: lab-runner cannot create/extract .tar.gz — gzip missing or broken"; exit 1
         fi
         # projectbluefin/review sandboxes agent commands with
         # `bwrap --ro-bind / / true` (read-only root, private /tmp) inside a
         # rootless podman run of this image (issue #109). `bwrap --version`
         # passing does not prove sandboxing works: nested bwrap needs
         # unprivileged user namespaces to be usable from inside this
-        # container, so probe review's exact command. A verify host that
-        # forbids unprivileged userns fails here loudly — that is the
-        # contract review relies on.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "bwrap --ro-bind / / true" >/dev/null; then
+        # container, so probe review's exact command. The probe adds
+        # --cap-add SYS_ADMIN because the verify container's own outer
+        # runtime (rootful podman, default cap set) denies nested userns
+        # creation otherwise — the gate proves the image's bwrap works, not
+        # the outer runtime's default confinement.
+        if ! {{sudo_cmd}} podman run --rm --cap-add SYS_ADMIN "$REF" -c "bwrap --ro-bind / / true" >/dev/null; then
             echo "FAIL: lab-runner bwrap cannot create a sandbox (bwrap --ro-bind / / true failed)"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
@@ -486,7 +494,7 @@ verify:
 
 # -- Donate-clanker VM guest disk image --------------------------------------
 # Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
-# docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
+# docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
@@ -545,7 +553,7 @@ export-podman-vm-qcow2: export-podman-vm
 #   donate-clanker-vm-<version>-<arch>.raw.sha256      (verifies the disk after
 #                                                       decompression)
 # and the same three names for .qcow2 when a QCOW2 was exported. This is the
-# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest.md.
+# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest/SKILL.md.
 [group('vm')]
 compress-podman-vm:
     #!/usr/bin/env bash
@@ -568,7 +576,7 @@ compress-podman-vm:
 # Publish this architecture's VM guest assets to the current FSDK
 # point-release tag (vX.Y.Z) as an all-or-nothing transaction.
 #
-# Publication is per architecture by design (see docs/skills/ci-tooling.md,
+# Publication is per architecture by design (see docs/skills/ci-tooling/SKILL.md,
 # "Independent architecture asset publication"), so the unit of atomicity is
 # one architecture's complete asset set: the compressed disks, their download
 # checksums, the decompressed-disk checksums, and the SBOM. The rules:
@@ -590,11 +598,11 @@ compress-podman-vm:
 # Operates on whatever is already in dist-vm/ (from `just export-podman-vm`,
 # `just export-podman-vm-qcow2`, and `just compress-podman-vm`) rather than
 # forcing a rebuild. Never publishes a mutable "latest" URL for launcher
-# consumption -- see docs/skills/vm-podman-guest.md. Requires `gh`
+# consumption -- see docs/skills/vm-podman-guest/SKILL.md. Requires `gh`
 # authenticated with `contents: write` on THIS repo (the workflow's default
 # GITHUB_TOKEN is sufficient -- this is a same-repo release upload, not a
 # cross-repo write, so the org's PAT ban / Mergeraptor requirement does not
-# apply; see docs/skills/ci-tooling.md).
+# apply; see docs/skills/ci-tooling/SKILL.md).
 [group('vm')]
 publish-podman-vm:
     #!/usr/bin/env bash

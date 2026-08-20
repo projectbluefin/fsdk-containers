@@ -1,7 +1,7 @@
 ---
 name: container-standards
-version: "1.1"
-last_updated: 2026-08-09
+version: "1.2"
+last_updated: 2026-08-20
 id: container-standards
 one_line_purpose: Define the build, verification and tagging standard every image must meet.
 entry_point: docs/skills/container-standards.md
@@ -32,15 +32,17 @@ metadata:
 
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). Shell-enabled images explicitly pull the staged FSDK shell stack.
-- **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
-- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. It must additionally ship `bubblewrap` (`bwrap`): projectbluefin/review's worktree-guard wrapper sandboxes agent commands with `bwrap --ro-bind / / true` (read-only root, writable worktree bind, private /tmp) when bwrap is available and silently degrades to worktree-only isolation when it is not (issue #109). Rootless nested sandboxing needs unprivileged user namespaces, so shipping the binary is not sufficient — `just verify` probes the exact command inside the container. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`, `bubblewrap`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
+- **Minimal footprint:** Images must remain slim. `just verify` enforces per-image **uncompressed** size ceilings (64–512 MiB by image; the `MAX_BYTES` cases in the Justfile). All non-runtime development artifacts, compilers, and test suites must be pruned.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, `file`, and `gzip` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. `gzip` in particular is not optional alongside `tar`: GNU tar execs `gzip` as a child process for `.tar.gz` streams, so `tar` being present is not sufficient to read a gzip-compressed archive — shipping `tar` without `gzip` fails `tar -xzf` with "Cannot exec: No such file or directory" even though `tar --version` works fine. It must additionally ship `bubblewrap` (`bwrap`): projectbluefin/review's worktree-guard wrapper sandboxes agent commands with `bwrap --ro-bind / / true` when bwrap is available and silently degrades to worktree-only isolation when it is not (issue #109). Rootless nested sandboxing needs unprivileged user namespaces, so shipping the binary is not sufficient — `just verify` probes the exact command inside the container. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`, `gzip`, `bubblewrap`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
 
 ---
 
 ## 2. The Verification Gates
 
 `just verify` is the merge contract. Every OCI image must pass a per-image size
-ceiling, the gates below, and a smoke test that executes the image's binary.
+ceiling, the gates below, and — for images that ship a real binary — a smoke
+test that executes it (`base`/`static` get their `/usr/bin/true` smoke only in
+the post-publish `publish-smoke` job).
 
 Distroless images (all except `lab-runner`):
 
@@ -59,8 +61,9 @@ functionally probed with `bwrap --ro-bind / / true` since review's agent
 sandboxing depends on unprivileged user namespaces working inside the
 container), and the full terminfo database present.
 
-Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
-removing it produced real colour and rendering bugs downstream.
+Terminfo is deliberately **kept** in every base-derived image: it is ~0.5 MB
+compressed, and removing it produced real colour and rendering bugs downstream.
+(`static` ships certs + tzdata only and carries no ncurses.)
 
 ### The non-root contract (decided in #120, not yet implemented)
 
@@ -81,7 +84,7 @@ level=error msg="unable to resolve HOME directory: user: unknown userid 65532"
 
 Python is quieter but still broken — `getpass.getuser()` raises `OSError`, `pwd.getpwuid()`
 raises `KeyError`, and `os.path.expanduser("~")` silently returns `/`. Anything calling
-`getpwuid` is at risk. With the entry present, every image in the catalog runs non-root.
+`getpwuid` is at risk. Once the entry is present, the image can run non-root.
 
 `/home/nonroot` is root-owned and **not writable**: the BST sandbox cannot `chown` to a UID
 (`EINVAL`). This is deliberate — a workload needing a writable home mounts an `emptyDir`. Do not
@@ -108,13 +111,21 @@ A runtime `id -u` is impossible — there is no shell to run it in.
 
 GitHub Actions are auto-updated via Renovate's built-in `github-actions` manager.
 
-BuildStream source updates must be atomic. Only git repository sources with a commit-resolving datasource may be Renovate-managed. The scoped `git-refs` manager updates `track:` and the matching commit `ref:` together:
+BuildStream source updates must be atomic. `renovate.json` has a single
+`custom.regex` manager that reads `# renovate: datasource=... depName=...`
+annotations in `.bst` files and the Justfile. For `git_repo` sources the
+annotation sits on `track:` (`datasource=github-tags`); Renovate bumps the
+tag, and the `refresh-bst-refs.yml` workflow then re-runs `bst source track`
+on the PR branch to write the matching commit `ref:`:
   ```yaml
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
-  ref: <matching commit SHA>
+  ref: <matching commit SHA>   # refreshed by CI, never hand-edited
   ```
-Archive and remote binary sources remain manual unless an authoritative upstream checksum manifest or verifiable signature can be integrated. Do not restore the old generic regex manager: a release version alone cannot identify or verify the exact archive artifact, which is why the old broad matcher was removed for [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50).
+Archive and remote binary sources pin a sha256 `ref:` and are refreshed by
+the same workflow. Do not restore the old generic regex manager: a release
+version alone cannot identify or verify the exact archive artifact, which is
+why the broad matcher was removed for [issue #50](https://github.com/projectbluefin/fsdk-containers/issues/50).
 
 ---
 
@@ -175,5 +186,5 @@ never be a hardcoded tag (and never `:latest`, which is no longer published).
 - [ ] Element validates successfully (`just validate` exits with 0).
 - [ ] Image builds and compiles cleanly (`just build`).
 - [ ] Verification test suite passes all image-specific gates (`just verify`), including the `lab-runner` CLI contract check.
-- [ ] Image uncompressed size is under ~150MB.
+- [ ] Image uncompressed size is under its `MAX_BYTES` ceiling in the `verify` recipe.
 - [ ] OCI Labels contain valid Git hashes and FSDK tags.
