@@ -379,12 +379,12 @@ verify:
         echo "OK: shellcheck, hadolint, and actionlint present"
 
         echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file; do
+        for tool in which xargs awk ps tar diff patch less file gzip; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and gzip present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         # x/xterm-ghostty is not in ncurses (upstream names the entry
@@ -465,8 +465,14 @@ verify:
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # tar --version passing does not prove tar can read .tar.gz: GNU tar
+        # execs gzip as a child process for the codec, so this only fails if
+        # gzip is missing or broken (the exact regression from issue #87).
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && echo hi > \"\$d/f\" && tar -czf \"\$d/f.tar.gz\" -C \"\$d\" f && tar -xzf \"\$d/f.tar.gz\" -C \"\$d\" && rm -rf \"\$d\"" >/dev/null; then
+            echo "FAIL: lab-runner cannot create/extract .tar.gz — gzip missing or broken"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi
