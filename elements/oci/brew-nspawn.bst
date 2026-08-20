@@ -36,6 +36,20 @@ config:
       # service users (systemd-network, etc.) from sysusers.d on first boot.
       # No grep: the assembly toolchain (runtime-minimal) has coreutils, not grep.
       mkdir -p "$L/etc" "$L/home/linuxbrew" "$L/root" "$L/sbin"
+      # Unlink before writing. Every path under $L that already exists is a
+      # *staged* file, hardlinked out of bb_worker's file pool
+      # (/var/lib/buildbarn/worker/cache). `>` truncates and rewrites the inode
+      # in place, and because runner.jsonnet chroots as uid 0 the read-only bit
+      # does not stop it -- so an in-place write corrupts the pool entry that
+      # every other build on that node hardlinks for the same digest.
+      #
+      # This is not hypothetical: FSDK ships /etc/subuid empty, so writing it in
+      # place stored 23 bytes under the *empty-file* digest and every zero-byte
+      # file staged on that worker afterwards came back as
+      # `linuxbrew:100000:65536`. It surfaced as python3 failing to import a
+      # 0-byte compression/__init__.py, on a completely unrelated image.
+      # `rm -f` breaks the link first, so the write lands on a fresh inode.
+      rm -f "$L/etc/passwd" "$L/etc/group" "$L/etc/subuid" "$L/etc/subgid"
       printf 'root:x:0:0:root:/root:/bin/bash\nlinuxbrew:x:1001:1001::/home/linuxbrew:/bin/bash\n' > "$L/etc/passwd"
       printf 'root:x:0:\nlinuxbrew:x:1001:\n' > "$L/etc/group"
       echo 'linuxbrew:100000:65536' > "$L/etc/subuid"
@@ -58,9 +72,14 @@ config:
       fi
 
       # --- machine-id: empty triggers systemd first-boot provisioning per machine ---
+      # `rm -f` first, not a bare `: >`: truncating in place would rewrite the
+      # staged file's pool inode (see the /etc/passwd block above) and store
+      # zero bytes under whatever digest the original machine-id had.
+      rm -f "$L/etc/machine-id"
       : > "$L/etc/machine-id"
 
       # --- locale: utf-locale provides C.UTF-8 (a real UTF-8 locale brew is happy with) ---
+      rm -f "$L/etc/locale.conf"
       echo 'LANG=C.UTF-8' > "$L/etc/locale.conf"
 
     - |

@@ -146,3 +146,26 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + locale
   removal) to every image without exception — see `slim-an-image.md`. (terminfo
   itself is kept, not removed — #101.)
+- **A binary can link a library you never declared.** Everything in the build
+  sandbox is linkable, so an autotools/CMake `configure` that probes for an
+  optional library will find one that arrived transitively through a *build*
+  dependency and hard-link it. The runtime image, which stages only declared
+  runtime deps, then dies at startup with
+  `error while loading shared libraries: ...`.
+
+  Measured on `nginx`: `components/gcc.bst` runtime-depends on
+  `bootstrap/libxcrypt.bst`, so `configure` found `crypt()` and the binary came
+  out `NEEDED libcrypt.so.2` — a library nothing in the runtime stack provided.
+  (`elements/lab-runner/nginx.bst` has the same link and is saved only by
+  accident, via `openssh` → `libxcrypt`.)
+
+  So after building, check the real artifact rather than trusting the element:
+
+  ```bash
+  bst artifact checkout --directory /tmp/chk <image>/<image>-runtime.bst
+  readelf -d /tmp/chk/usr/bin/<binary> | grep NEEDED
+  ```
+
+  **Every `NEEDED` entry must be provided by a declared runtime dep.** Check out
+  to `/tmp`, never into the repo. This is also the only reliable way to catch
+  the reverse problem — a declared dep the binary never actually uses.
