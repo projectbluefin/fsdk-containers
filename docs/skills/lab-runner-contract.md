@@ -55,7 +55,7 @@ Re-adding one of these requires new rationale here first.
 
 ## Size budget
 
-`just verify` enforces `MAX_BYTES=512 MiB` against `podman image inspect
+`just verify` enforces `MAX_BYTES=640 MiB` against `podman image inspect
 .Size` — **uncompressed**, not compressed. A PR that grows the image must name
 the capability gained; a PR that crosses the ceiling must raise it in the same
 commit with the measurement in the PR body.
