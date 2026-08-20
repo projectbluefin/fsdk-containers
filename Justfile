@@ -478,6 +478,7 @@ verify:
         # over the fixed payloads, so no sha256sum is needed at verify time.
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && cd \"\$d\" && mkdir -p blobs/sha256 && printf '%s' '{}' > blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}' > blobs/sha256/f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268 && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268\",\"size\":246}]}' > index.json && printf '%s' '{\"imageLayoutVersion\":\"1.0.0\"}' > oci-layout && skopeo inspect \"oci:\$d\" >/dev/null && cd / && rm -rf \"\$d\"" >/dev/null; then
             echo "FAIL: lab-runner skopeo cannot inspect a local OCI layout"; exit 1
+        fi
         # tar --version passing does not prove tar can read .tar.gz: GNU tar
         # execs gzip as a child process for the codec, so this only fails if
         # gzip is missing or broken (the exact regression from issue #87).
