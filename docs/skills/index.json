@@ -133,6 +133,24 @@
       "doc_type": "procedure"
     },
     {
+      "id": "lab-runner-contract",
+      "name": "lab-runner-contract",
+      "one_line_purpose": "Define the lab-runner tool contract that just verify enforces.",
+      "entry_point": "docs/skills/lab-runner-contract.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "lab-runner",
+        "contract",
+        "ci",
+        "tooling"
+      ],
+      "description": "The lab-runner shell-enabled capability contract \u2014 what ships, what is excluded, and the size budget. Use when adding or removing a tool in elements/lab-runner/.",
+      "version": "1.0",
+      "last_updated": "2026-08-20",
+      "doc_type": "policy"
+    },
+    {
       "id": "nspawn-machine-image",
       "name": "nspawn-machine-image",
       "one_line_purpose": "Build a non-distroless systemd-nspawn machine image rootfs from FSDK.",
