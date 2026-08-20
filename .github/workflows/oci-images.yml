@@ -28,6 +28,8 @@ concurrency:
 env:
   BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
 
+permissions: {}
+
 jobs:
   build:
     strategy:
