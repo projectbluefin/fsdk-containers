@@ -52,7 +52,7 @@ bst *ARGS:
     # pinned ref) so BuildStream elements can consume the exact point
     # release via `(@): include/fsdk-version.yml` without re-parsing it
     # independently. Gitignored; never hand-edited. See
-    # docs/skills/vm-podman-guest.md.
+    # docs/skills/vm-podman-guest/SKILL.md.
     cat > include/fsdk-version.yml <<'EOF'
     fsdk-version: "{{fsdk_version}}"
     EOF
@@ -269,6 +269,7 @@ export:
     LABEL_ARGS+=(--label "org.opencontainers.image.title={{image_name}}")
     LABEL_ARGS+=(--label "org.opencontainers.image.description=${DESC}")
     LABEL_ARGS+=(--label "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers")
+    LABEL_ARGS+=(--label "org.opencontainers.image.documentation=https://github.com/projectbluefin/fsdk-containers#readme")
     LABEL_ARGS+=(--label "org.opencontainers.image.licenses=Apache-2.0")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.version={{fsdk_version}}")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.ref={{fsdk_ref}}")
@@ -332,10 +333,12 @@ verify:
         qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
         buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
         # lab-runner is the documented shell-enabled exception. Its CLI
-        # contract includes the 136MiB stripped Argo v4 binary and the 57MiB
-        # already-stripped kubectl binary, plus the terminfo database and the
-        # standard GNU userland added since. The 512MiB ceiling leaves
-        # headroom over the measured ~466MiB aarch64 image.
+        # contract includes the 136MiB stripped Argo v4 binary, the 57MiB
+        # already-stripped kubectl binary, and the ~73MiB of static
+        # shellcheck/hadolint/actionlint linters (#89), plus the terminfo
+        # database and the standard GNU userland. The slim recipe removes
+        # perl (~56MiB, git's unused scripting tail), which keeps the
+        # linter additions inside the existing 512MiB ceiling.
         lab-runner) MAX_BYTES=$((512 * 1024 * 1024)) ;;
         *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
     esac
@@ -367,16 +370,26 @@ verify:
         done
         echo "OK: argo, just, and kubectl present"
 
-        echo "==> [3/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file; do
+        echo "==> [3/${TOTAL}] lab-runner linter suite present"
+        for tool in shellcheck hadolint actionlint; do
+            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
+                echo "FAIL: ${tool} missing from lab-runner — linter suite must be present"; exit 1
+            fi
+        done
+        echo "OK: shellcheck, hadolint, and actionlint present"
+
+        echo "==> [4/${TOTAL}] lab-runner standard userland present"
+        for tool in which xargs awk ps tar diff patch less file gzip; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and gzip present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
-        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
+        # x/xterm-ghostty is not in ncurses (upstream names the entry
+        # "ghostty"); it is compiled in by base/terminfo-ghostty.bst (#105).
+        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct x/xterm-ghostty; do
             if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
                 echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
             fi
@@ -447,10 +460,19 @@ verify:
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version" >/dev/null; then
             echo "FAIL: lab-runner tools failed to execute"; exit 1
         fi
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "shellcheck --version >/dev/null && hadolint --version >/dev/null && actionlint --version >/dev/null" >/dev/null; then
+            echo "FAIL: lab-runner linters failed to execute"; exit 1
+        fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # tar --version passing does not prove tar can read .tar.gz: GNU tar
+        # execs gzip as a child process for the codec, so this only fails if
+        # gzip is missing or broken (the exact regression from issue #87).
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && echo hi > \"\$d/f\" && tar -czf \"\$d/f.tar.gz\" -C \"\$d\" f && tar -xzf \"\$d/f.tar.gz\" -C \"\$d\" && rm -rf \"\$d\"" >/dev/null; then
+            echo "FAIL: lab-runner cannot create/extract .tar.gz — gzip missing or broken"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi
@@ -459,7 +481,7 @@ verify:
 
 # -- Donate-clanker VM guest disk image --------------------------------------
 # Full-OS, shell-enabled bootable EFI/raw donate-clanker guest (see
-# docs/skills/vm-podman-guest.md). NOT an OCI image: never loaded into
+# docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
@@ -518,7 +540,7 @@ export-podman-vm-qcow2: export-podman-vm
 #   donate-clanker-vm-<version>-<arch>.raw.sha256      (verifies the disk after
 #                                                       decompression)
 # and the same three names for .qcow2 when a QCOW2 was exported. This is the
-# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest.md.
+# shape donate-clanker already fetches -- see docs/skills/vm-podman-guest/SKILL.md.
 [group('vm')]
 compress-podman-vm:
     #!/usr/bin/env bash
@@ -541,7 +563,7 @@ compress-podman-vm:
 # Publish this architecture's VM guest assets to the current FSDK
 # point-release tag (vX.Y.Z) as an all-or-nothing transaction.
 #
-# Publication is per architecture by design (see docs/skills/ci-tooling.md,
+# Publication is per architecture by design (see docs/skills/ci-tooling/SKILL.md,
 # "Independent architecture asset publication"), so the unit of atomicity is
 # one architecture's complete asset set: the compressed disks, their download
 # checksums, the decompressed-disk checksums, and the SBOM. The rules:
@@ -563,11 +585,11 @@ compress-podman-vm:
 # Operates on whatever is already in dist-vm/ (from `just export-podman-vm`,
 # `just export-podman-vm-qcow2`, and `just compress-podman-vm`) rather than
 # forcing a rebuild. Never publishes a mutable "latest" URL for launcher
-# consumption -- see docs/skills/vm-podman-guest.md. Requires `gh`
+# consumption -- see docs/skills/vm-podman-guest/SKILL.md. Requires `gh`
 # authenticated with `contents: write` on THIS repo (the workflow's default
 # GITHUB_TOKEN is sufficient -- this is a same-repo release upload, not a
 # cross-repo write, so the org's PAT ban / Mergeraptor requirement does not
-# apply; see docs/skills/ci-tooling.md).
+# apply; see docs/skills/ci-tooling/SKILL.md).
 [group('vm')]
 publish-podman-vm:
     #!/usr/bin/env bash
@@ -690,7 +712,8 @@ publish-podman-vm:
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
-brew_version := "6.0.3"
+# renovate: datasource=github-tags depName=Homebrew/brew
+brew_version := "6.0.18"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]

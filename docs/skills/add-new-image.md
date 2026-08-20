@@ -1,9 +1,19 @@
 ---
 name: add-new-image
-description: Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers.
+version: "1.0"
+last_updated: 2026-08-20
+id: add-new-image
+one_line_purpose: Scaffold a new distroless OCI image carved from FSDK components.
+entry_point: docs/skills/add-new-image.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [buildstream, oci, distroless, images]
+description: "Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # Add a New Distroless Image
@@ -93,19 +103,22 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **BuildStream source updates:** Use the atomic `git-refs` custom manager in `renovate.json` only for git repository sources whose pinned commit ref can be updated together with `track:`:
+- **BuildStream source updates:** annotate pins with `# renovate:` so the single
+  `custom.regex` manager in `renovate.json` picks them up. For `git_repo`
+  sources the annotation sits on `track:` and CI (`refresh-bst-refs.yml`)
+  rewrites the commit `ref:`:
   ```yaml
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
-  ref: <matching commit SHA>
+  ref: <matching commit SHA>   # refreshed by CI, never hand-edited
   ```
-  `track:` and `ref:` must be captured by the same manager match. Archive and remote sources without an authoritative checksum manifest or verifiable signature remain manual; when bumping them, update the selector and `ref` together yourself.
+  See `track-upstream-versions.md` for the full two-tool contract.
 
 ## Wire it up
 
 - Add the image name to `oci_images` in `elements/targets.json` — this is the
   single canonical manifest for the GitHub Actions build/manifest matrices,
-  `just validate`, and `just sbom`/`sboms` (see docs/skills/ci-tooling.md).
+  `just validate`, and `just sbom`/`sboms` (see docs/skills/ci-tooling/SKILL.md).
   No other workflow or matrix loop needs editing.
 - Add the per-image `DESC` case in the Justfile `export` recipe and the
   `MAX_BYTES` + smoke-test case in `verify` — these stay hand-written because
@@ -130,5 +143,6 @@ Document the prune list and *why each entry is safe* in this skill when you add 
 - **`tzdata` pulls in `runtime-minimal` transitively.** `tzdata.bst` has a runtime
   dep on `runtime-minimal`, which includes glibc, gcc runtimes (libasan, libgfortran),
   and terminfo. Even a "static" image (no glibc by design) that includes tzdata will
-  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + terminfo
-  removal) to every image without exception — see `slim-an-image.md`.
+  inherit all of this. Apply the **full SLIM recipe** (shell + sanitizer + locale
+  removal) to every image without exception — see `slim-an-image.md`. (terminfo
+  itself is kept, not removed — #101.)

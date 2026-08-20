@@ -1,7 +1,7 @@
 name: Build VM guest
 
 # Reusable workflow for the podman-vm guest disk (elements/podman-vm/*, see
-# docs/skills/vm-podman-guest.md and docs/skills/donate-clanker-vm-artifacts.md).
+# docs/skills/vm-podman-guest/SKILL.md and docs/skills/donate-clanker-vm-artifacts.md).
 # This is a full-OS bootable EFI/raw disk, NOT an OCI image: it is
 # deliberately excluded from oci-images.yml's manifest so a failure in an
 # unrelated OCI image (e.g. lab-runner, static) never blocks or obscures
@@ -11,7 +11,7 @@ name: Build VM guest
 # publishes only its own architecture's artifacts as steps in a
 # single job. A separate downstream job with `needs` on this matrix job
 # would wait for every architecture leg before publishing anything -- see
-# docs/skills/ci-tooling.md ("Independent architecture asset publication").
+# docs/skills/ci-tooling/SKILL.md ("Independent architecture asset publication").
 
 on:
   workflow_call:
@@ -20,6 +20,8 @@ on:
         description: Git ref to check out (supports repository_dispatch client_payload.ref).
         required: true
         type: string
+
+permissions: {}
 
 jobs:
   build:
@@ -142,7 +144,7 @@ jobs:
           sbom-path: podman-vm.spdx.json
           push-to-registry: false
 
-  # Publication is per architecture (see docs/skills/ci-tooling.md), so no
+  # Publication is per architecture (see docs/skills/ci-tooling/SKILL.md), so no
   # single job can make the two-architecture release atomic. This job makes an
   # incomplete release impossible to miss instead: it runs after both legs,
   # regardless of their outcome, and fails if the point-release tag is missing

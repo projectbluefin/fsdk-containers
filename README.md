@@ -15,7 +15,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | Image | Size | Description |
 | ----- | ---- | ----------- |
 | `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
-| `ghcr.io/projectbluefin/static` | — | Static tier for compiled Go/Rust binaries (`CGO_ENABLED=0`): CA certificates + tzdata only, no libc. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/static` | ~40 MB | **Deprecated — currently identical to `base`.** Intended as a libc-free tier for `CGO_ENABLED=0` binaries, but it ships full glibc and differs from `base` by two files. Use `base` instead. See [#116](https://github.com/projectbluefin/fsdk-containers/issues/116). |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
@@ -56,7 +56,7 @@ See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
 
 All published multi-arch images are keyless-signed with [cosign](https://docs.sigstore.dev/)
 and ship an attached SPDX SBOM. Signing happens in the `oci-images.yml` reusable
-workflow (called from `build.yml` — see docs/skills/ci-tooling.md), so the
+workflow (called from `build.yml` — see docs/skills/ci-tooling/SKILL.md), so the
 certificate identity below names that file, not `build.yml`. Verify a
 main-branch build with:
 

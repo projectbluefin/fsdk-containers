@@ -5,7 +5,7 @@ name: Build images
 # independent, reusable per-artifact-class workflows -- OCI distroless
 # images (oci-images.yml) and the podman-vm guest disk (vm-guest.yml) -- so
 # a failure in one unrelated image never blocks or obscures the other's
-# status in the Actions UI. See docs/skills/ci-tooling.md.
+# status in the Actions UI. See docs/skills/ci-tooling/SKILL.md.
 
 on:
   pull_request:

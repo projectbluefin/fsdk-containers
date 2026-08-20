@@ -1,17 +1,26 @@
 ---
 name: nspawn-machine-image
-description: Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.
+version: "1.0"
+last_updated: 2026-08-20
+id: nspawn-machine-image
+one_line_purpose: Build a non-distroless systemd-nspawn machine image rootfs from FSDK.
+entry_point: docs/skills/nspawn-machine-image.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [nspawn, machinectl, rootfs, brew]
+description: "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image."
 metadata:
-  context7-sources:
-    - /apache/buildstream
+  type: procedure
 ---
 
 # nspawn Machine Image (rootfs tarball)
 
 Use when an image must be a **full Linux dev environment** booted by
 `systemd-nspawn` / `machinectl`, not a distroless OCI image. Reference
-implementation: the `brew` image (`elements/brew/*`, `elements/oci/brew-nspawn.bst`,
-spec in `docs/brew-nspawn-container-spec.md`).
+implementation: the `brew` image (`elements/brew/*`, `elements/oci/brew-nspawn.bst`).
 
 ## When NOT to Use
 
@@ -83,8 +92,13 @@ Get the artifact out with `bst artifact checkout <oci elem> --directory dist`.
 
 ## Verification
 
-`just verify-brew` exports the tarball and asserts the real `usr/bin/*` paths,
-the init symlink, locale.conf, machine-id, and the app user at uid 1001. The
-scheduled/on-demand `.github/workflows/brew-nspawn.yml` job runs this check on a
-native Ubuntu runner. Booting (`machinectl import-tar` + `machinectl start`)
-requires a systemd host and remains a separate integration step.
+`just verify-brew` exports the tarball and asserts the real `usr/bin/*` path
+entries, `etc/locale.conf`, `etc/machine-id`, and the app user at uid 1001
+(path presence only — it does not resolve the `./usr/bin/init` symlink
+target). The element's `brew-version` variable must stay in lockstep with the
+Justfile's `brew_version` (both carry the same `renovate` annotation) —
+verify-brew builds the expected tarball name from it. The
+scheduled/on-demand `.github/workflows/brew-nspawn.yml` job runs this check
+on a native Ubuntu runner; nothing publishes the tarball yet. Booting
+(`machinectl import-tar` + `machinectl start`) requires a systemd host and
+remains a separate integration step.

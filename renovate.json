@@ -9,22 +9,22 @@
     "github-actions",
     "custom.regex"
   ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/(^|/)elements/buildah/buildah\\.bst$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=git-refs depName=(?<depName>\\S+)\\n\\s+track:\\s+(?<currentValue>\\S+)\\n\\s+ref:\\s+(?<currentDigest>[0-9a-f]{40})"
-      ],
-      "packageNameTemplate": "https://github.com/{{depName}}.git",
-      "datasourceTemplate": "git-refs",
-      "versioningTemplate": "loose"
-    }
-  ],
   "schedule": [
     "after 2am and before 6am"
+  ],
+  "customManagers": [
+    {
+      "description": "BuildStream elements: any value annotated with a '# renovate:' comment on the preceding line. Covers `<tool>_version:` variables, `track:` pins and pinned tarball URLs.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.bst$/",
+        "/^Justfile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s+[^\\n]*?[:=]\\s*\"?(?<currentValue>[\\w][\\w.+-]*)\"?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    }
   ],
   "packageRules": [
     {
@@ -40,8 +40,7 @@
         "pinDigest"
       ],
       "automerge": true,
-      "automergeType": "pr",
-      "platformAutomerge": false
+      "automergeType": "pr"
     },
     {
       "matchManagers": [
@@ -51,6 +50,24 @@
         "major"
       ],
       "automerge": false
+    },
+    {
+      "description": "Upstream software pinned in BuildStream elements. Never automerge: the sha256/commit ref must be refreshed by `bst source track` (see .github/workflows/refresh-bst-refs.yml) and the image must pass `just verify` first.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "buildstream"
+      ]
+    },
+    {
+      "description": "kubectl follows the Kubernetes release cadence; skip pre-releases.",
+      "matchDepNames": [
+        "kubernetes/kubernetes"
+      ],
+      "ignoreUnstable": true
     }
   ]
 }

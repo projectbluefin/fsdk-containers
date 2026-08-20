@@ -2,6 +2,11 @@ kind: manual
 description: Build buildah from source
 
 build-depends:
+# FSDK 26.08 removed the shell from runtime-minimal; these commands
+
+# are shell scripts, so declare the interpreter explicitly.
+
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - freedesktop-sdk.bst:components/go.bst
 - freedesktop-sdk.bst:components/gcc.bst
 - freedesktop-sdk.bst:components/binutils.bst
@@ -26,7 +31,7 @@ variables:
 sources:
 - kind: git_repo
   url: github:containers/buildah.git
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
   ref: b459120c69f877227039ca6ddb8131c11f6e641d
 

@@ -1,9 +1,19 @@
 ---
 name: signing-and-sbom
-description: >
-  Guides supply chain security implementation for fsdk-containers, focusing on
-  BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM
-  signing with Sigstore Cosign.
+version: "1.1"
+last_updated: 2026-08-20
+id: signing-and-sbom
+one_line_purpose: Sign published images and attach SPDX SBOMs as OCI referrers.
+entry_point: docs/skills/signing-and-sbom.md
+category: ci-ops
+mcp_compliance_level: partial
+optimization_status: draft
+status: active
+dependencies: []
+tags: [signing, sbom, cosign, supply-chain]
+description: "Guides supply chain security implementation for fsdk-containers, focusing on BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM signing with Sigstore Cosign."
+metadata:
+  type: runbook
 ---
 
 # Supply Chain Security: Keyless Signing and SBOMs
@@ -21,7 +31,7 @@ To produce authoritative, high-integrity SBOMs, we generate them directly from B
 The pipeline consists of three phases:
 
 ```
-[Build & Verify] ──> [Assemble Manifests] ──> [Sign Manifest] ──> [Provenance Attestation] ──> [Attach SBOM] ──> [Sign SBOM]
+[Build & Verify] ──> [Assemble Manifests] ──> [Sign Manifest] ──> [Attach SBOM] ──> [Sign SBOM] ──> [Provenance Attestation]
 ```
 
 1. **SBOM Generation:** Runs `just sbom <image>` locally or in CI. This runs `buildstream-sbom` inside the cached `bst2` builder container and writes `<image>.spdx.json`.
@@ -54,17 +64,17 @@ To verify a published image and its signature/attestation from the command line:
 cosign verify \
   --certificate-identity-regexp="https://github.com/projectbluefin/fsdk-containers/.github/workflows/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/projectbluefin/base:25.08
+  ghcr.io/projectbluefin/base:26.08
 
 # Discover and retrieve the attached SBOM
-oras discover ghcr.io/projectbluefin/base:25.08
+oras discover ghcr.io/projectbluefin/base:26.08
 ```
 
 ---
 
 ## CI / CD Pipeline Requirements
 
-When modifying `.github/workflows/build.yml` or write new publish jobs, maintain these strict standards:
+When modifying `.github/workflows/oci-images.yml` or writing new publish jobs, maintain these strict standards:
 
 ### 1. Workflow Permissions
 The job performing the signing must explicitly request:
@@ -123,4 +133,23 @@ with Grype. This is the only scan shape that works here — a rootfs scanner see
 one package or none. It also means a break in SBOM attachment silently degrades
 scanning, so treat a "no SPDX SBOM referrer found" warning as a publish bug,
 not a scanner quirk.
+
+### 7. Attestation constraints (blocking gotchas)
+
+- **The signer flag is not optional.** Images are attested from the *reusable*
+  workflow `oci-images.yml`, so the reusable workflow is the signer:
+  `gh attestation verify oci://IMAGE:TAG -R projectbluefin/fsdk-containers
+  --signer-repo projectbluefin/fsdk-containers`. A bare `-R` fails.
+- **`push-to-registry: true` takes a single subject.** `actions/attest`
+  requires one fully-qualified digest subject, and GHA has no step-level loop,
+  so a job handling N images cannot push N registry attestations. The
+  multi-subject escape hatch is `subject-checksums` with
+  `push-to-registry: false` — verification still works (`gh attestation
+  verify` fetches via the GitHub API by default); only the
+  registry-referrer/`--bundle-from-oci` path is lost. The SPDX SBOM referrer
+  has no such limit: plain `oras attach` + `cosign sign` loops in shell.
+- **The VM guest disk has no registry**, so it uses `actions/attest` with
+  `subject-path` (glob over `.raw`/`.qcow2`) and `push-to-registry: false`,
+  plus a second call with `sbom-path` for the SPDX file — per arch, matching
+  the independent-per-arch publication pattern.
 

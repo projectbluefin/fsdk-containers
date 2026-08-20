@@ -5,7 +5,7 @@ It is a [BuildStream 2](https://buildstream.build/) project. No Containerfiles f
 the images themselves, no package managers in the output — BST elements that carve
 runtime-only, slim-by-default OCI images out of FSDK `components/*`.
 
-Load **[docs/skills/README.md](docs/skills/README.md)** for the skill routing table.
+Load **[docs/SKILL.md](docs/SKILL.md)** for the skill routing table.
 Only load the docs relevant to your task.
 
 > **Before using any tool or library: look up its docs via Context7 first. Always.**
@@ -23,7 +23,7 @@ Only load the docs relevant to your task.
   image. Keep only cheap crash-preventers (tzdata, common charsets, CA certs).
 - **One documented exception — machine images.** A non-distroless lane exists for
   full dev-environment containers booted by `systemd-nspawn`/`machinectl` (e.g.
-  `brew`): a rootfs `.tar.gz`, with shell/init/locale kept and the SLIM recipe NOT
+  `brew`): a rootfs `.tar.zst`, with shell/init/locale kept and the SLIM recipe NOT
   applied. This is deliberate and scoped — see
   [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Do not
   generalise it to the OCI images.
@@ -54,18 +54,18 @@ remote-execution grid by default (never built on the local machine);
 ```
 just validate   # resolve the element graph (no build)
 just build      # build + load ghcr.io/projectbluefin/base:build
-just verify     # 4 gates: no shell, CA certs, tzdata, slim-bloat-removed
+just verify     # per-image contract: size ceiling + 5 gates + smoke test
 just tags       # show FSDK-derived tags
 ```
 
-`just verify` is the contract. All four gates must pass before merge.
+`just verify` is the contract. All gates must pass before merge.
 
 ## Versioning
 
 The version axis is the **FSDK release**, parsed from the pinned junction ref in
-`elements/freedesktop-sdk.bst`: `:25.08` (FSDK minor line — the most rolling
-tag published; there is deliberately no `:latest`), `:25.08.13` (point
-release, immutable). Every image self-declares its base via
+`elements/freedesktop-sdk.bst`: `:26.08` (FSDK minor line — the most rolling
+tag published; there is deliberately no `:latest`), `:26.08beta.3` (point
+release or pre-release, immutable). Every image self-declares its base via
 `io.projectbluefin.fsdk.version` and `io.projectbluefin.fsdk.ref` labels. Follow
 the FSDK lifecycle — see [docs/skills/bump-fsdk-version.md](docs/skills/bump-fsdk-version.md).
 
@@ -86,3 +86,21 @@ Every session produces two outputs:
 
 Output 1 without Output 2 leaves the project no smarter. Before handoff, update or
 add the relevant skill file. See [docs/skills/skill-improvement.md](docs/skills/skill-improvement.md).
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `projectbluefin/fsdk-containers`, via the `gh` CLI.
+See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Mapped onto this repo's existing numbered label workflow (`1-triage`,
+`2-discussing`, `3-clanker-queue`, `3-human-queue`) rather than the canonical
+skill names. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily by
+`/domain-modeling`. See [docs/agents/domain.md](docs/agents/domain.md).
