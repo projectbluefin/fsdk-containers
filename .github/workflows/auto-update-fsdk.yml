@@ -87,9 +87,8 @@ jobs:
           # branch pushed with GITHUB_TOKEN does not trigger the build
           # workflow, so the bump PR would carry no checks at all. Force push
           # to overwrite any previous update branch.
-          git push --force \
-            "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" \
-            "HEAD:refs/heads/${BRANCH}"
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(echo -n "x-access-token:${GH_TOKEN}" | base64)" \
+            push --force "https://github.com/${REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
           
           # Create pull request if it doesn't already exist
           EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)

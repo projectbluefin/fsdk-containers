@@ -1,7 +1,7 @@
 ---
 name: container-standards
-version: "1.0"
-last_updated: 2026-08-08
+version: "1.1"
+last_updated: 2026-08-09
 id: container-standards
 one_line_purpose: Define the build, verification and tagging standard every image must meet.
 entry_point: docs/skills/container-standards.md
@@ -10,8 +10,8 @@ mcp_compliance_level: partial
 optimization_status: draft
 status: active
 dependencies: []
-tags: [standards, verification, tagging, compliance]
-description: "The Standard of Quality for fsdk-containers. Defines build rules, verification gates, Renovate autoupdating, and SRE-reliable tagging strategy. Use when verifying an image, adding a language runtime, auditing tagging, or ensuring container compliance."
+tags: [standards, verification, tagging, compliance, non-root, security-context]
+description: "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one."
 metadata:
   type: policy
 ---
@@ -59,6 +59,46 @@ database present.
 
 Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
 removing it produced real colour and rendering bugs downstream.
+
+### The non-root contract (decided in #120, not yet implemented)
+
+**Default `65532:65532`, numeric, with a matching `/etc/passwd` entry.** Both halves are
+required — see below for why the second one is not optional.
+
+The UID must be **numeric** in the image config, never a name. The kubelet only supports
+numeric users for `runAsNonRoot` (`kuberuntime_container.go:354` — *"Non-root verification only
+supports numeric user"*; `security_context_others.go:48-53` returns a hard error otherwise). A
+named user is rejected outright, not degraded. `65532` matches `gcr.io/distroless`'s `nonroot`.
+
+**A bare UID is not enough — ship the passwd entry too.** Running as a UID with no
+`/etc/passwd` record, `buildah` fails before it starts:
+
+```
+level=error msg="unable to resolve HOME directory: user: unknown userid 65532"
+```
+
+Python is quieter but still broken — `getpass.getuser()` raises `OSError`, `pwd.getpwuid()`
+raises `KeyError`, and `os.path.expanduser("~")` silently returns `/`. Anything calling
+`getpwuid` is at risk. With the entry present, every image in the catalog runs non-root.
+
+`/home/nonroot` is root-owned and **not writable**: the BST sandbox cannot `chown` to a UID
+(`EINVAL`). This is deliberate — a workload needing a writable home mounts an `emptyDir`. Do not
+try to defeat the sandbox constraint.
+
+Assert the gate by **inspecting the image config**, not at runtime:
+
+```console
+$ podman image inspect --format '{{.Config.User}}' "$REF"   # numeric uid:gid, uid != 0
+```
+
+A runtime `id -u` is impossible — there is no shell to run it in.
+
+> [!WARNING]
+> **`podman run --passwd` defaults to `true`** and invents a `/etc/passwd` entry for any
+> `--user` UID that is missing, complete with a fabricated `pw_gecos='container user'`.
+> Kubernetes runtimes do **not** do this. A smoke test written as plain `podman run --user ...`
+> therefore passes on an image that cannot start in-cluster. **Always pass `--passwd=false`
+> when testing non-root behaviour**, or you are testing podman rather than the image.
 
 ---
 
@@ -111,6 +151,9 @@ never be a hardcoded tag (and never `:latest`, which is no longer published).
 - Static binaries compiled manually without disabling default binary stripping (`strip-binaries: ""`).
 - A shell-enabled runner image that omits a command referenced by a workflow template; verify the runner's CLI contract whenever a workflow adds a new executable dependency.
 - Images published to GHCR without point-release tagging.
+- A non-root image config using a *named* user — the kubelet cannot verify it and rejects the pod.
+- A numeric `User` set without a matching `/etc/passwd` entry — `buildah` and anything calling `getpwuid` break at startup.
+- Any `podman run --user ...` test without `--passwd=false` — podman fabricates the missing identity and the test lies.
 
 ---
 

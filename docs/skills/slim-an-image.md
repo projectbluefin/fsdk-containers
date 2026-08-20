@@ -1,7 +1,7 @@
 ---
 name: slim-an-image
-version: "1.0"
-last_updated: 2026-08-08
+version: "1.1"
+last_updated: 2026-08-20
 id: slim-an-image
 one_line_purpose: Shrink an OCI image by extending the shared SLIM recipe and proving the removal.
 entry_point: docs/skills/slim-an-image.md
@@ -10,7 +10,7 @@ mcp_compliance_level: partial
 optimization_status: draft
 status: active
 dependencies: []
-tags: [slim, size, distroless, optimization]
+tags: [slim, size, distroless, optimization, split-rules]
 description: "The SLIM recipe — what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block."
 metadata:
   type: procedure
@@ -48,13 +48,54 @@ references either `%{slim-distroless-commands}` or
 `%{slim-shell-enabled-commands}`. This keeps the lab-runner shell exception
 explicit while preventing recipe drift.
 
+### A split domain does not necessarily contain what its name implies
+
+This is the single most expensive assumption in this repo, and there are now **two confirmed
+instances** — enough to treat as a rule rather than a quirk:
+
+| You exclude | You expect gone | Actually still shipped |
+| --- | --- | --- |
+| `shells` | bash | bash — it lives in the `runtime` domain (documented in AGENTS.md) |
+| `debug` | debug symbols | **~905 KB of separated DWARF, in every image** |
+
+The second one is live today. Both `elements/base/base-runtime.bst` and
+`elements/static/static-runtime.bst` list `debug` under `compose exclude:`, and these survive
+it:
+
+```
+487551  usr/lib/debug/dwz/bootstrap/glibc.bst/x86_64-unknown-linux-gnu
+417560  usr/lib/debug/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2.debug
+```
+
+Every catalog image is carved from `base`, so every image carries it (~2.3% of a ~40 MB
+rootfs). Nothing at runtime reads separated DWARF, so it is a safe unconditional `rm`.
+
+**The rule: never trust `compose exclude:` on its own — verify against the built rootfs.**
+
+```console
+$ podman export "$(podman create IMAGE)" | tar -tvf - | grep <what-you-excluded>
+```
+
+If a domain turns out to leak, the fix belongs in `include/slim.yml` as an explicit `rm`
+alongside the other runtime-domain removals — **not** in the compose excludes, which have
+already been shown not to hold. Pair it with a `just verify` gate: the existing "sanitizer/
+fortran bloat must NOT be present" and "locale/build-tool bloat must NOT be present" gates
+exist for exactly this reason, and a silent regression here is otherwise invisible.
+
 ## Applies to every image — not just glibc images
 
-Even a "static" image (no glibc by design, e.g. one that only adds tzdata + CA
-certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a runtime dep on
+Even an image *intended* to be static (no glibc by design, e.g. one that only adds
+tzdata + CA certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a runtime dep on
 `runtime-minimal`, which carries glibc, gcc runtimes (libasan, libtsan, libgfortran),
 and terminfo into any compose that includes it. Skipping the SLIM recipe on a
 "minimal" image will fail gate `[4/4]` of `just verify`.
+
+This is not hypothetical: the repo's own `static` tier intended exactly that and **ships full
+glibc anyway** — 88 shared objects, 15.9 MB compressed, differing from `base` by two files
+(#116). Declaring a tier "static" in a description does not make it so. If you intend a
+libc-free rootfs, you must compose the *produced files* (the cert bundle, zoneinfo) rather than
+depend on the components, because `ca-certificates` pulls p11-kit and therefore glibc — and you
+must verify the result with `tar -t`, not trust the element's own description.
 
 Rule: include `include/slim.yml` in every new OCI script and choose the
 appropriate shared command variable; do not copy/paste the recipe.
@@ -72,7 +113,6 @@ rm -rf _sizecheck
 ## Risk tiers
 
 **Zero risk — always cut:**
-- `usr/share/terminfo` (~12 MB) — terminal capability DB, useless in containers.
 - gcc sanitizer runtimes `lib{asan,tsan,lsan,ubsan,hwasan}.so*` (~5 MB) — debug only.
 - `libgfortran.so*` (~3.6 MB) — FORTRAN runtime pulled by gcc-libs.
 - glibc `locale-archive`, `usr/share/i18n/charmaps` (~3 MB).
@@ -91,6 +131,11 @@ rm -rf _sizecheck
   make you `pip install tzdata`.
 - CA certificates + `usr/share/pki` trust source.
 - `libstdc++`, `libgcc_s`, `libgomp` — C++ / OpenMP runtimes apps link.
+- `usr/share/terminfo` (~12 MB unpacked, ~0.5 MB compressed) — kept since #101:
+  without it a container must lie about the host TERM or vendor entries, both
+  of which caused real color/rendering bugs downstream. `x/xterm-ghostty` is
+  compiled in on top by `base/terminfo-ghostty.bst` (#105) — see
+  `verify-distroless.md`.
 
 ## Prebuilt static binaries
 
@@ -152,6 +197,10 @@ cut that must stay gone, so it fails the build if it creeps back.
   version bump; put the check in `just verify`.
 - “Excluding `shells` removes bash.” Bash is in FSDK's runtime domain and must
   be explicitly removed for distroless images.
+- “Excluding `debug` removes the debug symbols.” It does not — ~905 KB of separated
+  DWARF survives it in every image today. Verify the rootfs, not the element.
+- “The `compose exclude:` list says it is gone, so it is gone.” Two domains have now
+  been caught leaking. Confirm with `podman export | tar -tvf`.
 - “The build dependency is harmless.” Confirm it is build-only and absent from
   the composed runtime image.
 

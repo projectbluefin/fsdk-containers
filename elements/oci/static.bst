@@ -42,7 +42,7 @@ config:
         config:
           Labels:
             'org.opencontainers.image.title': 'static'
-            'org.opencontainers.image.description': 'Distroless static image carved from freedesktop-sdk — no glibc, for statically compiled binaries'
+            'org.opencontainers.image.description': 'Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116.'
             'org.opencontainers.image.vendor': 'Project Bluefin'
             'org.opencontainers.image.licenses': 'Apache-2.0'
             'org.opencontainers.image.url': 'https://github.com/projectbluefin/fsdk-containers'
