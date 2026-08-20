@@ -14,6 +14,20 @@ matches your task, load only that skill, then act.
 
 ## Fast paths
 
+### BuildStream
+
+The shared BST knowledge base — load these for `.bst` mechanics rather than for a
+specific image. Ported from `projectbluefin/dakota` and adapted to this repo's rules.
+
+| If your task is... | Load |
+| ------------------ | ---- |
+| Write or review a `.bst` file — kinds, variables, sources, directives | [`skills/buildstream.md`](skills/buildstream.md) |
+| A build is failing, or content is missing from an image | [`skills/bst-debugging.md`](skills/bst-debugging.md) |
+| Bump a junction ref, touch `patches/`, or diagnose cache misses | [`skills/bst-junctions.md`](skills/bst-junctions.md) |
+| Build an upstream Go/Rust tool FSDK does not ship | [`skills/bst-packaging.md`](skills/bst-packaging.md) |
+
+### Images and workflow
+
 | If your task is... | Load |
 | ------------------ | ---- |
 | Add a new distroless image (python, node, etc.) | [`skills/add-new-image.md`](skills/add-new-image.md) |
