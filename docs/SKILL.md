@@ -32,6 +32,7 @@ matches your task, load only that skill, then act.
 | Automate ArtifactHub submissions | [`skills/artifacthub-automation.md`](skills/artifacthub-automation.md) |
 | Verify the brew nspawn machine image | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
 | Container quality standards and SRE tagging | [`skills/container-standards.md`](skills/container-standards.md) |
+| Add/remove a lab-runner tool (capability contract) | [`skills/lab-runner-contract.md`](skills/lab-runner-contract.md) |
 | Run or respond to a security audit / review | [`skills/security-review.md`](skills/security-review.md) |
 | Finishing a task (always) | [`skills/skill-improvement.md`](skills/skill-improvement.md) |
 
