@@ -1,7 +1,7 @@
 ---
 name: custom-builds-and-caching
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: custom-builds-and-caching
 one_line_purpose: Configure custom BuildStream builds and CAS cache servers for forks and CI.
 entry_point: docs/skills/custom-builds-and-caching.md
@@ -77,6 +77,9 @@ When a user or agent forks or clones this repository, the GitHub Actions workflo
 The workflows are pre-configured to dynamically detect the repository owner and publish to their GitHub Container Registry:
 - Image name template: `ghcr.io/${{ github.repository_owner }}/<image>`
 - Push credentials: Uses the built-in `${{ secrets.GITHUB_TOKEN }}` which has write access.
+- Publication only runs on `push`/`workflow_dispatch`; `pull_request` jobs are
+  read-only (`contents: read`, no login/push anywhere in them), so fork PRs
+  build but never publish.
 
 **Agent action required:** Ensure that GHA Workflow permissions are set to "Read and write permissions" (under Repository Settings > Actions > General > Workflow permissions) so the `GITHUB_TOKEN` is allowed to push packages.
 
@@ -91,19 +94,24 @@ must be shared across CI targets; use a local Actions cache only for
 short-lived, measured branch workflows and partition its key by architecture
 and BuildStream descriptors.
 
-Add the following step in `.github/workflows/build.yml` before the build steps (e.g., after checkout):
+Add the step to the per-arch `build` job in `.github/workflows/oci-images.yml`
+(the actual OCI build/manifest reusable workflow; `build.yml` is only the
+caller) after checkout:
 
 ```yaml
       - name: Cache BuildStream Local Directory
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/buildstream
-          key: bst-cache-${{ runner.os }}-${{ github.sha }}
+          key: bst-cache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('project.conf', 'elements/**') }}
           restore-keys: |
-            bst-cache-${{ runner.os }}-
+            bst-cache-${{ runner.os }}-${{ runner.arch }}-
 ```
 
-*Note: GitHub Actions has a 10GB total cache limit per repository. BuildStream local caches can grow quickly. Ensure you monitor usage.*
+*Note: GitHub Actions has a 10GB total cache limit per repository. BuildStream
+local caches can grow quickly. `runner.arch` matters: the x86_64 and aarch64
+legs both report `runner.os == Linux`, so an os-only key cross-contaminates
+arches. Monitor usage.*
 
 ### 3. Setting Up Custom Push CAS in GitHub Actions
 For enterprise or heavy development workflows, using a remote BuildStream CAS (remote cache server) is recommended. To set this up in GitHub Actions:

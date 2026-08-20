@@ -1,7 +1,7 @@
 ---
 name: artifacthub-automation
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: artifacthub-automation
 one_line_purpose: Submit and verify an ArtifactHub repository for published OCI images.
 entry_point: docs/skills/artifacthub-automation.md
@@ -47,7 +47,7 @@ Before automating submissions, ensure the image is built with the required metad
 * `io.artifacthub.package.license`
 * `io.artifacthub.package.category`
 
-ArtifactHub parses these labels from the OCI image index to display full package metadata.
+ArtifactHub parses these labels from the OCI image **index** to display full package metadata. Config labels on the per-arch child manifests are not enough for a multi-arch image: the manifest job in `.github/workflows/oci-images.yml` promotes them onto the index as annotations at publish time (`docker buildx imagetools create --annotation index:...`). GHCR's package page reads `org.opencontainers.image.description` from the same index annotations.
 
 ### 2. API Registration (GitHub Actions)
 When a new image is added to the repository, it can be registered on ArtifactHub using an API call.
@@ -73,9 +73,12 @@ Example `curl` step for the release pipeline:
 ```
 
 Artifact Hub creates versions from the tags configured on the repository, so the
-registration payload must include `data.tags`. A single mutable `latest` tag is
-enough for this repo's OCI images and lets Artifact Hub keep reindexing the
-published manifest when `latest` moves.
+registration payload must include `data.tags`. **Known gap:** the payload names a
+mutable `latest` tag, but this repo deliberately publishes no OCI `:latest`
+(`just tags` emits only the minor line and point/pre-release tags) — so the
+registered tag matches nothing and Artifact Hub has no version to index. Until
+the payload tracks a tag that exists (e.g. the moving minor line), treat the
+ArtifactHub listing as metadata-only and verify it by hand after registering.
 
 ### 3. Verified Publisher Badge
 To get the green "Verified Publisher" checkmark, push an ownership metadata file to the image registry.
