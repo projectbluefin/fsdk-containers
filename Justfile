@@ -378,12 +378,12 @@ verify:
         echo "OK: shellcheck, hadolint, and actionlint present"
 
         echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file; do
+        for tool in which xargs awk ps tar diff patch less file bwrap; do
             if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
                 echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
             fi
         done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, and file present"
+        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and bwrap present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
         for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
@@ -462,8 +462,19 @@ verify:
         fi
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
+        fi
+        # projectbluefin/review sandboxes agent commands with
+        # `bwrap --ro-bind / / true` (read-only root, private /tmp) inside a
+        # rootless podman run of this image (issue #109). `bwrap --version`
+        # passing does not prove sandboxing works: nested bwrap needs
+        # unprivileged user namespaces to be usable from inside this
+        # container, so probe review's exact command. A verify host that
+        # forbids unprivileged userns fails here loudly — that is the
+        # contract review relies on.
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "bwrap --ro-bind / / true" >/dev/null; then
+            echo "FAIL: lab-runner bwrap cannot create a sandbox (bwrap --ro-bind / / true failed)"; exit 1
         fi
         echo "OK: lab-runner tools execute successfully"
     fi

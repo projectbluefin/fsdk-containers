@@ -33,7 +33,7 @@ metadata:
 - **Inheritance, not reinvention:** We never maintain a separate package set. All system libraries (glibc, ssl) inherit FSDK's CVE patching and reproducible builds automatically.
 - **Distroless by default:** Except for documented shell-enabled lanes (like `lab-runner`), images must not contain a shell (`bash`, `sh`, `zsh`) or package managers (`apk`, `apt`, `dnf`). Shell-enabled images explicitly pull the staged FSDK shell stack.
 - **Minimal footprint:** Images must remain slim, targeting a compressed size under ~50MB (and uncompressed under ~150MB). All non-runtime development artifacts, compilers, and test suites must be pruned.
-- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
+- **Shell-enabled utility contract:** `lab-runner` is an explicit exception for cluster automation. It must ship the complete CLI contract used by Argo templates (`argo`, `just`, and `kubectl`) and the contributor linter suite (`shellcheck`, `hadolint`, and `actionlint`) without relying on a runtime package manager or network bootstrap. It must also ship the standard POSIX/GNU userland beyond coreutils — `which`, `xargs`, `awk`, `ps`, `tar`, `diff`, `patch`, `less`, and `file` — because a shell-enabled image with no package manager gives its consumers no way to recover from a missing basic tool, and each gap gets worked around downstream instead. It must additionally ship `bubblewrap` (`bwrap`): projectbluefin/review's worktree-guard wrapper sandboxes agent commands with `bwrap --ro-bind / / true` (read-only root, writable worktree bind, private /tmp) when bwrap is available and silently degrades to worktree-only isolation when it is not (issue #109). Rootless nested sandboxing needs unprivileged user namespaces, so shipping the binary is not sufficient — `just verify` probes the exact command inside the container. These come from FSDK `components/*` (`findutils`, `procps`, `gawk`, `tar`, `diffutils`, `patch`, `less`, `file`, `which`, `bubblewrap`) and dedicated elements (`lab-runner/*.bst`); do not satisfy them with a Containerfile overlay or a hand-written shim in a derived image.
 
 ---
 
@@ -54,8 +54,10 @@ Distroless images (all except `lab-runner`):
 
 `lab-runner` is the documented shell-enabled exception and is verified against an
 inverted contract instead — bash present, the `argo`/`just`/`kubectl` CLI
-contract present, the standard POSIX/GNU userland present, and the full terminfo
-database present.
+contract present, the standard POSIX/GNU userland present (including `bwrap`,
+functionally probed with `bwrap --ro-bind / / true` since review's agent
+sandboxing depends on unprivileged user namespaces working inside the
+container), and the full terminfo database present.
 
 Terminfo is deliberately **kept** in every image: it is ~0.5 MB compressed, and
 removing it produced real colour and rendering bugs downstream.
