@@ -1,7 +1,7 @@
 ---
 name: skill-improvement
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: skill-improvement
 one_line_purpose: Capture every session learning back into docs/skills before handoff.
 entry_point: docs/skills/skill-improvement.md
@@ -49,6 +49,7 @@ in `docs/skills/`, or reviewing a branch before handoff.
 
 1. Do the work.
 2. Ask: *what did I learn that the next agent would have to rediscover?*
-3. Write it into the right `docs/skills/*.md` (or add a new one + link it in
-   `README.md`).
+3. Write it into the right `docs/skills/*.md` (or add a new one + register it in
+   the `docs/SKILL.md` routing table, then regenerate the catalog with
+   `python3 scripts/generate_skill_index.py --write`).
 4. Keep `just verify` green.

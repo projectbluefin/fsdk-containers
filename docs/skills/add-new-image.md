@@ -103,13 +103,16 @@ Document the prune list and *why each entry is safe* in this skill when you add 
   ```
   Pass `%{hardening-flags}` to your configure script (e.g., `--extra-cflags="%{hardening-flags}"`).
 - **Disable binary stripping in the manual stage:** When building Go/Rust binaries in a `kind: manual` element, set `strip-binaries: ""` under `variables:` block to avoid failures with `freedesktop-sdk-stripper` (which exits with 127/command-not-found due to toolchain differences in the minimal manual workspace). We prune and squash in the later OCI/compose stages anyway.
-- **BuildStream source updates:** Use the atomic `git-refs` custom manager in `renovate.json` only for git repository sources whose pinned commit ref can be updated together with `track:`:
+- **BuildStream source updates:** annotate pins with `# renovate:` so the single
+  `custom.regex` manager in `renovate.json` picks them up. For `git_repo`
+  sources the annotation sits on `track:` and CI (`refresh-bst-refs.yml`)
+  rewrites the commit `ref:`:
   ```yaml
-  # renovate: datasource=git-refs depName=containers/buildah
+  # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
-  ref: <matching commit SHA>
+  ref: <matching commit SHA>   # refreshed by CI, never hand-edited
   ```
-  `track:` and `ref:` must be captured by the same manager match. Archive and remote sources without an authoritative checksum manifest or verifiable signature remain manual; when bumping them, update the selector and `ref` together yourself.
+  See `track-upstream-versions.md` for the full two-tool contract.
 
 ## Wire it up
 

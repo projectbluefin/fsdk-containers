@@ -16,8 +16,8 @@
         "components"
       ],
       "description": "Add a component + stack element (no OCI image) composed from FSDK, e.g. a tool consumed by a future VM/appliance image. Use when the deliverable is `elements/<name>/<name>.bst` + `<name>-stack.bst` only, not a full distroless image.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
@@ -53,7 +53,7 @@
       ],
       "description": "Automating ArtifactHub repository submission and Verified Publisher status via API. Use when publishing new OCI images or adding ArtifactHub metadata.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
@@ -71,7 +71,7 @@
       ],
       "description": "Move fsdk-containers to a new freedesktop-sdk release and refresh the derived tags. Use when tracking the FSDK lifecycle or pinning a new FSDK point release.",
       "version": "1.1",
-      "last_updated": "2026-08-09",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
@@ -90,8 +90,8 @@
         "attestation"
       ],
       "description": "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, adding a new CI step, or checking a change against the org-wide CI job budget.",
-      "version": "1.2",
-      "last_updated": "2026-08-09",
+      "version": "1.3",
+      "last_updated": "2026-08-20",
       "doc_type": "reference"
     },
     {
@@ -110,8 +110,8 @@
         "security-context"
       ],
       "description": "The Standard of Quality for fsdk-containers: build rules, verification gates, the non-root user contract, and tagging. Use when verifying an image or adding one.",
-      "version": "1.1",
-      "last_updated": "2026-08-09",
+      "version": "1.2",
+      "last_updated": "2026-08-20",
       "doc_type": "policy"
     },
     {
@@ -129,26 +129,8 @@
       ],
       "description": "Guide for developers and agents to configure custom BuildStream builds and cache servers, including GHA caching.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
-    },
-    {
-      "id": "donate-clanker-vm-artifacts",
-      "name": "donate-clanker-vm-artifacts",
-      "one_line_purpose": "Build the bootable donate-clanker VM guest disk from the FSDK VM graph.",
-      "entry_point": "docs/skills/donate-clanker-vm-artifacts.md",
-      "category": "ci-ops",
-      "status": "active",
-      "tags": [
-        "vm",
-        "buildstream",
-        "disk-image",
-        "donate-clanker"
-      ],
-      "description": "Build the bootable donate-clanker VM guest from the FSDK VM graph.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
-      "doc_type": "runbook"
     },
     {
       "id": "go-module-source",
@@ -185,7 +167,7 @@
       ],
       "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
@@ -203,7 +185,7 @@
       ],
       "description": "How local/agent BuildStream builds in this repo are submitted to the ghost cluster's BuildBarn remote-execution grid instead of running on the local machine. Use when running `just build`/`just bst`, debugging RE failures, or deciding when local...",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
@@ -238,8 +220,8 @@
         "supply-chain"
       ],
       "description": "Guides supply chain security implementation for fsdk-containers, focusing on BuildStream-native SBOM generation (via buildstream-sbom) and keyless image/SBOM signing with Sigstore Cosign.",
-      "version": "1.0",
-      "last_updated": "2026-08-08",
+      "version": "1.1",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     },
     {
@@ -257,7 +239,7 @@
       ],
       "description": "The skill-improvement mandate for fsdk-containers. Every session produces work + a skill update. Use when finishing any task, deciding whether a learning belongs in docs/skills, or verifying the work+learning loop before handoff.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "procedure"
     },
     {
@@ -330,7 +312,7 @@
       ],
       "description": "Build the lean donate-clanker raw VM disk from FSDK.",
       "version": "1.0",
-      "last_updated": "2026-08-08",
+      "last_updated": "2026-08-20",
       "doc_type": "runbook"
     }
   ]

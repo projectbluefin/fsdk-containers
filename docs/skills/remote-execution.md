@@ -1,7 +1,7 @@
 ---
 name: remote-execution
 version: "1.0"
-last_updated: 2026-08-08
+last_updated: 2026-08-20
 id: remote-execution
 one_line_purpose: Run BuildStream builds on the ghost cluster BuildBarn remote-execution grid.
 entry_point: docs/skills/remote-execution.md
@@ -47,7 +47,8 @@ run heavy workloads on workstations when the cluster exists to absorb them.
 
 ## How it works
 
-`just bst` (the wrapper every recipe goes through):
+`just bst` (the wrapper build/validate recipes go through — note the `sbom`/
+`sboms` recipes invoke the bst2 container directly, without the RE config):
 
 1. Unless `BST_LOCAL=1` or running in GitHub Actions, it:
    - checks the BuildBarn frontend Service exists
