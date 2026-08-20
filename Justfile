@@ -386,7 +386,9 @@ verify:
         echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, and gzip present"
 
         echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
-        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct; do
+        # x/xterm-ghostty is not in ncurses (upstream names the entry
+        # "ghostty"); it is compiled in by base/terminfo-ghostty.bst (#105).
+        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct x/xterm-ghostty; do
             if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
                 echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
             fi
@@ -710,7 +712,7 @@ publish-podman-vm:
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "6.0.17"
+brew_version := "6.0.18"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]
