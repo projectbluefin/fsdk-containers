@@ -71,6 +71,11 @@ are authored by `mergeraptor[bot]` while the workflow originally gated on `renov
 — every run silently skipped until the gate was fixed (#158). If a renovate PR's refresh
 job shows "skipped", re-check the gate against the *current* PR author first:
 
+The general lesson: when a workflow gates on `github.event.pull_request.user.login`
+(or any bot identity), verify it against the token/app that *actually opens* the PR, and
+re-check after changing how a bot authenticates — the job "skipped" cleanly with no error,
+so this went unnoticed for multiple bump cycles.
+
 ```
 gh run list --workflow=refresh-bst-refs.yml --limit 20   # "skipped" on the renovate PR = gate miss
 ```
