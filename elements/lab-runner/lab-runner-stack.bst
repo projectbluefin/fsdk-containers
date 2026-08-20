@@ -9,9 +9,10 @@ depends:
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/curl.bst
   - freedesktop-sdk.bst:components/git.bst
+  - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:components/jq.bst
-  - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  - freedesktop-sdk.bst:components/python3.bst
   - lab-runner/argo.bst
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
