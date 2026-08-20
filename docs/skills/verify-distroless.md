@@ -74,9 +74,11 @@ is present — the direct-color pairs (`xterm-direct`/`tmux-direct`,
 
 ## The terminfo seam (#101, #105)
 
-Every image keeps the ncurses terminfo database (~0.5 MB compressed): without
-it a container must lie about the host TERM or vendor its own entries, both of
-which produced real color/rendering bugs downstream (projectbluefin/review).
+Every image composed from `base-stack` keeps the ncurses terminfo database
+(~0.5 MB compressed): without it a container must lie about the host TERM or
+vendor its own entries, both of which produced real color/rendering bugs
+downstream (projectbluefin/review). (`static` is the exception — it ships
+certs + tzdata only, no ncurses.)
 
 One entry is NOT upstream's: ncurses' terminfo.src carries Ghostty's
 description only under the name `ghostty`, but Ghostty sets
@@ -86,7 +88,7 @@ died with `missing or unsuitable terminal: xterm-ghostty` for Ghostty users
 (vendored at `elements/base/files/xterm-ghostty.terminfo`, with the `ghostty`
 alias dropped so it never shadows ncurses' own `g/ghostty`) using the
 FSDK-pinned ncurses' `tic`, and `base/base-stack.bst` depends on it so it
-lands in every image. The lab-runner terminfo gate asserts
+lands in every base-derived image. The lab-runner terminfo gate asserts
 `usr/share/terminfo/x/xterm-ghostty` exists.
 
 To refresh the vendored entry after a Ghostty change: on a host running the
@@ -95,15 +97,12 @@ alias from the names line again, and keep the provenance header current.
 
 ## Graph validation
 
-Before any image is built, `just validate` runs:
-
-```
-bst show --deps all oci/base.bst oci/static.bst ...
-```
-
-This is the local equivalent of upstream graph inspection: it resolves the
-element graph, confirms the pinned FSDK junction and its overrides are valid,
-and surfaces patch failures or renamed components immediately.
+Before any image is built, `just validate` enumerates every OCI image from
+`elements/targets.json` plus `podman-vm/podman-vm-efi.bst` and runs
+`bst show --deps all` over them. This is the local equivalent of upstream
+graph inspection: it resolves the element graph, confirms the pinned FSDK
+junction and its overrides are valid, and surfaces patch failures or renamed
+components immediately.
 
 ## Supply-chain attestations
 
@@ -168,12 +167,15 @@ Follow the three-element pattern in `add-new-image.md`, then extend coverage:
    `podman run --rm "$REF" nginx -v >/dev/null`). Distroless images have no shell,
    and `ldd` inside BuildStream's sandbox does not replicate the stripped container
    rootfs — execution is the only way to prove all dynamic dependencies survived
-   `compose`.
+   `compose`. (Today the local smoke branches cover skopeo, python, buildah,
+   qemu-img, and lab-runner; `base`/`static` only get their `/usr/bin/true`
+   smoke in the post-publish `publish-smoke` job — add a local branch when the
+   image gains a real binary.)
 3. **Set a size ceiling.** Add a `MAX_BYTES` case in the `verify` recipe for the new
    image. Calibrate it against uncompressed Podman sizes on **both** architectures
    and leave headroom for normal FSDK point-release growth.
-4. **Register the SBOM variant.** Add the image to the `sbom` and `sboms` recipe
-   case lists so CI generates and attaches an SPDX file.
+4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the
+   variant from `elements/targets.json` — nothing to hand-register.
 5. **Document runtime-specific pruning.** If the new image needs extra `rm` steps
    beyond the shared SLIM recipe (e.g. Python stdlib tests), document *why* each
    removal is safe and add a matching `grep` negative assertion to `verify` so
@@ -204,7 +206,7 @@ change default package contents. Treat it as a coverage refresh:
    describe the new series correctly.
 6. **Validate SBOM tooling.** If `buildstream-sbom` needs a newer pin for the new
    FSDK schema, update the pinned commit in the `sbom` recipe and the pip cache key
-   in `.github/workflows/build.yml`.
+   in `.github/workflows/oci-images.yml`.
 7. **Watch upstream reports.** The upstream CVE, reproducibility, and SBOM reports
    for the new series are inherited automatically, but verify they are being
    published on the upstream branch before relying on them for a production tag.
