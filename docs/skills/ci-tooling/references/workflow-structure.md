@@ -155,13 +155,27 @@ permissions for this.** Workflows that write only through that token drop their
 own `permissions:` to `contents: read`.
 
 Push with the token explicitly, because `persist-credentials: false` is now the
-default for every checkout:
+default for every checkout. Authenticate with an
+`http.https://github.com/.extraheader` — the same mechanism `actions/checkout`
+uses — so the token never appears in a URL. **Never embed the token in the
+push URL** (`https://x-access-token:${GH_TOKEN}@github.com/...`): the URL form
+leaks into git's error messages, `GIT_TRACE`/`GIT_CURL_VERBOSE` output, and the
+config of any clone made with it.
 
 ```bash
-git push --force \
-  "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" \
+BASIC=$(echo -n "x-access-token:${GH_TOKEN}" | base64 -w0)
+echo "::add-mask::${BASIC}"
+git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${BASIC}" \
+  push --force "https://github.com/${REPOSITORY}.git" \
   "HEAD:refs/heads/${BRANCH}"
 ```
+
+Two details in that snippet are load-bearing. `base64 -w0`: GNU `base64` wraps
+at 76 columns, and a token long enough to cross that boundary puts a newline
+mid-header that command substitution does not strip. The `::add-mask::`:
+GitHub's log masking knows the raw token but not its base64 encoding, so if git
+ever prints the resolved config the header value leaks unmasked — mask it the
+way `actions/checkout` does with `core.setSecret()`.
 
 `projectbluefin/actions` also ships `reusable-renovate.yml`, but it validates
 its token with `check-token-health`'s `required_scopes: repo,workflow` — an

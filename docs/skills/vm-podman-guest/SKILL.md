@@ -74,9 +74,15 @@ This is the shape `projectbluefin/donate-clanker` already fetches: download
 rename these assets without changing the launcher.
 
 The FSDK EFI tree is built separately from this element's root filesystem.
-`podman-vm-efi.bst` therefore rewrites each staged loader entry's
-`root=UUID=` value from the `prepare-image.sh` output before `genimage`; never
-reuse an EFI tree byte-for-byte without checking it against the ext4 root UUID.
+`podman-vm-efi.bst` therefore rewrites the baked `root=UUID=` value from the
+`prepare-image.sh` output before `genimage` -- in the UKI's `.cmdline` PE
+section under FSDK 26.08 (`objcopy --update-section`, which is also where the
+UKI's upstream-added `quiet` is removed so the serial console keeps emitting
+the markers the boot test asserts on), or in each staged loader entry under
+FSDK 25.08. The step fails the build when neither layout is found: a silent
+no-op here is what shipped an unbootable disk when 26.08 moved the cmdline
+into the UKI. Never reuse an EFI tree byte-for-byte without checking it
+against the ext4 root UUID.
 
 ## Verification
 

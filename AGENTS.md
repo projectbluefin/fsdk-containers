@@ -86,3 +86,21 @@ Every session produces two outputs:
 
 Output 1 without Output 2 leaves the project no smarter. Before handoff, update or
 add the relevant skill file. See [docs/skills/skill-improvement.md](docs/skills/skill-improvement.md).
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `projectbluefin/fsdk-containers`, via the `gh` CLI.
+See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Mapped onto this repo's existing numbered label workflow (`1-triage`,
+`2-discussing`, `3-clanker-queue`, `3-human-queue`) rather than the canonical
+skill names. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily by
+`/domain-modeling`. See [docs/agents/domain.md](docs/agents/domain.md).
