@@ -1,6 +1,7 @@
 name: qemu-img
 kind: distroless
 description: Distroless qemu-img image carved from freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,qemu-img
 entrypoint: ["/usr/bin/qemu-img"]
 smoke:
   args: ["--version"]

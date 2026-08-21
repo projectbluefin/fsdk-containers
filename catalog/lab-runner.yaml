@@ -1,6 +1,7 @@
 name: lab-runner
 kind: shell-enabled
 description: Shell-enabled CI utility container carved from freedesktop-sdk — bash, curl, git, jq, python3, openssh
+keywords: freedesktop-sdk,bluefin,ci
 entrypoint: ["/usr/bin/bash"]
 smoke:
   entrypoint_override: ["/usr/bin/argo"]

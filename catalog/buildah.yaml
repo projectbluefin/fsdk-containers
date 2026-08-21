@@ -1,6 +1,7 @@
 name: buildah
 kind: distroless
 description: Distroless Buildah container-building tool built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,buildah
 entrypoint: ["/usr/bin/buildah"]
 smoke:
   args: ["--version"]

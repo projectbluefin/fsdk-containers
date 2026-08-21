@@ -127,6 +127,10 @@
     "notes": {
       "type": "string",
       "description": "Free-form prose carried into the generated elements as a comment. Use for hard-won context that would otherwise be lost."
+    },
+    "keywords": {
+      "type": "string",
+      "description": "Verbatim value of the io.artifacthub.package.keywords label. This is the ONE non-obvious label that varies per image (7 distinct values across 7 images, e.g. lab-runner uses 'freedesktop-sdk,bluefin,ci' with no 'distroless'). It is transcribed, never derived, because deriving it would rewrite six images' labels."
     }
   }
 }

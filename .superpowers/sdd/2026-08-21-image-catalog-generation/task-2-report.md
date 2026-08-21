@@ -62,3 +62,108 @@ Additional record-load check confirmed all seven records load, with 17 lab-runne
 - The committed Python slim block contains four additional cleanup paths (`*/config-*` and static archives) beyond the abbreviated brief snippet; the record copies the full committed block byte-for-byte.
 - The static stack does not depend on `base/base-stack.bst`; its committed dependencies begin with `runtime-gnu.bst`, so `stack.base` is `null` and those five dependencies are recorded as components.
 - The committed lab-runner stack has 17 FSDK components and 9 extra dependencies including `yq.bst`, matching the element rather than the abbreviated comments in the brief.
+
+## Review-finding fixes (2026-08-21)
+
+### Finding 1 — skopeo entrypoint mismatch
+
+Changed `catalog/skopeo.yaml` to omit `entrypoint` and
+`smoke.entrypoint_override`, and changed the smoke arguments to
+`["skopeo", "--version"]`. This matches the committed OCI element, which has
+no `Entrypoint:` key, and preserves the Justfile smoke invocation that passes
+`skopeo` as an argument.
+
+Entrypoint audit command and real output:
+
+```text
+$ for name in base static python skopeo buildah qemu-img lab-runner; do printf '%s ' "$name"; grep -c 'Entrypoint:' "elements/oci/$name.bst"; done
+base 0
+static 0
+python 1
+skopeo 0
+buildah 1
+qemu-img 1
+lab-runner 1
+```
+
+The seven records now agree exactly with those committed element counts:
+`python`, `buildah`, `qemu-img`, and `lab-runner` declare entrypoints; `base`,
+`static`, and `skopeo` omit them.
+
+### Finding 2 — missing Artifact Hub keywords
+
+Added the `keywords` property to `catalog/schema.json` and transcribed it into
+all seven records from each committed OCI element. The values used were:
+
+- `base`: `distroless,freedesktop-sdk,bluefin`
+- `static`: `distroless,freedesktop-sdk,bluefin,static`
+- `python`: `distroless,freedesktop-sdk,bluefin,python`
+- `skopeo`: `distroless,freedesktop-sdk,bluefin,skopeo`
+- `buildah`: `distroless,freedesktop-sdk,bluefin,buildah`
+- `qemu-img`: `distroless,freedesktop-sdk,bluefin,qemu-img`
+- `lab-runner`: `freedesktop-sdk,bluefin,ci`
+
+Throwaway verification script command and real output:
+
+```text
+$ python3 verify_catalog_records.py
+base: PASS keywords=PASS entrypoint=PASS
+buildah: PASS keywords=PASS entrypoint=PASS
+lab-runner: PASS keywords=PASS entrypoint=PASS
+python: PASS keywords=PASS entrypoint=PASS
+qemu-img: PASS keywords=PASS entrypoint=PASS
+skopeo: PASS keywords=PASS entrypoint=PASS
+static: PASS keywords=PASS entrypoint=PASS
+$ rm verify_catalog_records.py
+```
+
+The script compared every record's `keywords` against the
+`io.artifacthub.package.keywords` label and compared entrypoint-field presence
+against `Entrypoint:` presence in the corresponding committed element. All
+seven passed; no table disagreement was found.
+
+### Required test suite
+
+```text
+$ python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+[...]
+----------------------------------------------------------------------
+Ran 14 tests in 0.041s
+
+OK
+```
+
+Additional validation:
+
+```text
+$ git diff --check
+# no output (passed)
+```
+
+Full test output (rerun for the report):
+
+```text
+$ python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+test_every_published_image_has_a_record (test_catalog_conformance.CatalogCoverageTests.test_every_published_image_has_a_record) ... ok
+test_every_record_is_a_published_image (test_catalog_conformance.CatalogCoverageTests.test_every_record_is_a_published_image) ... ok
+test_exactly_one_shell_enabled_image (test_catalog_conformance.CatalogCoverageTests.test_exactly_one_shell_enabled_image) ... ok
+test_a_record_may_omit_entrypoint_and_smoke (test_catalog_schema.SchemaTests.test_a_record_may_omit_entrypoint_and_smoke)
+base and static have neither today; the schema must not force them. ... ok
+test_an_empty_shell_probe_is_also_rejected (test_catalog_schema.SchemaTests.test_an_empty_shell_probe_is_also_rejected)
+Presence, not truthiness. An empty string is still a shell probe. ... ok
+test_base_record_is_valid (test_catalog_schema.SchemaTests.test_base_record_is_valid) ... ok
+test_compose_exclude_is_canonical_by_default (test_catalog_schema.SchemaTests.test_compose_exclude_is_canonical_by_default) ... ok
+test_exclude_omit_requires_a_reason (test_catalog_schema.SchemaTests.test_exclude_omit_requires_a_reason) ... ok
+test_missing_required_field_is_rejected (test_catalog_schema.SchemaTests.test_missing_required_field_is_rejected) ... ok
+test_name_must_match_filename (test_catalog_schema.SchemaTests.test_name_must_match_filename) ... ok
+test_shell_probe_is_allowed_on_a_shell_enabled_record (test_catalog_schema.SchemaTests.test_shell_probe_is_allowed_on_a_shell_enabled_record) ... ok
+test_shell_probe_is_rejected_on_a_distroless_record (test_catalog_schema.SchemaTests.test_shell_probe_is_rejected_on_a_distroless_record) ... ok
+test_the_baseline_fixture_is_actually_valid (test_catalog_schema.SchemaTests.test_the_baseline_fixture_is_actually_valid)
+Guards every negative test below: if this fails, they prove nothing. ... ok
+test_unknown_field_is_rejected (test_catalog_schema.SchemaTests.test_unknown_field_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.042s
+
+OK
+```

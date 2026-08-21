@@ -1,6 +1,7 @@
 name: static
 kind: distroless
 description: "Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116."
+keywords: distroless,freedesktop-sdk,bluefin,static
 size_ceiling_mib: 80
 stack:
   base: null
