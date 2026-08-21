@@ -216,6 +216,16 @@ changed-targets BASE HEAD="HEAD":
         '{oci_images: $oci, vm_guest: $vm}'
 
 # ── Validate ──────────────────────────────────────────────────────────
+[group('build')]
+catalog-write:
+    python3 scripts/generate_image_elements.py --write
+
+[group('test')]
+catalog-check:
+    python3 scripts/generate_image_elements.py --check
+    python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+    python3 -m unittest discover -s tests -p 'test_generated*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
