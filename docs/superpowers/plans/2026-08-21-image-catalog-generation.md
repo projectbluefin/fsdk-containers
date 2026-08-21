@@ -795,31 +795,50 @@ class RecordsDescribeRealityTests(unittest.TestCase):
                 )
 
     def test_slim_extra_matches_the_committed_oci_element(self):
+        """Extras are identified STRUCTURALLY, by position, not by substring.
+
+        An earlier draft filtered commands with `"build-oci" not in c`, which a
+        slim command merely mentioning that string would satisfy -- letting an
+        undeclared extra vanish and the assertion pass vacuously. It also
+        compared with .strip() on both sides while claiming byte-equality.
+
+        Every oci element has the same shape, verified across all seven:
+            commands[0]   the slim macro
+            commands[1:-2] the image's extra slim commands (usually none)
+            commands[-2]  the /initial_scripts boilerplate
+            commands[-1]  the build-oci heredoc
+        """
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
                 name = record["name"]
                 committed = _element("oci", f"{name}.bst")
                 commands = committed["config"]["commands"]
-                extras = [
-                    c for c in commands
-                    if not c.startswith("%{slim-")
-                    and "build-oci" not in c
-                    and "initial_scripts" not in c
-                ]
+
+                # Assert the shape before trusting the slice, so a future
+                # element that breaks this layout fails loudly here rather
+                # than silently comparing the wrong commands.
+                self.assertTrue(
+                    commands[0].startswith("%{slim-"),
+                    f"oci/{name}.bst: first command is not the slim macro",
+                )
+                self.assertIn(
+                    "initial_scripts", commands[-2],
+                    f"oci/{name}.bst: second-to-last command is not the "
+                    f"initial_scripts boilerplate",
+                )
+                self.assertIn(
+                    "build-oci", commands[-1],
+                    f"oci/{name}.bst: last command is not the build-oci heredoc",
+                )
+
+                extras = commands[1:-2]
                 declared = record.get("slim", {}).get("extra")
-                if declared is None:
-                    self.assertEqual(
-                        extras, [],
-                        f"oci/{name}.bst has extra slim commands not declared "
-                        f"in catalog/{name}.yaml slim.extra",
-                    )
-                else:
-                    self.assertEqual(
-                        [c.strip() for c in extras],
-                        [declared.strip()],
-                        f"catalog/{name}.yaml slim.extra is not byte-equal to "
-                        f"oci/{name}.bst",
-                    )
+                expected = [] if declared is None else [declared]
+                self.assertEqual(
+                    extras, expected,
+                    f"catalog/{name}.yaml slim.extra is not byte-equal to the "
+                    f"extra commands in oci/{name}.bst",
+                )
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
