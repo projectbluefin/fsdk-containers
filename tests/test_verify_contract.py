@@ -1,8 +1,13 @@
 """Verification gates are derived from the record, not hand-written."""
 
+import contextlib
+import io
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -77,6 +82,130 @@ class GateDerivationTests(unittest.TestCase):
         # No --entrypoint override; skopeo is CMD, proving PATH resolution
         self.assertNotIn("--entrypoint", argv)
         self.assertEqual(argv, ["skopeo", "--version"])
+
+
+class SmokeSplitTests(unittest.TestCase):
+    """smoke_split separates podman options (before the image ref) from the
+    CMD arguments (after it)."""
+
+    def test_no_smoke_block_gives_empty_lists(self):
+        for name in ("base", "static"):
+            with self.subTest(image=name):
+                record = catalog.load_record(ROOT / "catalog" / f"{name}.yaml")
+                self.assertEqual(vc.smoke_split(record), ([], []))
+
+    def test_todays_records_split_where_expected(self):
+        expected = {
+            # podman run --rm "$REF" --version
+            "python": ([], ["--version"]),
+            # podman run --rm "$REF" skopeo --version
+            "skopeo": ([], ["skopeo", "--version"]),
+            # podman run --rm --entrypoint /usr/bin/argo "$REF" version --short
+            "lab-runner": (
+                ["--entrypoint", "/usr/bin/argo"],
+                ["version", "--short"],
+            ),
+        }
+        for name, want in expected.items():
+            with self.subTest(image=name):
+                record = catalog.load_record(ROOT / "catalog" / f"{name}.yaml")
+                self.assertEqual(vc.smoke_split(record), want)
+
+    def test_split_preserves_the_full_argv(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                opts, cmd_args = vc.smoke_split(record)
+                self.assertEqual(opts + cmd_args, vc.smoke_argv(record))
+
+
+class SmokeArgBoundaryTests(unittest.TestCase):
+    """Finding 4: smoke arguments must reach podman with their boundaries
+    intact. SMOKE_OPTS/SMOKE_ARGS are emitted newline-delimited (one argument
+    per line) and the Justfile reads them with mapfile into bash arrays, so a
+    multi-word argument or a glob character survives as exactly one argument.
+    """
+
+    def _env_output(self, record: dict) -> str:
+        """The --env text verify_contract emits for a synthetic record."""
+        with mock.patch.object(vc.catalog, "load_record", return_value=record):
+            argv = sys.argv
+            sys.argv = ["verify_contract.py", "synthetic", "--env"]
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    vc.main()
+            finally:
+                sys.argv = argv
+        return buf.getvalue()
+
+    def _bash_roundtrip(self, env_output: str, cwd: str) -> tuple[list[str], list[str]]:
+        """Replay exactly what the Justfile does: eval the --env output, then
+        mapfile the newline-delimited vars into arrays. Returns (opts, args)."""
+        script = (
+            'eval "$1"\n'
+            "O=()\n"
+            'if [ -n "$SMOKE_OPTS" ]; then mapfile -t O <<< "$SMOKE_OPTS"; fi\n'
+            "A=()\n"
+            'if [ -n "$SMOKE_ARGS" ]; then mapfile -t A <<< "$SMOKE_ARGS"; fi\n'
+            'for x in "${O[@]}"; do printf "%s\\0" "$x"; done\n'
+            'printf "%s\\0" "--REF--"\n'
+            'for x in "${A[@]}"; do printf "%s\\0" "$x"; done\n'
+        )
+        out = subprocess.run(
+            ["bash", "-c", script, "bash", env_output],
+            check=True, capture_output=True, cwd=cwd,
+        ).stdout
+        fields = [f.decode() for f in out.split(b"\0")]
+        if fields and fields[-1] == "":
+            fields.pop()  # trailing NUL after the last field
+        sep = fields.index("--REF--")
+        return fields[:sep], fields[sep + 1:]
+
+    @staticmethod
+    def _record(args: list[str], override: list[str] | None = None) -> dict:
+        record = {
+            "name": "synthetic",
+            "kind": "distroless",
+            "description": "synthetic record for smoke boundary tests",
+            "size_ceiling_mib": 64,
+            "stack": {"depends": []},
+            "smoke": {"args": args},
+        }
+        if override:
+            record["smoke"]["entrypoint_override"] = override
+        return record
+
+    def test_argument_with_a_space_stays_one_argument(self):
+        env = self._env_output(self._record(["echo", "hello world"]))
+        opts, args = self._bash_roundtrip(env, cwd=str(ROOT))
+        self.assertEqual(opts, [])
+        self.assertEqual(args, ["echo", "hello world"])
+
+    def test_glob_character_is_never_expanded(self):
+        # Run the roundtrip in a directory where *.tar.gz WOULD match, so any
+        # unquoted expansion (the old behaviour) is caught, not just missed.
+        with tempfile.TemporaryDirectory(dir=ROOT) as d:
+            Path(d, "a.tar.gz").touch()
+            env = self._env_output(self._record(["--include", "*.tar.gz"]))
+            opts, args = self._bash_roundtrip(env, cwd=d)
+        self.assertEqual(opts, [])
+        self.assertEqual(args, ["--include", "*.tar.gz"])
+
+    def test_entrypoint_override_with_a_space_stays_one_option(self):
+        env = self._env_output(
+            self._record(["serve", "--title", "a b"], override=["/opt/my tool/run"])
+        )
+        opts, args = self._bash_roundtrip(env, cwd=str(ROOT))
+        self.assertEqual(opts, ["--entrypoint", "/opt/my tool/run"])
+        self.assertEqual(args, ["serve", "--title", "a b"])
+
+    def test_no_smoke_block_yields_empty_arrays(self):
+        record = self._record(["--version"])
+        del record["smoke"]
+        env = self._env_output(record)
+        opts, args = self._bash_roundtrip(env, cwd=str(ROOT))
+        self.assertEqual(opts, [])
+        self.assertEqual(args, [])
 
 
 if __name__ == "__main__":

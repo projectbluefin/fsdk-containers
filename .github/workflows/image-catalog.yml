@@ -12,8 +12,10 @@ on:
       - 'elements/**'
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
+      - 'scripts/verify_contract.py'
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
+      - 'tests/test_verify_contract*.py'
   push:
     branches: [main]
     paths:
@@ -21,8 +23,10 @@ on:
       - 'elements/**'
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
+      - 'scripts/verify_contract.py'
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
+      - 'tests/test_verify_contract*.py'
 
 permissions: {}
 
@@ -44,6 +48,9 @@ jobs:
 
       - name: Records are valid and describe the committed elements
         run: python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+
+      - name: Verification gates derive from the records
+        run: python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
       - name: Generated elements are current
         run: python3 scripts/generate_image_elements.py --check

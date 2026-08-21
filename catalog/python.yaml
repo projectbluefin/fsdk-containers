@@ -1,6 +1,7 @@
 name: python
 kind: distroless
 description: Distroless Python 3 image built on freedesktop-sdk
+export_description: Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,python
 entrypoint: ["/usr/bin/python3"]
 smoke:

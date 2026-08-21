@@ -2,6 +2,7 @@
 name: base
 kind: distroless
 description: Distroless base image carved from freedesktop-sdk
+export_description: Minimal, high-integrity distroless base image built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin
 size_ceiling_mib: 64
 stack:

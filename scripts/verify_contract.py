@@ -129,6 +129,29 @@ def smoke_argv(record: dict) -> list[str]:
     return argv
 
 
+def smoke_split(record: dict) -> tuple[list[str], list[str]]:
+    """Split smoke_argv into podman OPTIONS (before REF) and CMD ARGS (after).
+
+    "--entrypoint X" must precede the image reference; CMD args follow it.
+    smoke_argv() returns them interleaved; we split at the end of --entrypoint.
+    """
+    full = smoke_argv(record)
+    opts: list[str] = []
+    cmd_args: list[str] = []
+    i = 0
+    while i < len(full):
+        if full[i] == "--entrypoint" and i + 1 < len(full):
+            opts += ["--entrypoint", full[i + 1]]
+            i += 2
+        elif full[i].startswith("--entrypoint="):
+            opts.append(full[i])
+            i += 1
+        else:
+            cmd_args = full[i:]
+            break
+    return opts, cmd_args
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image")
@@ -145,25 +168,12 @@ def main() -> int:
     print("REQUIRE_PATHS=" + shlex.quote(chr(10).join(require_paths_for(record))))
     print("REQUIRE_ANY_PATHS=" + shlex.quote(chr(10).join(require_any_paths_for(record))))
     print(f"REQUIRE_BINARIES={shlex.quote(chr(10).join(gates['require_binaries']))}")
-    # Split smoke_argv into podman OPTIONS (before REF) and CMD ARGS (after).
-    # "--entrypoint X" must precede the image reference; CMD args follow it.
-    # smoke_argv() returns them interleaved; we split at the end of --entrypoint.
-    full = smoke_argv(record)
-    opts: list[str] = []
-    cmd_args: list[str] = []
-    i = 0
-    while i < len(full):
-        if full[i] == "--entrypoint" and i + 1 < len(full):
-            opts += ["--entrypoint", full[i + 1]]
-            i += 2
-        elif full[i].startswith("--entrypoint="):
-            opts.append(full[i])
-            i += 1
-        else:
-            cmd_args = full[i:]
-            break
-    print(f"SMOKE_OPTS={shlex.quote(' '.join(opts))}")
-    print(f"SMOKE_ARGS={shlex.quote(' '.join(cmd_args))}")
+    opts, cmd_args = smoke_split(record)
+    # One argument per line, exactly like FORBID_PATTERNS/REQUIRE_PATHS above:
+    # the Justfile mapfiles these into bash arrays, so an argument containing
+    # a space or a glob character survives podman run as exactly one argument.
+    print(f"SMOKE_OPTS={shlex.quote(chr(10).join(opts))}")
+    print(f"SMOKE_ARGS={shlex.quote(chr(10).join(cmd_args))}")
     # shell_probe is a bash one-liner declared in shell-enabled records; empty
     # string for distroless images, which have no shell to run probes in.
     shell_probe = record.get("smoke", {}).get("shell_probe", "") or ""

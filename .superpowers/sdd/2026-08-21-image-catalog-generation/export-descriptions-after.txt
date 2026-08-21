@@ -1,0 +1,7 @@
+base	Minimal, high-integrity distroless base image built on freedesktop-sdk
+static	Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk
+skopeo	Skopeo OCI image utility built on freedesktop-sdk
+lab-runner	Shell-enabled CI/CD utility container for Project Bluefin workflows
+python	Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk
+buildah	Distroless Buildah container-building tool built on freedesktop-sdk
+qemu-img	Distroless qemu-img disk image utility built on freedesktop-sdk

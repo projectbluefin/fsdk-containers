@@ -31,6 +31,11 @@
       "minLength": 10,
       "description": "Becomes org.opencontainers.image.description."
     },
+    "export_description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "OPTIONAL: the description `just export` applies as org.opencontainers.image.description on the squashed published image. Defaults to description. Kept distinct because the published strings predate the catalog and differ from the element-level description; changing them would rewrite published image metadata. Never rendered into a BuildStream element, so it cannot affect cache keys."
+    },
     "entrypoint": {
       "type": "array",
       "minItems": 1,

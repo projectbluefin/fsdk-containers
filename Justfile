@@ -225,6 +225,7 @@ catalog-check:
     python3 scripts/generate_image_elements.py --check
     python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
     python3 -m unittest discover -s tests -p 'test_generated*.py' -v
+    python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
 [group('dev')]
 validate:
@@ -261,16 +262,10 @@ export:
     IMAGE_ID=$({{sudo_cmd}} podman pull -q oci:.build-out)
     rm -rf .build-out
 
-    case "{{image_name}}" in
-        base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
-        static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
-        skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
-        lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
-        python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
-        buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
-        qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
-        *)          DESC="Project Bluefin distroless container image" ;;
-    esac
+    # The published description comes from the catalog record: export_description
+    # when the published string predates the record's description, else
+    # description. No case statement — adding an image never edits this recipe.
+    DESC="$(python3 -c "import yaml; d = yaml.safe_load(open('catalog/{{image_name}}.yaml')); print(d.get('export_description', d['description']))")"
 
     LABEL_ARGS=()
     [ -n "${OCI_IMAGE_CREATED}" ]  && LABEL_ARGS+=(--label "org.opencontainers.image.created=${OCI_IMAGE_CREATED}")
@@ -431,10 +426,21 @@ verify:
     # that must precede the image reference; SMOKE_ARGS are the CMD arguments
     # that follow it. Both are empty for images with no declared smoke test
     # (base, static), in which case we skip this step entirely.
-    if [ -n "${SMOKE_OPTS}${SMOKE_ARGS}" ]; then
+    # Both arrive newline-delimited (one argument per line) and are read into
+    # arrays with mapfile, so an argument containing a space or a glob
+    # character stays exactly one argument — unquoted $SMOKE_ARGS would
+    # word-split and glob it apart.
+    SMOKE_OPTS_ARR=()
+    if [ -n "$SMOKE_OPTS" ]; then
+        mapfile -t SMOKE_OPTS_ARR <<< "$SMOKE_OPTS"
+    fi
+    SMOKE_ARGS_ARR=()
+    if [ -n "$SMOKE_ARGS" ]; then
+        mapfile -t SMOKE_ARGS_ARR <<< "$SMOKE_ARGS"
+    fi
+    if [ "${#SMOKE_OPTS_ARR[@]}" -gt 0 ] || [ "${#SMOKE_ARGS_ARR[@]}" -gt 0 ]; then
         echo "==> smoke test (executing binary)"
-        # shellcheck disable=SC2086
-        if ! {{sudo_cmd}} podman run --rm $SMOKE_OPTS "$REF" $SMOKE_ARGS >/dev/null 2>&1; then
+        if ! {{sudo_cmd}} podman run --rm "${SMOKE_OPTS_ARR[@]}" "$REF" "${SMOKE_ARGS_ARR[@]}" >/dev/null 2>&1; then
             echo "FAIL: $IMG smoke test failed" >&2; exit 1
         fi
         echo "OK: $IMG executes successfully"

@@ -114,5 +114,40 @@ class OciGenerationTests(unittest.TestCase):
         )
 
 
+class YamlSingleQuoteTests(unittest.TestCase):
+    """Finding 3: values interpolated into single-quoted YAML scalars inside
+    the build-oci heredoc must be escaped, or a schema-valid record (e.g. a
+    description with an apostrophe) generates invalid nested YAML."""
+
+    def test_apostrophe_is_doubled(self):
+        self.assertEqual(gen.yaml_single_quote("it's"), "'it''s'")
+
+    def test_round_trips_through_yaml(self):
+        for value in ["it's a test", 'say "hi"', "key: value", "plain"]:
+            with self.subTest(value=value):
+                parsed = yaml.safe_load(gen.yaml_single_quote(value))
+                self.assertEqual(parsed, value)
+
+    def test_rendered_oci_stays_valid_with_special_characters(self):
+        record = catalog.load_record(ROOT / "catalog" / "python.yaml")
+        record["description"] = "It's a \"quoted\": description"
+        record["entrypoint"] = ["/usr/bin/it'tool"]
+        record["keywords"] = "a,b: c"
+        text = gen.render_oci(record)
+        # The element file itself must still parse...
+        self.assertIsInstance(yaml.safe_load(text), dict)
+        # ...and the nested heredoc scalars must carry the escaped values.
+        self.assertIn("'It''s a \"quoted\": description'", text)
+        self.assertIn("Entrypoint: ['/usr/bin/it''tool']", text)
+        self.assertIn("'a,b: c'", text)
+
+    def test_escaping_is_a_noop_for_every_committed_record(self):
+        # No current record value contains an apostrophe, so the generated
+        # elements -- and therefore the BST cache keys -- must not move.
+        # (Same assertion as test_check_mode_passes_on_a_clean_tree, kept here
+        # as the explicit Finding 3 regression contract.)
+        self.assertEqual(gen.check(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

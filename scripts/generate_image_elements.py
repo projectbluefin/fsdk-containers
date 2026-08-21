@@ -24,6 +24,17 @@ REPO_ROOT = catalog.REPO_ROOT
 ELEMENTS = REPO_ROOT / "elements"
 
 
+def yaml_single_quote(s: object) -> str:
+    """Render s as a YAML single-quoted scalar.
+
+    The only escape in a single-quoted YAML scalar is '' for an apostrophe.
+    Interpolating a raw value into a '...' context lets an apostrophe in a
+    description, entrypoint, or keyword silently corrupt the nested YAML of
+    the build-oci heredoc.
+    """
+    return "'" + str(s).replace("'", "''") + "'"
+
+
 def _header(name: str, what: str) -> str:
     return (
         f"# DO NOT EDIT. Generated from catalog/{name}.yaml by\n"
@@ -179,18 +190,20 @@ def render_oci(record: dict) -> str:
         # Emit as inline list to match the committed format exactly.
         # The Entrypoint value is inside a build-oci heredoc, so the literal
         # text must be byte-for-byte identical to avoid changing the BST cache key.
-        ep = ", ".join(f"'{p}'" for p in record["entrypoint"])
+        ep = ", ".join(yaml_single_quote(p) for p in record["entrypoint"])
         lines.append(f"          Entrypoint: [{ep}]")
     lines.append("          Labels:")
     lines.append(f"            'org.opencontainers.image.title': '{name}'")
     lines.append(
         f"            'org.opencontainers.image.description': "
-        f"'{record['description']}'"
+        f"{yaml_single_quote(record['description'])}"
     )
     for key, value in SHARED_LABELS:
         lines.append(f"            '{key}': '{value}'")
     keywords = record.get("keywords", "distroless,freedesktop-sdk,bluefin")
-    lines.append(f"            'io.artifacthub.package.keywords': '{keywords}'")
+    lines.append(
+        f"            'io.artifacthub.package.keywords': {yaml_single_quote(keywords)}"
+    )
     lines.append("            'io.artifacthub.package.category': 'integration-delivery'")
     lines.append("        index-annotations:")
     lines.append(

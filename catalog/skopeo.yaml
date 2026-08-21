@@ -1,6 +1,7 @@
 name: skopeo
 kind: distroless
 description: Distroless skopeo image carved from freedesktop-sdk
+export_description: Skopeo OCI image utility built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,skopeo
 smoke:
   args: ["skopeo", "--version"]

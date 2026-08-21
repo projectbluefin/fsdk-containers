@@ -29,7 +29,9 @@ Use when adding a new runtime/tool image carved from FSDK.
 ## Adding an image
 
 1. Write `catalog/<name>.yaml`. That is the image definition.
-2. Add `<name>` to `oci_images` and `image_paths` in `elements/targets.json`.
+2. Add `<name>` to `oci_images` and `image_paths` in `elements/targets.json`
+   (the `image_paths` entry owns `elements/oci/<name>.bst`, `elements/<name>/`,
+   and `catalog/<name>.yaml`, so a record-only change still gates a build).
 3. Run `just catalog-write` to generate the three BuildStream elements.
 4. Run `BUILD_IMAGE_NAME=<name> just build && BUILD_IMAGE_NAME=<name> just verify`.
 5. Commit the record, the targets.json entry, and the generated elements together.
@@ -54,6 +56,18 @@ gets it for free — do not work around it with a bespoke element.
 - `keywords` is transcribed per image. The
   `io.artifacthub.package.keywords` label varies across images (and
   `lab-runner` omits `distroless`); do not derive it.
+- `export_description` is the published `org.opencontainers.image.description`
+  that `just export` applies to the squashed image. It defaults to
+  `description`; set it only when the published string must differ from the
+  element-level one. It is never rendered into a BuildStream element, so it
+  cannot move a cache key.
+- Descriptions, entrypoints, and keywords are interpolated into single-quoted
+  YAML scalars by the generator, which escapes `'` as `''`. Apostrophes are
+  safe; do not pre-quote or pre-escape values in the record.
+- Smoke `args` and `entrypoint_override` may contain spaces or glob characters:
+  `scripts/verify_contract.py` emits them newline-delimited and the `verify`
+  recipe reads them with `mapfile` into bash arrays, so every argument reaches
+  `podman run` as exactly one argument.
 
 ## Prerequisites
 
