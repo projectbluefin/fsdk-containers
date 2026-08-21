@@ -1,0 +1,12 @@
+name: static
+kind: distroless
+description: "Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116."
+size_ceiling_mib: 80
+stack:
+  base: null
+  components:
+    - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+    - freedesktop-sdk.bst:components/ca-certificates.bst
+    - freedesktop-sdk.bst:components/tzdata.bst
+    - freedesktop-sdk.bst:components/os-release.bst
+    - freedesktop-sdk.bst:integration/extra-fs.bst

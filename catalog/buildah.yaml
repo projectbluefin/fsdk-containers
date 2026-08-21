@@ -1,0 +1,21 @@
+name: buildah
+kind: distroless
+description: Distroless Buildah container-building tool built on freedesktop-sdk
+entrypoint: ["/usr/bin/buildah"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 256
+stack:
+  base: base/base-stack.bst
+  components:
+    - buildah/buildah.bst
+    - freedesktop-sdk.bst:components/containers-common.bst
+    - freedesktop-sdk.bst:components/gpgme.bst
+    - freedesktop-sdk.bst:components/libassuan.bst
+    - freedesktop-sdk.bst:components/libgpg-error.bst
+    - freedesktop-sdk.bst:components/libseccomp.bst
+    - freedesktop-sdk.bst:components/glib.bst
+    - freedesktop-sdk.bst:components/sqlite.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC

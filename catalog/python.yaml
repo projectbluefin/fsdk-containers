@@ -1,0 +1,33 @@
+name: python
+kind: distroless
+description: Distroless Python 3 image built on freedesktop-sdk
+entrypoint: ["/usr/bin/python3"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 144
+stack:
+  base: base/base-stack.bst
+  components:
+    - freedesktop-sdk.bst:components/python3.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC
+slim:
+  extra: |
+    set -eu
+    L=/layer
+    rm -rf "$L"/usr/lib/python*/test \
+           "$L"/usr/lib/python*/*/test \
+           "$L"/usr/lib/python*/*/tests \
+           "$L"/usr/lib/python*/ensurepip \
+           "$L"/usr/lib/python*/idlelib \
+           "$L"/usr/lib/python*/tkinter \
+           "$L"/usr/lib/python*/turtledemo \
+           "$L"/usr/lib/python*/turtle.py \
+           "$L"/usr/lib/python*/lib2to3 \
+           "$L"/usr/lib/python*/pydoc_data \
+           "$L"/usr/lib/python*/__phello__ \
+           "$L"/usr/lib/python*/config-* \
+           "$L"/usr/lib/python*/*/config-* \
+           "$L"/usr/lib/python*/*.a \
+           "$L"/usr/lib/python*/*/*.a

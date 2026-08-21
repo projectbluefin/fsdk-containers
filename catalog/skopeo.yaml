@@ -1,0 +1,22 @@
+name: skopeo
+kind: distroless
+description: Distroless skopeo image carved from freedesktop-sdk
+entrypoint: ["/usr/bin/skopeo"]
+smoke:
+  entrypoint_override: ["/usr/bin/skopeo"]
+  args: ["--version"]
+size_ceiling_mib: 224
+stack:
+  base: base/base-stack.bst
+  components:
+    - freedesktop-sdk.bst:components/skopeo.bst
+    - freedesktop-sdk.bst:components/containers-common.bst
+    - freedesktop-sdk.bst:components/gpgme.bst
+    - freedesktop-sdk.bst:components/libassuan.bst
+    - freedesktop-sdk.bst:components/sqlite.bst
+    - freedesktop-sdk.bst:components/libgpg-error.bst
+    - freedesktop-sdk.bst:components/glib.bst
+    - freedesktop-sdk.bst:components/pkg-config.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC

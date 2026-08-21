@@ -1,0 +1,14 @@
+name: qemu-img
+kind: distroless
+description: Distroless qemu-img image carved from freedesktop-sdk
+entrypoint: ["/usr/bin/qemu-img"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 192
+stack:
+  base: base/base-stack.bst
+  components:
+    - qemu-img/qemu-img.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC
