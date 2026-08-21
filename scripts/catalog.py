@@ -51,7 +51,7 @@ def validate(record: dict) -> dict:
             for e in errors
         )
         raise CatalogError(f"invalid record: {detail}")
-    if record.get("smoke", {}).get("shell_probe") and record["kind"] != "shell-enabled":
+    if "shell_probe" in record.get("smoke", {}) and record["kind"] != "shell-enabled":
         raise CatalogError(
             f"{record['name']}: smoke.shell_probe requires kind: shell-enabled"
         )
