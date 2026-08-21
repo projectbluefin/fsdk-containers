@@ -4,8 +4,7 @@ description: "Deprecated: currently identical to the base image and ships glibc.
 keywords: distroless,freedesktop-sdk,bluefin,static
 size_ceiling_mib: 80
 stack:
-  base: null
-  components:
+  depends:
     - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
     - freedesktop-sdk.bst:components/ca-certificates.bst
     - freedesktop-sdk.bst:components/tzdata.bst

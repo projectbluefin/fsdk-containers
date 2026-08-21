@@ -76,12 +76,10 @@ def render_stack(record: dict) -> str:
 
     lines.append("")
     lines.append("depends:")
-    if record["stack"].get("base"):
-        lines.append(f"  - {record['stack']['base']}")
-    for component in record["stack"]["components"]:
-        lines.append(f"  - {component}")
-    for extra in record["stack"].get("extra_depends", []):
-        lines.append(f"  - {extra}")
+    # Emitted in the record's order, verbatim. Do not sort, group or dedupe --
+    # order affects the BuildStream cache key.
+    for dep in record["stack"]["depends"]:
+        lines.append(f"  - {dep}")
     return "\n".join(lines) + "\n"
 
 

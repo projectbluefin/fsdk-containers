@@ -7,8 +7,8 @@ smoke:
   args: ["--version"]
 size_ceiling_mib: 144
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - freedesktop-sdk.bst:components/python3.bst
 gates:
   require_paths:

@@ -17,6 +17,7 @@ depends:
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
   - freedesktop-sdk.bst:components/python3-pyyaml.bst
+  - lab-runner/yq.bst
   - freedesktop-sdk.bst:components/bubblewrap.bst
   - freedesktop-sdk.bst:components/diffutils.bst
   - freedesktop-sdk.bst:components/file.bst
@@ -28,7 +29,6 @@ depends:
   - freedesktop-sdk.bst:components/procps.bst
   - freedesktop-sdk.bst:components/tar.bst
   - freedesktop-sdk.bst:components/which.bst
-  - lab-runner/yq.bst
   - lab-runner/shellcheck.bst
   - lab-runner/hadolint.bst
   - lab-runner/actionlint.bst

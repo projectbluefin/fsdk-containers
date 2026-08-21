@@ -51,9 +51,8 @@ class StackGenerationTests(unittest.TestCase):
                 )
                 generated = yaml.safe_load(gen.render_stack(record))
                 self.assertEqual(generated["kind"], "stack")
-                self.assertEqual(
-                    sorted(generated["depends"]), sorted(committed["depends"])
-                )
+                # ORDER-SENSITIVE: sorting here masked a real cache-key change.
+                self.assertEqual(generated["depends"], committed["depends"])
 
     def test_notes_are_carried_into_the_generated_stack(self):
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")

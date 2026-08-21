@@ -5,17 +5,15 @@ description: Distroless base image carved from freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin
 size_ceiling_mib: 64
 stack:
-  base: null
-  components:
+  depends:
     - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
     - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
     - freedesktop-sdk.bst:components/ca-certificates.bst
     - freedesktop-sdk.bst:components/tzdata.bst
     - freedesktop-sdk.bst:components/os-release.bst
+    - base/terminfo-ghostty.bst
     - freedesktop-sdk.bst:integration/extra-fs.bst
     - freedesktop-sdk.bst:integration/ldconfig.bst
-  extra_depends:
-    - base/terminfo-ghostty.bst
 gates:
   require_paths:
     - usr/share/zoneinfo/UTC

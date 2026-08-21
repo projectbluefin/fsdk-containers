@@ -7,8 +7,8 @@ smoke:
   args: ["--version"]
 size_ceiling_mib: 192
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - qemu-img/qemu-img.bst
 gates:
   require_paths:

@@ -7,8 +7,8 @@ smoke:
   args: ["--version"]
 size_ceiling_mib: 256
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - buildah/buildah.bst
     - freedesktop-sdk.bst:components/containers-common.bst
     - freedesktop-sdk.bst:components/gpgme.bst

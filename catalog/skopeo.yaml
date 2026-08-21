@@ -6,8 +6,8 @@ smoke:
   args: ["skopeo", "--version"]
 size_ceiling_mib: 224
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - freedesktop-sdk.bst:components/skopeo.bst
     - freedesktop-sdk.bst:components/containers-common.bst
     - freedesktop-sdk.bst:components/gpgme.bst

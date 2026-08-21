@@ -58,14 +58,9 @@ class RecordsDescribeRealityTests(unittest.TestCase):
             with self.subTest(image=record["name"]):
                 name = record["name"]
                 committed = _element(name, f"{name}-stack.bst")
-                expected = []
-                if record["stack"].get("base"):
-                    expected.append(record["stack"]["base"])
-                expected += record["stack"]["components"]
-                expected += record["stack"].get("extra_depends", [])
                 self.assertEqual(
-                    sorted(committed["depends"]),
-                    sorted(expected),
+                    committed["depends"],
+                    record["stack"]["depends"],
                     f"{name}-stack.bst depends do not match catalog/{name}.yaml",
                 )
 

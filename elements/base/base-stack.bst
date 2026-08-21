@@ -21,6 +21,6 @@ depends:
   - freedesktop-sdk.bst:components/ca-certificates.bst
   - freedesktop-sdk.bst:components/tzdata.bst
   - freedesktop-sdk.bst:components/os-release.bst
+  - base/terminfo-ghostty.bst
   - freedesktop-sdk.bst:integration/extra-fs.bst
   - freedesktop-sdk.bst:integration/ldconfig.bst
-  - base/terminfo-ghostty.bst

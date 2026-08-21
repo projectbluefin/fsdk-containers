@@ -23,7 +23,7 @@ def valid_record(**overrides):
         "kind": "distroless",
         "description": "A valid record used as a negative-test baseline",
         "size_ceiling_mib": 64,
-        "stack": {"components": []},
+        "stack": {"depends": []},
     }
     record.update(overrides)
     return record
