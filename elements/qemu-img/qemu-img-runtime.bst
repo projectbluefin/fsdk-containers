@@ -1,5 +1,9 @@
+# DO NOT EDIT. Generated from catalog/qemu-img.yaml by
+# scripts/generate_image_elements.py (compose).
+# Change the record, then run: just catalog-write
+
 kind: compose
-description: Chisel the qemu-img stack to runtime-only.
+description: Chisel the qemu-img stack down to runtime-only, distroless.
 
 build-depends:
   - qemu-img/qemu-img-stack.bst
@@ -10,8 +14,7 @@ config:
     - devel
     - doc
     - locale
-    - static-blocklist
-    - vm-only
-    - tests
     - shells
-
+    - static-blocklist
+    - tests
+    - vm-only
