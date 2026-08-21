@@ -65,3 +65,17 @@ commit with the measurement in the PR body.
 Issue #94 asks for a `capabilities.yml` that *generates* the gate's tool lists
 instead of hardcoded `for tool in ...` loops in the Justfile. Until that lands,
 this markdown is the contract and the Justfile loops are the enforcement.
+
+## Red Flags
+
+- A tool added to `lab-runner-stack.bst` with no row here, or a row here whose
+  tool is not in the stack.
+- A `--version`-only probe for a tool with pluggable back-ends (compressors,
+  sandboxing) — probe the operation end to end (#87, #109).
+- Raising the 640 MiB ceiling without a measured size in the PR body.
+
+## Verification
+
+- [ ] Every row's tool appears in `lab-runner-stack.bst` and vice versa.
+- [ ] `just verify` green for lab-runner on both architectures.
+- [ ] Contract and gate changed in the same commit.
