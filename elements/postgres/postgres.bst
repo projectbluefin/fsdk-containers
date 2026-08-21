@@ -1,5 +1,32 @@
 kind: manual
 description: |
+  WAVE 0 FEASIBILITY SPIKE (#146) — THE FOUR ANSWERS, re-verified on
+  branch spike-146-postgres:
+
+  1. MECHANISM: tarball source build (kind: manual + kind: tar source).
+     FSDK has no components/postgresql.bst (checked the junction), so a
+     plain `depends:` line is impossible. #113's mechanism table assumed
+     "tarball source build" for postgres — the assumption is CORRECT, so
+     unlike falco/node (corrected in #147) there is NO mechanism
+     correction to record for postgres.
+  2. DEPENDENCY SET: exact lists below. build-depends: runtime-gnu
+     sandbox base + gcc, make, sed, grep, gawk, coreutils, perl,
+     pkg-config, bison, flex + headers for openssl, zlib, lz4, zstd,
+     icu, libxml2, tzdata. Runtime depends: openssl, zlib, lz4, zstd,
+     icu, libxml2 (+ tzdata via base/base-stack.bst).
+  3. RESOLVES: yes — and more than resolves: builds green on the ghost
+     BuildBarn grid (`just bst build postgres/postgres-stack.bst`,
+     remote execution, no BST_LOCAL). Per #147 the built artifact also
+     RAN distroless: initdb, postmaster with no shell, psql over a unix
+     socket, ICU collation verified.
+  4. UPSTREAM VERSION + REF: PostgreSQL 18.4,
+     https://ftp.postgresql.org/pub/source/v18.4/postgresql-18.4.tar.bz2
+     sha256 81a81ec695fb0c7901407defaa1d2f7973617154cf27ba74e3a7ab8e64436094
+     — matches upstream's published .sha256 sidecar byte-for-byte
+     (re-verified 2026-08-20). Newer point releases exist (18.6 at spike
+     time); the pin stays at the #147-verified version, bumps belong to
+     track-upstream-versions.md, not to this spike.
+
   Build PostgreSQL from the upstream source tarball (tarball source build;
   FSDK has no components/postgresql.bst). Pattern mirrors
   elements/lab-runner/nginx.bst: declare every build-time utility the
