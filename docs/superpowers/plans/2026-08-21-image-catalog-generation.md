@@ -303,6 +303,10 @@ Create `catalog/schema.json`:
         }
       }
     },
+    "keywords": {
+      "type": "string",
+      "description": "Verbatim value of the io.artifacthub.package.keywords label. This is the ONE non-obvious label that varies per image (measured: 7 distinct values across 7 images, e.g. lab-runner uses 'freedesktop-sdk,bluefin,ci' with no 'distroless'). It is transcribed, never derived, because deriving it would rewrite six images' labels."
+    },
     "notes": {
       "type": "string",
       "description": "Free-form prose carried into the generated elements as a comment. Use for hard-won context that would otherwise be lost."
@@ -587,17 +591,35 @@ slim:
 > `"%{slim-distroless-commands}"`. Byte-for-byte. Task 4 asserts equality, so
 > any paraphrase will fail the build.
 
+> **Transcription rule for `keywords`:** copy the
+> `io.artifacthub.package.keywords` label verbatim from the committed
+> `elements/oci/<name>.bst`. Measured 2026-08-21, all seven images have a
+> DIFFERENT value — `base` has `distroless,freedesktop-sdk,bluefin`, most
+> others append their own name, and `lab-runner` has
+> `freedesktop-sdk,bluefin,ci` with no `distroless` at all. This is the only
+> non-obvious label that varies, and deriving it would rewrite six images.
+
+> **Transcription rule for `entrypoint`:** an image gets an `entrypoint` in its
+> record if and only if its committed `elements/oci/<name>.bst` contains an
+> `Entrypoint:` key. Measured 2026-08-21: `buildah`, `lab-runner`, `python` and
+> `qemu-img` have one; `base`, `skopeo` and `static` do NOT. `skopeo` is the
+> trap — `just verify` smoke-tests it with `podman run --rm "$REF" skopeo
+> --version`, passing `skopeo` as an *argument*, which is only possible because
+> the image has no entrypoint. Its record must omit `entrypoint` and use
+> `smoke.args: ["skopeo", "--version"]`.
+
 `catalog/skopeo.yaml` — note the entrypoint override, because `skopeo`'s smoke
 test runs `skopeo --version` as an argument rather than through the entrypoint:
 
 ```yaml
 name: skopeo
 kind: distroless
-description: Distroless Skopeo OCI image utility carved from freedesktop-sdk
-entrypoint: ["/usr/bin/skopeo"]
+description: Distroless skopeo image carved from freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,skopeo
+# No entrypoint: elements/oci/skopeo.bst sets none, which is why just verify
+# can run `podman run --rm "$REF" skopeo --version` with skopeo as an argument.
 smoke:
-  entrypoint_override: ["/usr/bin/skopeo"]
-  args: ["--version"]
+  args: ["skopeo", "--version"]
 size_ceiling_mib: 224
 stack:
   base: base/base-stack.bst
@@ -1228,7 +1250,6 @@ SHARED_LABELS = {
     "org.opencontainers.image.source": "https://github.com/projectbluefin/fsdk-containers",
     "io.artifacthub.package.license": "Apache-2.0",
     "io.artifacthub.package.category": "integration-delivery",
-    "io.artifacthub.package.keywords": "distroless,freedesktop-sdk,bluefin",
 }
 
 
@@ -1307,9 +1328,12 @@ SHARED_LABELS = [
         "io.artifacthub.package.maintainers",
         '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]',
     ),
-    ("io.artifacthub.package.keywords", "distroless,freedesktop-sdk,bluefin"),
     ("io.artifacthub.package.category", "integration-delivery"),
 ]
+# NOT in SHARED_LABELS: io.artifacthub.package.keywords. It is the one
+# non-obvious label that genuinely varies per image -- 7 distinct values across
+# 7 images. Hardcoding a shared value here would have rewritten six images'
+# labels, which this plan forbids. It comes from the record, verbatim.
 
 
 def render_oci(record: dict) -> str:
@@ -1383,6 +1407,8 @@ def render_oci(record: dict) -> str:
     )
     for key, value in SHARED_LABELS:
         lines.append(f"            '{key}': '{value}'")
+    keywords = record.get("keywords", "distroless,freedesktop-sdk,bluefin")
+    lines.append(f"            'io.artifacthub.package.keywords': '{keywords}'")
     lines.append("        index-annotations:")
     lines.append(
         f"          'org.opencontainers.image.ref.name': "
