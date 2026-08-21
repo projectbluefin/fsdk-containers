@@ -45,6 +45,36 @@ class CatalogCoverageTests(unittest.TestCase):
         )
 
 
+class AddingAnImageCostsOneFileTests(unittest.TestCase):
+    """The headline success criterion: a new image is one record and nothing
+    else. If this test needs editing to add an image, the plan failed."""
+
+    def test_a_new_record_generates_all_three_elements(self):
+        import generate_image_elements as gen
+
+        record = {
+            "name": "acceptance-probe",
+            "kind": "distroless",
+            "description": "Throwaway record proving generation needs no code",
+            "entrypoint": ["/usr/bin/true"],
+            "smoke": {"args": []},
+            "size_ceiling_mib": 64,
+            "stack": {
+                "depends": [
+                    "base/base-stack.bst",
+                    "freedesktop-sdk.bst:components/coreutils.bst",
+                ],
+            },
+        }
+        catalog.validate(record)
+
+        for renderer in (gen.render_stack, gen.render_compose, gen.render_oci):
+            text = renderer(record)
+            self.assertIn("acceptance-probe", text)
+            self.assertIn("DO NOT EDIT", text)
+            self.assertIsInstance(yaml.safe_load(text), dict)
+
+
 def _element(*parts):
     return yaml.safe_load((ROOT / "elements" / Path(*parts)).read_text())
 

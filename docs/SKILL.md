@@ -30,7 +30,7 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 
 | If your task is... | Load |
 | ------------------ | ---- |
-| Add a new distroless image (python, node, etc.) | [`skills/add-new-image.md`](skills/add-new-image.md) |
+| Add a new distroless image (one catalog record) | [`skills/add-new-image.md`](skills/add-new-image.md) |
 | Add a component + stack only, no OCI image | [`skills/add-fsdk-component/SKILL.md`](skills/add-fsdk-component/SKILL.md) |
 | Add a non-distroless nspawn machine image (dev env, tarball) | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
 | Add a bootable EFI/raw VM guest image (QEMU disk) | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
@@ -73,6 +73,10 @@ agent's session folder.
 - `elements/targets.json` is the single canonical manifest for the OCI image
   build/manifest matrices — see
   [`skills/ci-tooling/SKILL.md`](skills/ci-tooling/SKILL.md).
+- Every OCI image is declared by one record in `catalog/<name>.yaml`. The
+  BuildStream elements and the `just verify` contract are generated from it —
+  never hand-edit a generated element. `just catalog-write` regenerates,
+  `just catalog-check` gates.
 
 ## Catalog
 
