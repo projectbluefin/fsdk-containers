@@ -1762,16 +1762,33 @@ FORBIDDEN = {
 # in its non-lab-runner branch, so adding them to lab-runner would be a new
 # gate it never had.
 BASELINE_PATHS_DISTROLESS = [
-    "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
     "usr/share/zoneinfo/UTC",
 ]
+
+# The old recipe accepted EITHER of these, not one fixed path:
+#   grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$'
+# Narrowing it to a single path asserts something different from what the
+# merge contract has always asserted, so the alternation is preserved. At
+# least one must be present.
+BASELINE_ANY_PATHS_DISTROLESS = [
+    "etc/pki/tls/certs/ca-bundle.crt",
+    "etc/ssl/certs/ca-certificates.crt",
+]
+
+# Gates that the old recipe applied ONLY in its non-lab-runner branch. A
+# shell-enabled image never had them, so applying them would be a new gate --
+# a behaviour change, which this plan forbids.
+DISTROLESS_ONLY_GATES = ("no-sanitizers", "no-locale-archive")
 
 
 def gates_for(record: dict) -> dict:
     """The full verification contract for one image."""
     forbid = dict(FORBIDDEN)
     if record["kind"] == "shell-enabled":
+        # The old recipe's lab-runner branch performed none of these three.
         del forbid["no-shell"]
+        for gate in DISTROLESS_ONLY_GATES:
+            forbid.pop(gate, None)
 
     require_binaries = list(record.get("gates", {}).get("require_binaries", []))
     if record["kind"] == "shell-enabled" and "bash" not in require_binaries:
