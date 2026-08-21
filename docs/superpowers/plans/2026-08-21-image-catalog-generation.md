@@ -15,7 +15,7 @@
 - Distroless means no shell. `lab-runner` is the only OCI exception, and `brew` is a non-OCI nspawn machine image outside this plan's scope.
 - `just verify` is the merge contract. Every gate that passes today must still pass after every task.
 - The canonical compose exclude set is exactly: `debug`, `devel`, `doc`, `locale`, `shells`, `static-blocklist`, `tests`, `vm-only`.
-- Python tests use `unittest`, not `pytest`, matching `tests/test_renovate_atomic.py`. Run with `python3 -m unittest`.
+- Python tests use `unittest`, not `pytest`, matching `tests/test_renovate_atomic.py`. **Always invoke via discovery** — `python3 -m unittest discover -s tests -p '<file>.py' -v` — never `python3 -m unittest tests.<module>`. A `tests` package installed in user site-packages shadows this repo's `tests/` directory, so the dotted form silently runs the wrong code. Select a single test with `-k <name>`.
 - Generated files are committed to git and gated by a `--check` mode. Never generate at build time.
 - Commit messages follow Conventional Commits with a scope, and end with:
   `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
@@ -83,30 +83,46 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import catalog  # noqa: E402
 
 
+def valid_record(**overrides):
+    """A minimal record that passes validation.
+
+    Negative tests start from this and change exactly one thing, so a test can
+    only pass for the reason it names. An earlier draft used
+    description: "x", which independently violated the schema's minLength and
+    made three negative tests pass vacuously.
+    """
+    record = {
+        "name": "probe",
+        "kind": "distroless",
+        "description": "A valid record used as a negative-test baseline",
+        "size_ceiling_mib": 64,
+        "stack": {"components": []},
+    }
+    record.update(overrides)
+    return record
+
+
 class SchemaTests(unittest.TestCase):
+    def test_the_baseline_fixture_is_actually_valid(self):
+        """Guards every negative test below: if this fails, they prove nothing."""
+        self.assertEqual(catalog.validate(valid_record())["name"], "probe")
+
     def test_base_record_is_valid(self):
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")
         self.assertEqual(record["name"], "base")
         self.assertEqual(record["kind"], "distroless")
 
     def test_missing_required_field_is_rejected(self):
+        record = valid_record()
+        del record["kind"]
         with self.assertRaises(catalog.CatalogError) as ctx:
-            catalog.validate({"name": "broken"})
+            catalog.validate(record)
         self.assertIn("kind", str(ctx.exception))
 
     def test_unknown_field_is_rejected(self):
-        record = {
-            "name": "broken",
-            "kind": "distroless",
-            "description": "x",
-            "entrypoint": ["/bin/true"],
-            "smoke": {"args": ["--version"]},
-            "size_ceiling_mib": 64,
-            "stack": {"components": []},
-            "nonsense": True,
-        }
-        with self.assertRaises(catalog.CatalogError):
-            catalog.validate(record)
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(valid_record(nonsense=True))
+        self.assertIn("nonsense", str(ctx.exception))
 
     def test_name_must_match_filename(self):
         with self.assertRaises(catalog.CatalogError) as ctx:
@@ -118,18 +134,33 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(catalog.compose_exclude(record), catalog.CANONICAL_EXCLUDE)
 
     def test_exclude_omit_requires_a_reason(self):
-        record = {
-            "name": "broken",
-            "kind": "distroless",
-            "description": "x",
-            "entrypoint": ["/bin/true"],
-            "smoke": {"args": ["--version"]},
-            "size_ceiling_mib": 64,
-            "stack": {"components": []},
-            "compose": {"exclude_omit": [{"domain": "devel"}]},
-        }
+        record = valid_record(compose={"exclude_omit": [{"domain": "devel"}]})
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(record)
+        self.assertIn("reason", str(ctx.exception))
+
+    def test_shell_probe_is_rejected_on_a_distroless_record(self):
+        record = valid_record(smoke={"args": [], "shell_probe": "true"})
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(record)
+        self.assertIn("shell-enabled", str(ctx.exception))
+
+    def test_an_empty_shell_probe_is_also_rejected(self):
+        """Presence, not truthiness. An empty string is still a shell probe."""
+        record = valid_record(smoke={"args": [], "shell_probe": ""})
         with self.assertRaises(catalog.CatalogError):
             catalog.validate(record)
+
+    def test_shell_probe_is_allowed_on_a_shell_enabled_record(self):
+        record = valid_record(kind="shell-enabled", smoke={"args": [], "shell_probe": "true"})
+        self.assertEqual(catalog.validate(record)["kind"], "shell-enabled")
+
+    def test_a_record_may_omit_entrypoint_and_smoke(self):
+        """base and static have neither today; the schema must not force them."""
+        record = valid_record()
+        self.assertNotIn("entrypoint", record)
+        self.assertNotIn("smoke", record)
+        catalog.validate(record)
 
 
 if __name__ == "__main__":
@@ -138,7 +169,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_catalog_schema -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_catalog_schema.py' -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'catalog'`
 
 - [ ] **Step 3: Write the schema**
@@ -153,7 +184,7 @@ Create `catalog/schema.json`:
   "description": "The single declarative record for one published OCI image. Adding an image means adding one of these; every BuildStream element and every verification gate is derived from it.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "kind", "description", "entrypoint", "smoke", "size_ceiling_mib", "stack"],
+  "required": ["name", "kind", "description", "size_ceiling_mib", "stack"],
   "properties": {
     "name": {
       "type": "string",
@@ -174,10 +205,11 @@ Create `catalog/schema.json`:
       "type": "array",
       "minItems": 1,
       "items": {"type": "string", "pattern": "^/"},
-      "description": "Absolute paths. Element 0 must exist and execute in the built image."
+      "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
     },
     "smoke": {
       "type": "object",
+      "description": "OPTIONAL: omit for images that have no smoke test in the Justfile today (base, static).",
       "additionalProperties": false,
       "required": ["args"],
       "properties": {
@@ -337,7 +369,7 @@ def validate(record: dict) -> dict:
             for e in errors
         )
         raise CatalogError(f"invalid record: {detail}")
-    if record.get("smoke", {}).get("shell_probe") and record["kind"] != "shell-enabled":
+    if "shell_probe" in record.get("smoke", {}) and record["kind"] != "shell-enabled":
         raise CatalogError(
             f"{record['name']}: smoke.shell_probe requires kind: shell-enabled"
         )
@@ -391,10 +423,9 @@ Create `catalog/base.yaml`. The values come from `elements/base/base-stack.bst`,
 name: base
 kind: distroless
 description: Distroless base image carved from freedesktop-sdk
-entrypoint: ["/bin/true"]
-smoke:
-  entrypoint_override: ["/bin/true"]
-  args: []
+# No entrypoint and no smoke block. elements/oci/base.bst sets no Entrypoint,
+# and just verify has no `base` smoke arm. Declaring either would make Task 6
+# publish an image config that differs from today's -- forbidden by this plan.
 size_ceiling_mib: 64
 stack:
   base: null
@@ -425,8 +456,8 @@ notes: |
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_catalog_schema -v`
-Expected: PASS, 6 tests.
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_catalog_schema.py' -v`
+Expected: PASS, 11 tests.
 
 - [ ] **Step 7: Commit**
 
@@ -509,7 +540,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_catalog_conformance -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_catalog_conformance.py' -v`
 Expected: FAIL — `published images with no catalog record` lists six names.
 
 - [ ] **Step 3: Write the six records**
@@ -771,7 +802,7 @@ class RecordsDescribeRealityTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_catalog_conformance -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_catalog_conformance.py' -v`
 Expected: FAIL. Each failure is either a transcription error in a record (fix the record) or a genuine undocumented deviation (declare it).
 
 - [ ] **Step 3: Fix every disagreement**
@@ -886,7 +917,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'generate_image_elements'`
 
 - [ ] **Step 3: Write the generator**
@@ -1015,7 +1046,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run the semantic-equality test before adopting output**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements.ComposeGenerationTests.test_generated_compose_matches_committed -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v -k test_generated_compose_matches_committed`
 Expected: PASS. This proves the generator reproduces current behaviour **before** any file is overwritten. If it fails, fix the generator or the record — never adopt output that differs semantically.
 
 - [ ] **Step 5: Adopt the generated output**
@@ -1100,7 +1131,7 @@ class StackGenerationTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements.StackGenerationTests -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v -k StackGenerationTests`
 Expected: FAIL with `AttributeError: module 'generate_image_elements' has no attribute 'render_stack'`
 
 - [ ] **Step 3: Implement `render_stack`**
@@ -1142,7 +1173,7 @@ RENDERERS = {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v`
 Expected: PASS.
 
 - [ ] **Step 5: Adopt output and prove nothing changed**
@@ -1247,7 +1278,7 @@ class OciGenerationTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements.OciGenerationTests -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v -k OciGenerationTests`
 Expected: FAIL with `AttributeError: module 'generate_image_elements' has no attribute 'render_oci'`
 
 - [ ] **Step 3: Implement `render_oci`**
@@ -1337,9 +1368,13 @@ def render_oci(record: dict) -> str:
     lines.append("        layer: /layer")
     lines.append(f'        comment: "fsdk-containers {name} image"')
     lines.append("        config:")
-    lines.append("          Entrypoint:")
-    for part in record["entrypoint"]:
-        lines.append(f"          - {part}")
+    # Only images that declare an entrypoint get one. base and static have no
+    # Entrypoint in their committed oci elements; inventing one here would
+    # change a published image, which this plan forbids.
+    if record.get("entrypoint"):
+        lines.append("          Entrypoint:")
+        for part in record["entrypoint"]:
+            lines.append(f"          - {part}")
     lines.append("          Labels:")
     lines.append(f"            'org.opencontainers.image.title': '{name}'")
     lines.append(
@@ -1369,7 +1404,7 @@ RENDERERS = {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_generated_elements -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_generated_elements.py' -v`
 Expected: PASS.
 
 - [ ] **Step 5: Compare against committed output before adopting**
@@ -1611,7 +1646,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_verify_contract -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_verify_contract.py' -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'verify_contract'`
 
 - [ ] **Step 3: Implement the contract module**
@@ -1677,8 +1712,14 @@ def gates_for(record: dict) -> dict:
 
 
 def smoke_argv(record: dict) -> list[str]:
-    """Arguments to append to `podman run --rm <ref>` for the smoke test."""
-    smoke = record["smoke"]
+    """Arguments to append to `podman run --rm <ref>` for the smoke test.
+
+    Returns [] for an image with no smoke block (base, static); the Justfile
+    skips the smoke step entirely in that case, matching today's behaviour.
+    """
+    smoke = record.get("smoke")
+    if not smoke:
+        return []
     argv: list[str] = []
     override = smoke.get("entrypoint_override")
     if override:
@@ -1716,7 +1757,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_verify_contract -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_verify_contract.py' -v`
 Expected: PASS, 6 tests.
 
 > **Note on `no-element-names` and `no-debug-symbols`:** these are new gates, not
@@ -1738,7 +1779,7 @@ Delete the `"no-debug-symbols"` and `"no-element-names"` entries from
     #   "no-element-names": r"\.bst($|/)",
 ```
 
-Re-run: `python3 -m unittest tests.test_verify_contract -v` — still PASS.
+Re-run: `python3 -m unittest discover -s tests -p 'test_verify_contract.py' -v` — still PASS.
 
 - [ ] **Step 6: Rewrite the Justfile verify recipe**
 
@@ -1907,7 +1948,7 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it passes**
 
-Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest tests.test_catalog_conformance -v`
+Run: `cd /var/home/jorge/src/fsdk-containers && python3 -m unittest discover -s tests -p 'test_catalog_conformance.py' -v`
 Expected: PASS. If this test needs any change to `scripts/` to pass, the generator still has per-image logic in it — find and remove it.
 
 - [ ] **Step 3: Rewrite the add-new-image skill**
