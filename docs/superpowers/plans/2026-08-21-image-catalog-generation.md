@@ -984,6 +984,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 import catalog
 
 REPO_ROOT = catalog.REPO_ROOT
@@ -1185,7 +1187,12 @@ def render_stack(record: dict) -> str:
     name = record["name"]
     lines = [_header(name, "stack")]
     lines.append("kind: stack")
-    lines.append(f"description: {record['description']}")
+    # Serialise through yaml rather than interpolating. static's description
+    # contains ": ", which an f-string would emit as a nested mapping and
+    # produce invalid YAML. Found by the Task 5 implementer before any file
+    # was written.
+    lines.append(yaml.dump({"description": record["description"]},
+                           default_flow_style=False, width=10**6).rstrip())
 
     if record.get("notes"):
         lines.append("")
