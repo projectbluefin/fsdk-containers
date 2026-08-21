@@ -380,6 +380,24 @@ verify:
         fi
     done <<< "$REQUIRE_PATHS"
 
+    # Any-of-paths gate: at least one alternative must be present (CA certs).
+    # Models the old recipe's: grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/...)$'
+    if [ -n "$REQUIRE_ANY_PATHS" ]; then
+        any_matched=0
+        while read -r p; do
+            [ -n "$p" ] || continue
+            if grep -qxF "$p" "$LISTING"; then
+                echo "OK: CA alternative present: /$p"
+                any_matched=1
+                break
+            fi
+        done <<< "$REQUIRE_ANY_PATHS"
+        if [ "$any_matched" -eq 0 ]; then
+            echo "FAIL: none of the required CA alternatives found" >&2
+            failed=1
+        fi
+    fi
+
     # Required-binary gates: each name must appear as a filename in the listing.
     while read -r b; do
         [ -n "$b" ] || continue

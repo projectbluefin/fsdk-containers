@@ -36,9 +36,23 @@ class GateDerivationTests(unittest.TestCase):
             with self.subTest(image=record["name"]):
                 paths = vc.require_paths_for(record)
                 self.assertIn("usr/share/zoneinfo/UTC", paths)
-                self.assertIn(
-                    "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", paths
-                )
+                # CA check uses any-of alternatives, not a single fixed path
+                any_paths = vc.require_any_paths_for(record)
+                self.assertIn("etc/pki/tls/certs/ca-bundle.crt", any_paths)
+                self.assertIn("etc/ssl/certs/ca-certificates.crt", any_paths)
+
+    def test_lab_runner_has_no_distroless_only_gates(self):
+        """Finding 1: lab-runner must not have no-sanitizers or no-locale-archive.
+        The old recipe ran neither in its lab-runner branch."""
+        record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
+        gates = vc.gates_for(record)
+        self.assertNotIn("no-sanitizers", gates["forbid"])
+        self.assertNotIn("no-locale-archive", gates["forbid"])
+
+    def test_lab_runner_has_no_ca_any_paths(self):
+        """Finding 2: the old recipe applied no CA gate to lab-runner."""
+        record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
+        self.assertEqual(vc.require_any_paths_for(record), [])
 
     def test_shell_enabled_images_keep_their_old_baseline(self):
         """The old recipe applied neither check to lab-runner; adding them
@@ -57,10 +71,12 @@ class GateDerivationTests(unittest.TestCase):
         self.assertEqual(vc.smoke_argv(record), ["--version"])
 
     def test_smoke_command_honours_an_override(self):
+        """skopeo has no entrypoint; its smoke test must use the positional form."""
         record = catalog.load_record(ROOT / "catalog" / "skopeo.yaml")
-        self.assertEqual(
-            vc.smoke_argv(record), ["--entrypoint", "/usr/bin/skopeo", "--version"]
-        )
+        argv = vc.smoke_argv(record)
+        # No --entrypoint override; skopeo is CMD, proving PATH resolution
+        self.assertNotIn("--entrypoint", argv)
+        self.assertEqual(argv, ["skopeo", "--version"])
 
 
 if __name__ == "__main__":

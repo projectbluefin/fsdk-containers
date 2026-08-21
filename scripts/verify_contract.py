@@ -49,9 +49,22 @@ FORBIDDEN = {
 # in its non-lab-runner branch, so adding them to lab-runner would be a new
 # gate it never had.
 BASELINE_PATHS_DISTROLESS = [
-    "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
     "usr/share/zoneinfo/UTC",
 ]
+
+# The old recipe accepted EITHER of these CA paths, not one fixed path:
+#   grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$'
+# Narrowing to a single path asserts something the old gate never asserted.
+# At least one of these must be present in every distroless image.
+BASELINE_ANY_PATHS_DISTROLESS = [
+    "etc/pki/tls/certs/ca-bundle.crt",
+    "etc/ssl/certs/ca-certificates.crt",
+]
+
+# Gates that the old recipe applied ONLY in its non-lab-runner branch. A
+# shell-enabled image never had them, so applying them would be a new gate --
+# a behaviour change, which this plan forbids.
+DISTROLESS_ONLY_GATES = ("no-sanitizers", "no-locale-archive")
 
 
 def gates_for(record: dict) -> dict:
@@ -59,6 +72,8 @@ def gates_for(record: dict) -> dict:
     forbid = dict(FORBIDDEN)
     if record["kind"] == "shell-enabled":
         del forbid["no-shell"]
+        for gate in DISTROLESS_ONLY_GATES:
+            forbid.pop(gate, None)
 
     require_binaries = list(record.get("gates", {}).get("require_binaries", []))
     if record["kind"] == "shell-enabled" and "bash" not in require_binaries:
@@ -83,6 +98,17 @@ def require_paths_for(record: dict) -> list[str]:
     record_paths = list(record.get("gates", {}).get("require_paths", []))
     baseline = BASELINE_PATHS_DISTROLESS if record["kind"] == "distroless" else []
     return list(dict.fromkeys(record_paths + baseline))
+
+
+def require_any_paths_for(record: dict) -> list[str]:
+    """Paths of which at least one must be present.
+
+    For distroless images this is the CA-cert alternatives; for shell-enabled
+    images the old recipe checked neither, so the list is empty.
+    """
+    if record["kind"] == "distroless":
+        return list(BASELINE_ANY_PATHS_DISTROLESS)
+    return []
 
 
 def smoke_argv(record: dict) -> list[str]:
@@ -117,6 +143,7 @@ def main() -> int:
     print(f"FORBID_PATTERNS={shlex.quote(chr(10).join(gates['forbid'].values()))}")
     print(f"FORBID_NAMES={shlex.quote(chr(10).join(gates['forbid'].keys()))}")
     print("REQUIRE_PATHS=" + shlex.quote(chr(10).join(require_paths_for(record))))
+    print("REQUIRE_ANY_PATHS=" + shlex.quote(chr(10).join(require_any_paths_for(record))))
     print(f"REQUIRE_BINARIES={shlex.quote(chr(10).join(gates['require_binaries']))}")
     # Split smoke_argv into podman OPTIONS (before REF) and CMD ARGS (after).
     # "--entrypoint X" must precede the image reference; CMD args follow it.
