@@ -20,13 +20,15 @@ description: |
      re-verified 2026-08-20 at junction
      freedesktop-sdk-26.08rc.1-0-ge076d4978ee6945763486f6ebd755d189460e4e7
      (`just bst build go/go-stack.bst`, artifact key be5b1d8e, 289-element
-     pipeline, 0 failed).
+     pipeline, 0 failed; go/go-runtime.bst compose also rebuilt green on
+     the grid, artifact key f94cf295).
   4. Upstream version + ref: go1.26.6, git-describe
      go1.26.6-0-g1ea5a71ad8ceb7b9f16b4b6f8ea4739a4327dd6e — verifiable in
      FSDK's elements/include/go-source.yml at the pinned junction ref in
-     elements/freedesktop-sdk.bst. (This comment claimed go1.26.5 until
-     the 26.08rc.1 rebase; trust go-source.yml at the junction ref over
-     any version quoted here.)
+     elements/freedesktop-sdk.bst, and confirmed in the built artifact:
+     /usr/lib/x86_64-linux-gnu/go/VERSION reads "go1.26.6". (This comment
+     claimed go1.26.5 until the 26.08rc.1 rebase; trust go-source.yml at
+     the junction ref over any version quoted here.)
 
   FSDK's components/go.bst ships the full upstream Go distribution
   (version/ref: the Wave 0 record above) installed with GOROOT at
