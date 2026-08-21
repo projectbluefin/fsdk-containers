@@ -1,0 +1,34 @@
+# The distroless foundation every other image is carved from.
+name: base
+kind: distroless
+description: Distroless base image carved from freedesktop-sdk
+entrypoint: ["/bin/true"]
+smoke:
+  entrypoint_override: ["/bin/true"]
+  args: []
+size_ceiling_mib: 64
+stack:
+  base: null
+  components:
+    - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+    - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
+    - freedesktop-sdk.bst:components/ca-certificates.bst
+    - freedesktop-sdk.bst:components/tzdata.bst
+    - freedesktop-sdk.bst:components/os-release.bst
+    - freedesktop-sdk.bst:integration/extra-fs.bst
+    - freedesktop-sdk.bst:integration/ldconfig.bst
+  extra_depends:
+    - base/terminfo-ghostty.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC
+notes: |
+  runtime-gnu is a deliberate dependency, not an accident. FSDK 26.08beta.2
+  moved integration/ldconfig.bst's runtime-gnu dependency from depends: to
+  build-depends:, so a shell no longer reaches the composed layer implicitly.
+  The ca-certificates and ldconfig integration commands are shell scripts and
+  need /bin/sh staged to run at all. The shared SLIM recipe removes the shell
+  again before the image is built.
+
+  terminfo-ghostty exists because ncurses ships the entry only as "ghostty"
+  while Ghostty sets TERM=xterm-ghostty (#105).

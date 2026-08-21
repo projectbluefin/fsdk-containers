@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/projectbluefin/fsdk-containers/catalog/schema.json",
+  "title": "fsdk-containers image record",
+  "description": "The single declarative record for one published OCI image. Adding an image means adding one of these; every BuildStream element and every verification gate is derived from it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "kind", "description", "entrypoint", "smoke", "size_ceiling_mib", "stack"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "Image name. Must equal the filename stem and appear in elements/targets.json oci_images."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["distroless", "shell-enabled"],
+      "description": "Selects the verification gate set. shell-enabled is a documented exception, currently only lab-runner."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Becomes org.opencontainers.image.description."
+    },
+    "entrypoint": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "pattern": "^/"},
+      "description": "Absolute paths. Element 0 must exist and execute in the built image."
+    },
+    "smoke": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["args"],
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Arguments appended to the entrypoint to prove the image runs."
+        },
+        "entrypoint_override": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Run this instead of the image entrypoint. Only for images whose entrypoint is not the thing under test."
+        },
+        "shell_probe": {
+          "type": "string",
+          "description": "Extra shell one-liner, permitted only when kind is shell-enabled."
+        }
+      }
+    },
+    "size_ceiling_mib": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Uncompressed local podman size ceiling. Superseded by the ratchet in a later phase; kept here so this plan changes no behaviour."
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["components"],
+      "properties": {
+        "base": {
+          "type": ["string", "null"],
+          "description": "Stack element this one builds on, e.g. base/base-stack.bst. Null only for base itself."
+        },
+        "components": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "FSDK component elements, e.g. freedesktop-sdk.bst:components/python3.bst. Never platform.bst."
+        },
+        "extra_depends": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Repo-local elements this stack needs, e.g. base/terminfo-ghostty.bst."
+        }
+      }
+    },
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exclude_omit": {
+          "type": "array",
+          "description": "Canonical exclude domains this image deliberately does NOT exclude. Every omission needs a reason, so divergence is declared rather than silent.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["domain", "reason"],
+            "properties": {
+              "domain": {
+                "type": "string",
+                "enum": ["debug", "devel", "doc", "locale", "shells", "static-blocklist", "tests", "vm-only"]
+              },
+              "reason": {"type": "string", "minLength": 20}
+            }
+          }
+        }
+      }
+    },
+    "slim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extra": {
+          "type": "string",
+          "description": "Image-specific shell commands appended after the shared slim recipe. Phase 3 dependency-closure pruning is expected to delete most of these."
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Rootfs paths (no leading slash) that must be present, checked against the exported tar listing."
+        },
+        "require_binaries": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Basenames that must appear somewhere in the rootfs listing."
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form prose carried into the generated elements as a comment. Use for hard-won context that would otherwise be lost."
+    }
+  }
+}
