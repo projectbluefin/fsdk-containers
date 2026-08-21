@@ -3,7 +3,8 @@ kind: distroless
 description: Distroless skopeo image carved from freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,skopeo
 smoke:
-  args: ["skopeo", "--version"]
+  entrypoint_override: ["/usr/bin/skopeo"]
+  args: ["--version"]
 size_ceiling_mib: 224
 stack:
   depends:
