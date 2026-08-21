@@ -35,9 +35,22 @@ FORBIDDEN = {
     # Phase 3 would break the merge contract.
 }
 
-# Always required of a distroless image, regardless of record contents.
-BASELINE_PATHS = [
+# Required of every DISTROLESS image regardless of record contents, because
+# these are the repo's documented distroless contract ("slim by default; keep
+# tzdata + common charsets + CA certs"), not per-image choices.
+#
+# They must NOT be derived from gates.require_paths. The old hand-written
+# recipe applied both to every non-lab-runner image; deriving them per record
+# silently dropped the tzdata check for `static`, whose record declares no
+# require_paths. A gate that stops checking is the exact failure this task is
+# most at risk of, so the baseline is unconditional for the kind.
+#
+# They are NOT applied to shell-enabled images: the old recipe put both checks
+# in its non-lab-runner branch, so adding them to lab-runner would be a new
+# gate it never had.
+BASELINE_PATHS_DISTROLESS = [
     "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+    "usr/share/zoneinfo/UTC",
 ]
 
 
@@ -59,6 +72,17 @@ def gates_for(record: dict) -> dict:
         "require_paths": list(record.get("gates", {}).get("require_paths", [])),
         "require_binaries": require_binaries,
     }
+
+
+def require_paths_for(record: dict) -> list[str]:
+    """Combined required-paths list for one image: record paths + kind baseline.
+
+    dict.fromkeys preserves order and de-duplicates: several records already
+    list usr/share/zoneinfo/UTC explicitly.
+    """
+    record_paths = list(record.get("gates", {}).get("require_paths", []))
+    baseline = BASELINE_PATHS_DISTROLESS if record["kind"] == "distroless" else []
+    return list(dict.fromkeys(record_paths + baseline))
 
 
 def smoke_argv(record: dict) -> list[str]:
@@ -92,10 +116,7 @@ def main() -> int:
     print(f"MAX_BYTES={gates['max_bytes']}")
     print(f"FORBID_PATTERNS={shlex.quote(chr(10).join(gates['forbid'].values()))}")
     print(f"FORBID_NAMES={shlex.quote(chr(10).join(gates['forbid'].keys()))}")
-    print(
-        "REQUIRE_PATHS="
-        + shlex.quote(chr(10).join(gates["require_paths"] + BASELINE_PATHS))
-    )
+    print("REQUIRE_PATHS=" + shlex.quote(chr(10).join(require_paths_for(record))))
     print(f"REQUIRE_BINARIES={shlex.quote(chr(10).join(gates['require_binaries']))}")
     # Split smoke_argv into podman OPTIONS (before REF) and CMD ARGS (after).
     # "--entrypoint X" must precede the image reference; CMD args follow it.

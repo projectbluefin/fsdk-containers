@@ -27,6 +27,26 @@ class GateDerivationTests(unittest.TestCase):
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
         self.assertEqual(vc.gates_for(record)["max_bytes"], 144 * 1024 * 1024)
 
+    def test_tzdata_and_ca_are_gated_on_every_distroless_image(self):
+        """Regression: static declares no require_paths, and deriving the
+        baseline from the record silently dropped its tzdata check."""
+        for record in catalog.load_all():
+            if record["kind"] != "distroless":
+                continue
+            with self.subTest(image=record["name"]):
+                paths = vc.require_paths_for(record)
+                self.assertIn("usr/share/zoneinfo/UTC", paths)
+                self.assertIn(
+                    "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", paths
+                )
+
+    def test_shell_enabled_images_keep_their_old_baseline(self):
+        """The old recipe applied neither check to lab-runner; adding them
+        would be a new gate, which this plan forbids."""
+        record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
+        paths = vc.require_paths_for(record)
+        self.assertNotIn("usr/share/zoneinfo/UTC", paths)
+
     def test_every_published_image_has_a_ceiling(self):
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
