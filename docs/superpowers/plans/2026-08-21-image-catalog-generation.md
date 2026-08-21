@@ -1665,6 +1665,28 @@ class GateDerivationTests(unittest.TestCase):
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
         self.assertEqual(vc.gates_for(record)["max_bytes"], 144 * 1024 * 1024)
 
+    def test_tzdata_and_ca_are_gated_on_every_distroless_image(self):
+        """Regression: static declares no require_paths, and deriving the
+        baseline from the record silently dropped its tzdata check."""
+        import verify_contract as vc
+        for record in catalog.load_all():
+            if record["kind"] != "distroless":
+                continue
+            with self.subTest(image=record["name"]):
+                paths = vc.require_paths_for(record)
+                self.assertIn("usr/share/zoneinfo/UTC", paths)
+                self.assertIn(
+                    "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", paths
+                )
+
+    def test_shell_enabled_images_keep_their_old_baseline(self):
+        """The old recipe applied neither check to lab-runner; adding them
+        would be a new gate, which this plan forbids."""
+        import verify_contract as vc
+        record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
+        paths = vc.require_paths_for(record)
+        self.assertNotIn("usr/share/zoneinfo/UTC", paths)
+
     def test_every_published_image_has_a_ceiling(self):
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
@@ -1726,9 +1748,22 @@ FORBIDDEN = {
     "no-element-names": r"\.bst($|/)",
 }
 
-# Always required of a distroless image, regardless of record contents.
-BASELINE_PATHS = [
+# Required of every DISTROLESS image regardless of record contents, because
+# these are the repo's documented distroless contract ("slim by default; keep
+# tzdata + common charsets + CA certs"), not per-image choices.
+#
+# They must NOT be derived from gates.require_paths. The old hand-written
+# recipe applied both to every non-lab-runner image; deriving them per record
+# silently dropped the tzdata check for `static`, whose record declares no
+# require_paths. A gate that stops checking is the exact failure this task is
+# most at risk of, so the baseline is unconditional for the kind.
+#
+# They are NOT applied to shell-enabled images: the old recipe put both checks
+# in its non-lab-runner branch, so adding them to lab-runner would be a new
+# gate it never had.
+BASELINE_PATHS_DISTROLESS = [
     "etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+    "usr/share/zoneinfo/UTC",
 ]
 
 
@@ -1783,10 +1818,13 @@ def main() -> int:
     print(f"MAX_BYTES={gates['max_bytes']}")
     print(f"FORBID_PATTERNS={shlex.quote(chr(10).join(gates['forbid'].values()))}")
     print(f"FORBID_NAMES={shlex.quote(chr(10).join(gates['forbid'].keys()))}")
-    print(
-        "REQUIRE_PATHS="
-        + shlex.quote(chr(10).join(gates["require_paths"] + BASELINE_PATHS))
+    baseline = (
+        BASELINE_PATHS_DISTROLESS if record["kind"] == "distroless" else []
     )
+    # dict.fromkeys de-duplicates while preserving order: several records
+    # already list usr/share/zoneinfo/UTC explicitly.
+    require_paths = list(dict.fromkeys(gates["require_paths"] + baseline))
+    print("REQUIRE_PATHS=" + shlex.quote(chr(10).join(require_paths)))
     print(f"REQUIRE_BINARIES={shlex.quote(chr(10).join(gates['require_binaries']))}")
     print(f"SMOKE_ARGV={shlex.quote(' '.join(smoke_argv(record)))}")
     return 0
