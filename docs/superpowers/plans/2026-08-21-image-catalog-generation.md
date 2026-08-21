@@ -295,6 +295,10 @@ Create `catalog/schema.json`:
         }
       }
     },
+    "init_script": {
+      "type": "string",
+      "description": "The init-script element staged into the oci script's build-depends. Defaults to base/base-init-script.bst. `static` uses static/static-init-script.bst instead, so hardcoding the base one would have swapped static's init script -- a published-image change. Transcribed, not assumed."
+    },
     "keywords": {
       "type": "string",
       "description": "Verbatim value of the io.artifacthub.package.keywords label. This is the ONE non-obvious label that varies per image (measured: 7 distinct values across 7 images, e.g. lab-runner uses 'freedesktop-sdk,bluefin,ci' with no 'distroless'). It is transcribed, never derived, because deriving it would rewrite six images' labels."
@@ -1363,7 +1367,9 @@ def render_oci(record: dict) -> str:
     lines.append("  - freedesktop-sdk.bst:bootstrap/bash.bst")
     lines.append("  - freedesktop-sdk.bst:bootstrap/coreutils.bst")
     lines.append("  - freedesktop-sdk.bst:components/oci-builder.bst")
-    lines.append("  - base/base-init-script.bst")
+    # Not every image uses base's init script: static has its own. Hardcoding
+    # base/base-init-script.bst here would silently swap it.
+    lines.append(f"  - {record.get('init_script', 'base/base-init-script.bst')}")
     lines.append(f"  - filename: {name}/{name}-runtime.bst")
     lines.append("    config:")
     lines.append("      location: /layer")
