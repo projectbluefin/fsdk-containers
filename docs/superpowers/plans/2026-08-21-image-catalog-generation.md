@@ -1510,7 +1510,7 @@ jobs:
           persist-credentials: false
 
       - name: Install python dependencies
-        run: python3 -m pip install --require-hashes --no-deps -r scripts/requirements.txt || python3 -m pip install pyyaml jsonschema
+        run: python3 -m pip install --user pyyaml jsonschema
 
       - name: Records are valid and describe the committed elements
         run: python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
@@ -1760,30 +1760,45 @@ Replace the per-image `case` statement and the `if [ "$IMG" = ... ]` chain in
     LISTING="$(mktemp)"
     {{sudo_cmd}} podman export verify-base | tar -tf - > "$LISTING"
 
-    paste -d'\t' <(printf '%s\n' "$FORBID_NAMES") <(printf '%s\n' "$FORBID_PATTERNS") \
-    | while IFS=$'\t' read -r gate pattern; do
+    # NOTE: these loops use here-strings, not `... | while read`. A piped while
+    # loop runs in a subshell, so an `exit 1` inside it exits only the subshell.
+    # That construction happens to abort under `set -e` because the pipeline
+    # returns non-zero, but a merge gate must not depend on that subtlety. The
+    # here-string keeps the loop in the current shell, and the `failed` flag
+    # reports every violation instead of only the first.
+    failed=0
+
+    while IFS=$'\t' read -r gate pattern; do
         [ -n "$gate" ] || continue
         if grep -qE "$pattern" "$LISTING"; then
-            echo "FAIL: gate '$gate' violated — matched $pattern" >&2; exit 1
+            echo "FAIL: gate '$gate' violated — matched $pattern" >&2
+            failed=1
+        else
+            echo "OK: $gate"
         fi
-        echo "OK: $gate"
-    done
+    done <<< "$(paste -d'\t' <(printf '%s\n' "$FORBID_NAMES") <(printf '%s\n' "$FORBID_PATTERNS"))"
 
-    printf '%s\n' "$REQUIRE_PATHS" | while read -r p; do
+    while read -r p; do
         [ -n "$p" ] || continue
         if ! grep -qxF "$p" "$LISTING"; then
-            echo "FAIL: required path missing: /$p" >&2; exit 1
+            echo "FAIL: required path missing: /$p" >&2
+            failed=1
+        else
+            echo "OK: /$p present"
         fi
-        echo "OK: /$p present"
-    done
+    done <<< "$REQUIRE_PATHS"
 
-    printf '%s\n' "$REQUIRE_BINARIES" | while read -r b; do
+    while read -r b; do
         [ -n "$b" ] || continue
         if ! grep -qE "(^|/)${b}$" "$LISTING"; then
-            echo "FAIL: required binary missing: $b" >&2; exit 1
+            echo "FAIL: required binary missing: $b" >&2
+            failed=1
+        else
+            echo "OK: $b present"
         fi
-        echo "OK: $b present"
-    done
+    done <<< "$REQUIRE_BINARIES"
+
+    [ "$failed" -eq 0 ] || { echo "FAIL: $IMG failed one or more gates" >&2; exit 1; }
 
     echo "==> smoke test (executing binary)"
     # shellcheck disable=SC2086
@@ -1867,7 +1882,6 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
     else. If this test needs editing to add an image, the plan failed."""
 
     def test_a_new_record_generates_all_three_elements(self):
-        import tempfile
         import generate_image_elements as gen
 
         record = {
@@ -1889,8 +1903,6 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
             self.assertIn("acceptance-probe", text)
             self.assertIn("DO NOT EDIT", text)
             self.assertIsInstance(yaml.safe_load(text), dict)
-
-        del tempfile
 ```
 
 - [ ] **Step 2: Run test to verify it passes**
