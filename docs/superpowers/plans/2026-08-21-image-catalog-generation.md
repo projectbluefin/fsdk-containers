@@ -96,7 +96,7 @@ def valid_record(**overrides):
         "kind": "distroless",
         "description": "A valid record used as a negative-test baseline",
         "size_ceiling_mib": 64,
-        "stack": {"components": []},
+        "stack": {"depends": ["base/base-stack.bst"]},
     }
     record.update(overrides)
     return record
@@ -237,21 +237,13 @@ Create `catalog/schema.json`:
     "stack": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["components"],
+      "required": ["depends"],
       "properties": {
-        "base": {
-          "type": ["string", "null"],
-          "description": "Stack element this one builds on, e.g. base/base-stack.bst. Null only for base itself."
-        },
-        "components": {
+        "depends": {
           "type": "array",
+          "minItems": 1,
           "items": {"type": "string"},
-          "description": "FSDK component elements, e.g. freedesktop-sdk.bst:components/python3.bst. Never platform.bst."
-        },
-        "extra_depends": {
-          "type": "array",
-          "items": {"type": "string"},
-          "description": "Repo-local elements this stack needs, e.g. base/terminfo-ghostty.bst."
+          "description": "The stack element's `depends:` list, IN ORDER, exactly as the committed element has it. Order is load-bearing: BuildStream stages dependencies in dependency order, so reordering changes the composed element's cache key and can change overwrite precedence when two dependencies provide the same path. Measured: regrouping lab-runner's list moved its runtime cache key from caf1675a to 3eb232b1. An earlier draft split this into base/components/extra_depends and concatenated them, which silently reordered two images. Never platform.bst."
         }
       }
     },
@@ -432,17 +424,16 @@ description: Distroless base image carved from freedesktop-sdk
 # publish an image config that differs from today's -- forbidden by this plan.
 size_ceiling_mib: 64
 stack:
-  base: null
-  components:
+  # In the committed element's exact order. Order is load-bearing.
+  depends:
     - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
     - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
     - freedesktop-sdk.bst:components/ca-certificates.bst
     - freedesktop-sdk.bst:components/tzdata.bst
     - freedesktop-sdk.bst:components/os-release.bst
+    - base/terminfo-ghostty.bst
     - freedesktop-sdk.bst:integration/extra-fs.bst
     - freedesktop-sdk.bst:integration/ldconfig.bst
-  extra_depends:
-    - base/terminfo-ghostty.bst
 gates:
   require_paths:
     - usr/share/zoneinfo/UTC
@@ -562,8 +553,8 @@ smoke:
   args: ["--version"]
 size_ceiling_mib: 144
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - freedesktop-sdk.bst:components/python3.bst
 gates:
   require_paths:
@@ -622,8 +613,8 @@ smoke:
   args: ["skopeo", "--version"]
 size_ceiling_mib: 224
 stack:
-  base: base/base-stack.bst
-  components:
+  depends:
+    - base/base-stack.bst
     - freedesktop-sdk.bst:components/skopeo.bst
     - freedesktop-sdk.bst:components/containers-common.bst
     - freedesktop-sdk.bst:components/gpgme.bst
@@ -637,20 +628,20 @@ gates:
     - usr/share/zoneinfo/UTC
 ```
 
-Fill `stack.components` for `buildah`, `qemu-img` and `static` the same way,
+Fill `stack.depends` for `buildah`, `qemu-img` and `static` the same way,
 from their committed `*-stack.bst` `depends:` lists, and `size_ceiling_mib` from
 the `Justfile` case statement: `static` 80, `qemu-img` 192, `buildah` 256.
 
 `catalog/lab-runner.yaml` carries the shell-enabled gate set and its full CLI
 contract, transcribed from the `lab-runner` arm of `just verify`.
 
-> **`stack.components` below is deliberately elided.** `lab-runner-stack.bst`
-> depends on 26 elements — 17 FSDK components (`curl`, `git`, `jq`, `python3`,
-> `python3-pyyaml`, `openssh`, `tar`, `gzip`, `which`, `findutils`, `gawk`,
-> `procps`, `diffutils`, `patch`, `less`, `file`, `bubblewrap`), 8 repo-local
-> `lab-runner/*.bst` elements, and `skopeo/skopeo-stack.bst`. Transcribe all of
-> them from the committed file. Task 3's conformance test fails loudly if you
-> do not; that failure was reproduced while writing this plan.
+> **`stack.depends` below is deliberately elided.** `lab-runner-stack.bst`
+> depends on 27 elements: `base/base-stack.bst`, 17 FSDK components, 8
+> repo-local `lab-runner/*.bst` elements, and `skopeo/skopeo-stack.bst`.
+> Transcribe all of them from the committed file **in the committed order** —
+> they are interleaved, not grouped, and `lab-runner/yq.bst` sits in the middle
+> of the FSDK components. Task 3's conformance test compares order-sensitively
+> and fails loudly if you regroup them.
 
 ```yaml
 name: lab-runner
@@ -672,17 +663,14 @@ compose:
         zsh data directories in the shells domain are harmless and excluding
         them buys nothing. Declared rather than silently divergent.
 stack:
-  base: base/base-stack.bst
-  components:
-    # TRANSCRIBE ALL 17 FSDK COMPONENTS FROM elements/lab-runner/lab-runner-stack.bst
+  # ALL 27 ENTRIES, IN THE COMMITTED ELEMENT'S EXACT ORDER. Do not group FSDK
+  # components together or push repo-local elements to the end -- lab-runner
+  # interleaves them (lab-runner/yq.bst sits between python3-pyyaml and
+  # bubblewrap) and regrouping changed its runtime cache key.
+  depends:
+    - base/base-stack.bst
     - freedesktop-sdk.bst:components/curl.bst
-    - freedesktop-sdk.bst:components/git.bst
-    # ... and the remaining 15
-  extra_depends:
-    # TRANSCRIBE ALL 9 REPO-LOCAL DEPENDENCIES
-    - skopeo/skopeo-stack.bst
-    - lab-runner/argo.bst
-    # ... and the remaining 7
+    # ... and the remaining 25, in order
 
 gates:
   require_binaries:
@@ -770,15 +758,13 @@ class RecordsDescribeRealityTests(unittest.TestCase):
             with self.subTest(image=record["name"]):
                 name = record["name"]
                 committed = _element(name, f"{name}-stack.bst")
-                expected = []
-                if record["stack"].get("base"):
-                    expected.append(record["stack"]["base"])
-                expected += record["stack"]["components"]
-                expected += record["stack"].get("extra_depends", [])
+                # ORDER-SENSITIVE on purpose. Comparing sorted lists let a
+                # reordered stack pass while BuildStream's cache key changed.
                 self.assertEqual(
-                    sorted(committed["depends"]),
-                    sorted(expected),
-                    f"{name}-stack.bst depends do not match catalog/{name}.yaml",
+                    committed["depends"],
+                    record["stack"]["depends"],
+                    f"{name}-stack.bst depends do not match catalog/{name}.yaml "
+                    f"in content or ORDER; order affects the cache key",
                 )
 
     def test_compose_exclude_matches_the_record(self):
@@ -1162,9 +1148,8 @@ class StackGenerationTests(unittest.TestCase):
                 )
                 generated = yaml.safe_load(gen.render_stack(record))
                 self.assertEqual(generated["kind"], "stack")
-                self.assertEqual(
-                    sorted(generated["depends"]), sorted(committed["depends"])
-                )
+                # ORDER-SENSITIVE: sorting here masked a real cache-key change.
+                self.assertEqual(generated["depends"], committed["depends"])
 
     def test_notes_are_carried_into_the_generated_stack(self):
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")
@@ -1201,12 +1186,10 @@ def render_stack(record: dict) -> str:
 
     lines.append("")
     lines.append("depends:")
-    if record["stack"].get("base"):
-        lines.append(f"  - {record['stack']['base']}")
-    for component in record["stack"]["components"]:
-        lines.append(f"  - {component}")
-    for extra in record["stack"].get("extra_depends", []):
-        lines.append(f"  - {extra}")
+    # Emitted in the record's order, verbatim. Do not sort, group or dedupe --
+    # see the schema note on stack.depends; order affects the cache key.
+    for dep in record["stack"]["depends"]:
+        lines.append(f"  - {dep}")
     return "\n".join(lines) + "\n"
 ```
 
@@ -1985,8 +1968,10 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
             "smoke": {"args": []},
             "size_ceiling_mib": 64,
             "stack": {
-                "base": "base/base-stack.bst",
-                "components": ["freedesktop-sdk.bst:components/coreutils.bst"],
+                "depends": [
+                    "base/base-stack.bst",
+                    "freedesktop-sdk.bst:components/coreutils.bst",
+                ],
             },
         }
         catalog.validate(record)
