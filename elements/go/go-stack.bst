@@ -2,8 +2,34 @@ kind: stack
 description: |
   Go toolchain (build-time image) dependencies, built on the base stack.
 
+  Wave 0 feasibility record (issue #146):
+  1. Mechanism: FSDK COMPONENT — freedesktop-sdk.bst:components/go.bst
+     builds the full upstream Go distribution from golang/go.git with
+     FSDK's patch queue. No tarball element, no go_module source, no JVM.
+     #113's mechanism table already had this right ("FSDK component
+     exists: curl, go"); the Wave 0 brief's tarball fallback was not
+     needed. There is deliberately NO elements/go/go.bst: a manual
+     element would duplicate the FSDK component and forfeit its CVE
+     patching (same pattern as curl, the other FSDK-component target).
+     go_module (#144, enabled in project.conf) is for building Go
+     *applications* from source, not the toolchain itself.
+  2. Dependency set: base/base-stack.bst + components/go.bst +
+     components/gcc.bst (gcc rationale below). Nothing else: go.bst's
+     only runtime dep is runtime-minimal, already in base-stack.
+  3. Resolves: yes. Built on the ghost BuildBarn grid in PR #147, and
+     re-verified 2026-08-20 at junction
+     freedesktop-sdk-26.08rc.1-0-ge076d4978ee6945763486f6ebd755d189460e4e7
+     (`just bst build go/go-stack.bst`, artifact key be5b1d8e, 289-element
+     pipeline, 0 failed).
+  4. Upstream version + ref: go1.26.6, git-describe
+     go1.26.6-0-g1ea5a71ad8ceb7b9f16b4b6f8ea4739a4327dd6e — verifiable in
+     FSDK's elements/include/go-source.yml at the pinned junction ref in
+     elements/freedesktop-sdk.bst. (This comment claimed go1.26.5 until
+     the 26.08rc.1 rebase; trust go-source.yml at the junction ref over
+     any version quoted here.)
+
   FSDK's components/go.bst ships the full upstream Go distribution
-  (go1.26.5 at the pinned junction ref) installed with GOROOT at
+  (version/ref: the Wave 0 record above) installed with GOROOT at
   %{libdir}/go. FSDK's libdir is the MULTIARCH TRIPLET dir:
   /usr/lib/x86_64-linux-gnu/go on x86_64, /usr/lib/aarch64-linux-gnu/go
   on aarch64 (verified via `bst artifact list-contents`). Anything
