@@ -212,13 +212,27 @@ repos/projectbluefin/fsdk-containers/branches/main/protection`):
   blocks merging, and approvals dismiss stale on new pushes.
 - Squash merges only; force pushes disabled on `main`.
 
-Two merge-time gotchas observed in practice: right after
-`PUT /pulls/N/update-branch` the PR's check rollup still shows the *old*
-head's results for ~a minute (require green twice ~30s apart before merging),
-and some branches (forks, bot pushes) land their workflow runs in
-`action_required` — visible as zero check runs on the head commit — until a
-maintainer approves them (`POST /actions/runs/<id>/approve`;
-`gh run approve` prompts interactively, the API does not).
+Merge-time gotchas observed in practice:
+
+- Right after `PUT /pulls/N/update-branch` the PR's check rollup still shows
+  the *old* head's results for ~a minute — require green twice ~30s apart
+  before merging.
+- Some branches (forks, bot pushes) land their workflow runs in
+  `action_required` — visible as zero check runs on the head commit — until a
+  maintainer approves them (`POST /actions/runs/<id>/approve`;
+  `gh run approve` prompts interactively, the API does not).
+- A push to a PR branch occasionally produces **zero** workflow runs (event
+  dropped, no error). Verify with
+  `gh api repos/.../actions/runs?head_sha=<sha>` and retrigger with an empty
+  commit or a close/reopen.
+- A draft PR fails merge with "Pull Request is still a draft" even when every
+  check is green — `gh pr ready` first.
+- A stacked PR (base is another PR's branch, not `main`) merges *into that
+  branch*, collapsing the stack — check `baseRefName` before assuming a merge
+  landed on `main`, and verify with `git log origin/main`.
+- After resolving conflicts in a Justfile recipe, `just --summary` is not
+  enough — it does not parse recipe bodies. Extract the recipe, substitute
+  `{{...}}` placeholders, and `bash -n` it; a dropped `fi` ships red.
 
 ### Point-release tag immutability
 
