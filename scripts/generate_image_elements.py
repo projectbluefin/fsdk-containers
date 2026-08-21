@@ -83,9 +83,128 @@ def render_stack(record: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+SHARED_LABELS = [
+    ("org.opencontainers.image.vendor", "Project Bluefin"),
+    ("org.opencontainers.image.licenses", "Apache-2.0"),
+    (
+        "org.opencontainers.image.url",
+        "https://github.com/projectbluefin/fsdk-containers",
+    ),
+    (
+        "org.opencontainers.image.source",
+        "https://github.com/projectbluefin/fsdk-containers",
+    ),
+    (
+        "io.artifacthub.package.readme-url",
+        "https://raw.githubusercontent.com/projectbluefin/fsdk-containers/main/README.md",
+    ),
+    ("io.artifacthub.package.logo-url", "https://projectbluefin.io/logo.png"),
+    ("io.artifacthub.package.license", "Apache-2.0"),
+    (
+        "io.artifacthub.package.maintainers",
+        '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]',
+    ),
+]
+# NOT in SHARED_LABELS: io.artifacthub.package.keywords nor
+# io.artifacthub.package.category. keywords has 7 distinct values; both are
+# emitted last (after maintainers) to preserve the committed label order, which
+# affects the build-oci heredoc text and therefore the BST cache key.
+
+
+def render_oci(record: dict) -> str:
+    """The script element that slims the layer and builds the OCI image."""
+    name = record["name"]
+    slim_var = (
+        "%{slim-shell-enabled-commands}"
+        if record["kind"] == "shell-enabled"
+        else "%{slim-distroless-commands}"
+    )
+    # static has its own init-script element; all others use the base one.
+    # CATALOG DEVIATION: static.yaml declares init_script; this is the only
+    # field added to static.yaml beyond what the brief specified, required to
+    # reproduce the committed build-depends faithfully.
+    init_script = record.get("init_script", "base/base-init-script.bst")
+    lines = [_header(name, "oci")]
+    lines.append("kind: script")
+    lines.append("")
+    lines.append("build-depends:")
+    # FSDK 26.08 removed the shell from runtime-minimal, so the script sandbox
+    # no longer gets /bin/sh implicitly. The SLIM recipe is a shell script, so
+    # its interpreter is declared explicitly.
+    lines.append("  - freedesktop-sdk.bst:bootstrap/bash.bst")
+    lines.append("  - freedesktop-sdk.bst:bootstrap/coreutils.bst")
+    lines.append("  - freedesktop-sdk.bst:components/oci-builder.bst")
+    lines.append(f"  - {init_script}")
+    lines.append(f"  - filename: {name}/{name}-runtime.bst")
+    lines.append("    config:")
+    lines.append("      location: /layer")
+    lines.append("")
+    lines.append("variables:")
+    lines.append("  (@):")
+    lines.append("    - include/slim.yml")
+    lines.append("    - include/fsdk-version.yml")
+    lines.append("")
+    lines.append("config:")
+    lines.append("  commands:")
+    lines.append(f'    - "{slim_var}"')
+
+    extra = record.get("slim", {}).get("extra")
+    if extra:
+        lines.append("    - |")
+        for line in extra.rstrip().splitlines():
+            lines.append(f"      {line}".rstrip())
+
+    lines.append("    - |")
+    lines.append("      if [ -d /initial_scripts ]; then")
+    lines.append("        for i in /initial_scripts/*; do")
+    lines.append('          "${i}" /layer')
+    lines.append("        done")
+    lines.append("      fi")
+
+    lines.append("    - |")
+    lines.append('      cd "%{install-root}"')
+    lines.append("      build-oci <<EOF")
+    lines.append("      mode: oci")
+    lines.append("      gzip: disabled")
+    lines.append("      images:")
+    lines.append("      - os: linux")
+    lines.append('        architecture: "%{go-arch}"')
+    lines.append("        layer: /layer")
+    lines.append(f'        comment: "fsdk-containers {name} image"')
+    lines.append("        config:")
+    # Only images that declare an entrypoint get one. base and static have no
+    # Entrypoint in their committed oci elements; inventing one here would
+    # change a published image, which this plan forbids.
+    if record.get("entrypoint"):
+        # Emit as inline list to match the committed format exactly.
+        # The Entrypoint value is inside a build-oci heredoc, so the literal
+        # text must be byte-for-byte identical to avoid changing the BST cache key.
+        ep = ", ".join(f"'{p}'" for p in record["entrypoint"])
+        lines.append(f"          Entrypoint: [{ep}]")
+    lines.append("          Labels:")
+    lines.append(f"            'org.opencontainers.image.title': '{name}'")
+    lines.append(
+        f"            'org.opencontainers.image.description': "
+        f"'{record['description']}'"
+    )
+    for key, value in SHARED_LABELS:
+        lines.append(f"            '{key}': '{value}'")
+    keywords = record.get("keywords", "distroless,freedesktop-sdk,bluefin")
+    lines.append(f"            'io.artifacthub.package.keywords': '{keywords}'")
+    lines.append("            'io.artifacthub.package.category': 'integration-delivery'")
+    lines.append("        index-annotations:")
+    lines.append(
+        f"          'org.opencontainers.image.ref.name': "
+        f"'ghcr.io/projectbluefin/{name}:%{{fsdk-version}}'"
+    )
+    lines.append("      EOF")
+    return "\n".join(lines) + "\n"
+
+
 RENDERERS = {
     "stack": (render_stack, lambda n: ELEMENTS / n / f"{n}-stack.bst"),
     "compose": (render_compose, lambda n: ELEMENTS / n / f"{n}-runtime.bst"),
+    "oci": (render_oci, lambda n: ELEMENTS / "oci" / f"{n}.bst"),
 }
 
 

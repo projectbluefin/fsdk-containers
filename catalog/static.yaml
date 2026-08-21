@@ -2,6 +2,8 @@ name: static
 kind: distroless
 description: "Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116."
 keywords: distroless,freedesktop-sdk,bluefin,static
+# static has its own init-script element; all other images use base/base-init-script.bst
+init_script: static/static-init-script.bst
 size_ceiling_mib: 80
 stack:
   depends:

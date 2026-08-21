@@ -156,6 +156,10 @@
         }
       }
     },
+    "init_script": {
+      "type": "string",
+      "description": "Build-time init script element path. Defaults to base/base-init-script.bst. Override only for images with their own init-script element (e.g. static/static-init-script.bst)."
+    },
     "notes": {
       "type": "string",
       "description": "Free-form prose carried into the generated elements as a comment. Use for hard-won context that would otherwise be lost."

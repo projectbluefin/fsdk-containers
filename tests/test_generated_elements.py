@@ -60,5 +60,59 @@ class StackGenerationTests(unittest.TestCase):
         self.assertIn("runtime-gnu is a deliberate dependency", text)
 
 
+SHARED_LABELS = {
+    "org.opencontainers.image.vendor": "Project Bluefin",
+    "org.opencontainers.image.licenses": "Apache-2.0",
+    "org.opencontainers.image.url": "https://github.com/projectbluefin/fsdk-containers",
+    "org.opencontainers.image.source": "https://github.com/projectbluefin/fsdk-containers",
+    "io.artifacthub.package.license": "Apache-2.0",
+    "io.artifacthub.package.category": "integration-delivery",
+}
+
+
+class OciGenerationTests(unittest.TestCase):
+    def test_generated_oci_matches_committed_build_depends(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                name = record["name"]
+                committed = yaml.safe_load(
+                    (ROOT / "elements" / "oci" / f"{name}.bst").read_text()
+                )
+                generated = yaml.safe_load(gen.render_oci(record))
+                self.assertEqual(generated["kind"], "script")
+                self.assertEqual(
+                    generated["build-depends"], committed["build-depends"]
+                )
+                self.assertEqual(generated["variables"], committed["variables"])
+
+    def test_slim_recipe_is_always_the_first_command(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                generated = yaml.safe_load(gen.render_oci(record))
+                first = generated["config"]["commands"][0]
+                expected = (
+                    "%{slim-shell-enabled-commands}"
+                    if record["kind"] == "shell-enabled"
+                    else "%{slim-distroless-commands}"
+                )
+                self.assertEqual(first, expected)
+
+    def test_every_image_carries_the_shared_labels(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                text = gen.render_oci(record)
+                for key, value in SHARED_LABELS.items():
+                    self.assertIn(f"'{key}': '{value}'", text)
+
+    def test_slim_extra_is_emitted_verbatim(self):
+        record = catalog.load_record(ROOT / "catalog" / "python.yaml")
+        generated = yaml.safe_load(gen.render_oci(record))
+        commands = generated["config"]["commands"]
+        self.assertIn(
+            record["slim"]["extra"].strip(),
+            [c.strip() for c in commands],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
