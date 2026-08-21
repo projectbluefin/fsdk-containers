@@ -7,6 +7,37 @@ description: |
   image must declare them itself), compiler hardening flags, and shipped
   default content at the conventional /usr/share/nginx/html path.
 
+  Wave 0 feasibility spike (#146) — the four answers, re-verified
+  2026-08-20 on branch spike-146-nginx:
+
+  1. Mechanism: TARBALL source build (kind: manual + tar source from
+     nginx.org). freedesktop-sdk does NOT ship nginx — no
+     elements/components/nginx.bst exists on the junction
+     (gitlab.com/freedesktop-sdk/freedesktop-sdk@master, checked
+     2026-08-20 via the repository API), so the FSDK-component path used
+     by curl/go is not available. This CONFIRMS #113's Wave-4 batch-B
+     assumption ("Tarball source build ... proven via lab-runner") —
+     no mechanism correction required.
+  2. Exact dependency set — build-depends: runtime-gnu (shell+coreutils
+     stack), gcc, make, sed, grep, gawk, bootstrap/coreutils (the auto/
+     configure scripts shell out to sed/grep/awk unchecked — see below).
+     depends (build AND runtime): bootstrap/libxcrypt (REQUIRED, gcc's
+     runtime dep stages libcrypt.so.2 in the sandbox so configure links
+     crypt() — without it the built binary dies with "error while loading
+     shared libraries: libcrypt.so.2"), bootstrap/pcre2,
+     components/openssl, components/zlib. The stack
+     (nginx-stack.bst) composes this on base/base-stack.bst.
+  3. Resolves: YES — and builds on the ghost BuildBarn grid:
+     `just bst build elements/nginx/nginx-stack.bst` (remote execution
+     default, BST_LOCAL unset) succeeded on 2026-08-20.
+  4. Upstream version + verifiable ref: nginx 1.31.3 (mainline), tar
+     sha256 a7657c50811c2d92d9895395e8b873ef60398142c4db21eb647811c38f6dd525,
+     re-verified live 2026-08-20:
+     curl -sL https://nginx.org/download/nginx-1.31.3.tar.gz | sha256sum
+     (elements/lab-runner/nginx.bst moved to 1.31.4 in #172; this spike
+     element stays on the version it verified — renovate tracks the
+     variable below and will propose bumps.)
+
 sources:
   - kind: tar
     url: https://nginx.org/download/nginx-%{nginx_version}.tar.gz
