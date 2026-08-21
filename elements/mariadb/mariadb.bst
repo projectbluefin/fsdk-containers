@@ -31,9 +31,9 @@ description: |
 sources:
   - kind: tar
     url: https://archive.mariadb.org/mariadb-%{mariadb_version}/source/mariadb-%{mariadb_version}.tar.gz
-    # sha256 verified against the official MariaDB download REST API
-    # (downloads.mariadb.org/rest-api/mariadb/11.8.8/, file mariadb-11.8.8.tar.gz)
-    ref: bd023a4959faf012db7f0ebfc0d276729e67e5443df193163f98d80fdfc524c9
+    # sha256 verified against the archive's own sha256sums.txt
+    # (archive.mariadb.org/mariadb-12.3.2/source/sha256sums.txt)
+    ref: 82798714baf2f3456ed2f311fc803dc120f2bf3b82358e773847d628cdb4b670
 
 build-depends:
   - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
