@@ -59,6 +59,7 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
             "entrypoint": ["/usr/bin/true"],
             "smoke": {"args": []},
             "size_ceiling_mib": 64,
+            "keywords": "probe,acceptance",
             "stack": {
                 "depends": [
                     "base/base-stack.bst",
@@ -70,9 +71,63 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
 
         for renderer in (gen.render_stack, gen.render_compose, gen.render_oci):
             text = renderer(record)
-            self.assertIn("acceptance-probe", text)
             self.assertIn("DO NOT EDIT", text)
-            self.assertIsInstance(yaml.safe_load(text), dict)
+            rendered = yaml.safe_load(text)
+            self.assertIsInstance(rendered, dict)
+
+        stack = yaml.safe_load(gen.render_stack(record))
+        self.assertEqual(stack["kind"], "stack")
+        self.assertEqual(stack["depends"], record["stack"]["depends"])
+
+        compose = yaml.safe_load(gen.render_compose(record))
+        self.assertEqual(compose["kind"], "compose")
+        self.assertEqual(
+            compose["build-depends"],
+            ["acceptance-probe/acceptance-probe-stack.bst"],
+        )
+        self.assertEqual(
+            compose["config"]["exclude"],
+            catalog.compose_exclude(record),
+        )
+
+        oci_text = gen.render_oci(record)
+        oci = yaml.safe_load(oci_text)
+        self.assertEqual(oci["kind"], "script")
+        self.assertEqual(oci["config"]["commands"][0], "%{slim-distroless-commands}")
+        self.assertIn("build-oci", oci["config"]["commands"][-1])
+        self.assertIn("'io.artifacthub.package.keywords': 'probe,acceptance'", oci_text)
+        self.assertIn("'org.opencontainers.image.title': 'acceptance-probe'", oci_text)
+        self.assertIn(
+            "'org.opencontainers.image.description': "
+            "'Throwaway record proving generation needs no code'",
+            oci_text,
+        )
+
+    def test_generation_depends_only_on_record_not_name(self):
+        """Names must not grow per-image branches in the generator."""
+        import generate_image_elements as gen
+
+        base = {
+            "name": "probe-alpha",
+            "kind": "distroless",
+            "description": "Throwaway record proving generation needs no code",
+            "entrypoint": ["/usr/bin/true"],
+            "smoke": {"args": []},
+            "size_ceiling_mib": 64,
+            "keywords": "probe,acceptance",
+            "stack": {
+                "depends": [
+                    "base/base-stack.bst",
+                    "freedesktop-sdk.bst:components/coreutils.bst",
+                ],
+            },
+        }
+        a = dict(base, name="python")
+        b = dict(base, name="probe-beta")
+        for renderer in (gen.render_stack, gen.render_compose, gen.render_oci):
+            text_a = renderer(a).replace("python", "NAME")
+            text_b = renderer(b).replace("probe-beta", "NAME")
+            self.assertEqual(text_a, text_b)
 
 
 def _element(*parts):

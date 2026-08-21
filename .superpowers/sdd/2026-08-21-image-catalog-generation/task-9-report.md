@@ -33,3 +33,18 @@ catalog record, not adding per-image generator code.
 - `python3 -m unittest discover -s tests -p 'test_*.py' -v`: 37 passed,
   2 pre-existing failures and 1 pre-existing error in
   `tests/test_renovate_atomic.py`, as documented in the task brief.
+
+## Review follow-up
+
+- Strengthened `AddingAnImageCostsOneFileTests` to assert the rendered stack,
+  compose, and OCI structures, including ordered dependencies, derived excludes,
+  slim/build-oci commands, keywords, and title/description labels.
+- Added a name-independence test using the real `python` image name. A temporary
+  `if record["name"] == "python": lines.append("# special")` branch caused the
+  test to fail; after removing it, the test passed again.
+- Corrected `add-new-image.md` to identify exactly the three paths in the
+  generator's `RENDERERS` registry and explicitly distinguish hand-authored
+  init/support elements.
+- Final validation: `just catalog-check` passed; the full unittest discovery
+  completed with only the three documented pre-existing
+  `test_renovate_atomic.py` failures/errors.

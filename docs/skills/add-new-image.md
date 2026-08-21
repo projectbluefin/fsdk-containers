@@ -34,10 +34,14 @@ Use when adding a new runtime/tool image carved from FSDK.
 4. Run `BUILD_IMAGE_NAME=<name> just build && BUILD_IMAGE_NAME=<name> just verify`.
 5. Commit the record, the targets.json entry, and the generated elements together.
 
-**Never hand-edit a generated element.** Every file under `elements/<name>/` and
-`elements/oci/<name>.bst` carries a DO-NOT-EDIT header naming its record. A hand
-edit is reverted by the next `just catalog-write` and fails the `image-catalog`
-pull-request gate in the meantime. Change the record.
+**Never hand-edit a generated element.** Exactly these three paths are generated
+from the record and carry a DO-NOT-EDIT header naming it:
+`elements/<name>/<name>-stack.bst`, `elements/<name>/<name>-runtime.bst`, and
+`elements/oci/<name>.bst`. Other elements in those directories, including init
+scripts and similar support elements, are hand-authored and are not generated.
+A hand edit to a generated path is reverted by the next `just catalog-write`
+and fails the `image-catalog` pull-request gate in the meantime. Change the
+record.
 
 If the image needs something the record cannot express, that is a gap in
 `catalog/schema.json`. Extend the schema and the generator so the next image
