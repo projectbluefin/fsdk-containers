@@ -16,6 +16,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 import catalog
 
 REPO_ROOT = catalog.REPO_ROOT
@@ -59,7 +61,32 @@ def render_compose(record: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_stack(record: dict) -> str:
+    """The stack element listing everything this image depends on."""
+    name = record["name"]
+    lines = [_header(name, "stack")]
+    lines.append("kind: stack")
+    desc_line = yaml.dump({"description": record["description"]}, default_flow_style=False).rstrip()
+    lines.append(desc_line)
+
+    if record.get("notes"):
+        lines.append("")
+        for line in record["notes"].rstrip().splitlines():
+            lines.append(f"# {line}".rstrip())
+
+    lines.append("")
+    lines.append("depends:")
+    if record["stack"].get("base"):
+        lines.append(f"  - {record['stack']['base']}")
+    for component in record["stack"]["components"]:
+        lines.append(f"  - {component}")
+    for extra in record["stack"].get("extra_depends", []):
+        lines.append(f"  - {extra}")
+    return "\n".join(lines) + "\n"
+
+
 RENDERERS = {
+    "stack": (render_stack, lambda n: ELEMENTS / n / f"{n}-stack.bst"),
     "compose": (render_compose, lambda n: ELEMENTS / n / f"{n}-runtime.bst"),
 }
 

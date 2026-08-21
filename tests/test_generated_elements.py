@@ -41,5 +41,25 @@ class ComposeGenerationTests(unittest.TestCase):
         self.assertEqual(gen.check(), [])
 
 
+class StackGenerationTests(unittest.TestCase):
+    def test_generated_stack_matches_committed(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                name = record["name"]
+                committed = yaml.safe_load(
+                    (ROOT / "elements" / name / f"{name}-stack.bst").read_text()
+                )
+                generated = yaml.safe_load(gen.render_stack(record))
+                self.assertEqual(generated["kind"], "stack")
+                self.assertEqual(
+                    sorted(generated["depends"]), sorted(committed["depends"])
+                )
+
+    def test_notes_are_carried_into_the_generated_stack(self):
+        record = catalog.load_record(ROOT / "catalog" / "base.yaml")
+        text = gen.render_stack(record)
+        self.assertIn("runtime-gnu is a deliberate dependency", text)
+
+
 if __name__ == "__main__":
     unittest.main()
