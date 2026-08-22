@@ -440,7 +440,10 @@ verify:
     fi
     if [ "${#SMOKE_OPTS_ARR[@]}" -gt 0 ] || [ "${#SMOKE_ARGS_ARR[@]}" -gt 0 ]; then
         echo "==> smoke test (executing binary)"
-        if ! {{sudo_cmd}} podman run --rm "${SMOKE_OPTS_ARR[@]}" "$REF" "${SMOKE_ARGS_ARR[@]}" >/dev/null 2>&1; then
+        # stdout only, matching the old recipe's smoke arms. Do NOT add 2>&1:
+        # on failure the container's stderr is the only clue why, and the next
+        # line prints nothing but "smoke test failed".
+        if ! {{sudo_cmd}} podman run --rm "${SMOKE_OPTS_ARR[@]}" "$REF" "${SMOKE_ARGS_ARR[@]}" >/dev/null; then
             echo "FAIL: $IMG smoke test failed" >&2; exit 1
         fi
         echo "OK: $IMG executes successfully"
