@@ -1,0 +1,79 @@
+name: lab-runner
+kind: shell-enabled
+description: Shell-enabled CI utility container carved from freedesktop-sdk — bash, curl, git, jq, python3, openssh
+export_description: Shell-enabled CI/CD utility container for Project Bluefin workflows
+keywords: freedesktop-sdk,bluefin,ci
+entrypoint: ["/usr/bin/bash"]
+smoke:
+  entrypoint_override: ["/usr/bin/argo"]
+  args: ["version", "--short"]
+  shell_probe: >-
+    kubectl version --client >/dev/null && curl --version && git --version &&
+    jq --version && python3 --version && skopeo --version
+size_ceiling_mib: 640
+compose:
+  exclude_omit:
+    - domain: shells
+      reason: >-
+        lab-runner is the documented shell-enabled exception, so the fish and
+        zsh data directories in the shells domain are harmless and excluding
+        them buys nothing. Declared rather than silently divergent.
+stack:
+  depends:
+    - base/base-stack.bst
+    - freedesktop-sdk.bst:components/curl.bst
+    - freedesktop-sdk.bst:components/git.bst
+    - freedesktop-sdk.bst:components/jq.bst
+    - freedesktop-sdk.bst:components/python3.bst
+    - freedesktop-sdk.bst:components/openssh.bst
+    - freedesktop-sdk.bst:components/python3-pyyaml.bst
+    - lab-runner/yq.bst
+    - freedesktop-sdk.bst:components/bubblewrap.bst
+    - freedesktop-sdk.bst:components/diffutils.bst
+    - freedesktop-sdk.bst:components/file.bst
+    - freedesktop-sdk.bst:components/findutils.bst
+    - freedesktop-sdk.bst:components/gawk.bst
+    - freedesktop-sdk.bst:components/gzip.bst
+    - freedesktop-sdk.bst:components/less.bst
+    - freedesktop-sdk.bst:components/patch.bst
+    - freedesktop-sdk.bst:components/procps.bst
+    - freedesktop-sdk.bst:components/tar.bst
+    - freedesktop-sdk.bst:components/which.bst
+    - lab-runner/shellcheck.bst
+    - lab-runner/hadolint.bst
+    - lab-runner/actionlint.bst
+    - lab-runner/argo.bst
+    - lab-runner/just.bst
+    - lab-runner/kubectl.bst
+    - lab-runner/nginx.bst
+    - skopeo/skopeo-stack.bst
+gates:
+  require_binaries:
+    - bash
+    - argo
+    - just
+    - kubectl
+    - skopeo
+    - shellcheck
+    - hadolint
+    - actionlint
+    - which
+    - xargs
+    - awk
+    - ps
+    - tar
+    - diff
+    - patch
+    - less
+    - file
+    - gzip
+    - bwrap
+  require_paths:
+    - usr/share/terminfo/x/xterm-256color
+    - usr/share/terminfo/s/screen-256color
+    - usr/share/terminfo/t/tmux-direct
+    - usr/share/terminfo/x/xterm-direct
+    - usr/share/terminfo/x/xterm-ghostty
+notes: |
+  gzip is not optional alongside tar: GNU tar execs gzip as a child process for
+  .tar.gz streams, so tar being present is not sufficient (#159).

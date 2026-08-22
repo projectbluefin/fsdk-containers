@@ -1,0 +1,59 @@
+name: image-catalog
+
+# Every BuildStream element for an OCI image is generated from its
+# catalog/<name>.yaml record. Without a gate they drift the moment someone
+# hand-edits an element, and a stale element silently ships a different image
+# than the record describes.
+
+on:
+  pull_request:
+    paths:
+      - 'catalog/**'
+      - 'elements/**'
+      - 'scripts/catalog.py'
+      - 'scripts/generate_image_elements.py'
+      - 'scripts/verify_contract.py'
+      - 'tests/test_catalog*.py'
+      - 'tests/test_generated*.py'
+      - 'tests/test_verify_contract*.py'
+  push:
+    branches: [main]
+    paths:
+      - 'catalog/**'
+      - 'elements/**'
+      - 'scripts/catalog.py'
+      - 'scripts/generate_image_elements.py'
+      - 'scripts/verify_contract.py'
+      - 'tests/test_catalog*.py'
+      - 'tests/test_generated*.py'
+      - 'tests/test_verify_contract*.py'
+
+permissions: {}
+
+jobs:
+  catalog:
+    name: Validate image catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install python dependencies
+        run: python3 -m pip install --user pyyaml jsonschema
+
+      - name: Records are valid and describe the committed elements
+        run: python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+
+      - name: Verification gates derive from the records
+        run: python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
+
+      - name: Generated elements are current
+        run: python3 scripts/generate_image_elements.py --check
+
+      - name: Generated elements match their records semantically
+        run: python3 -m unittest discover -s tests -p 'test_generated*.py' -v

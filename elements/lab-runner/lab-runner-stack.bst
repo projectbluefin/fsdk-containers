@@ -1,9 +1,13 @@
+# DO NOT EDIT. Generated from catalog/lab-runner.yaml by
+# scripts/generate_image_elements.py (stack).
+# Change the record, then run: just catalog-write
+
 kind: stack
-description: |
-  Lab runner: shell-enabled utility container for CI workflow steps.
-  Replaces cgr.dev/chainguard/wolfi-base + apk add in Argo workflow
-  templates. Shell is intentionally kept — this is not a distroless
-  image. All tools are FSDK-built; no runtime package manager.
+description: "Shell-enabled CI utility container carved from freedesktop-sdk \u2014\
+  \ bash, curl, git, jq, python3, openssh"
+
+# gzip is not optional alongside tar: GNU tar execs gzip as a child process for
+# .tar.gz streams, so tar being present is not sufficient (#159).
 
 depends:
   - base/base-stack.bst
@@ -12,43 +16,19 @@ depends:
   - freedesktop-sdk.bst:components/jq.bst
   - freedesktop-sdk.bst:components/python3.bst
   - freedesktop-sdk.bst:components/openssh.bst
-  # Neither the shipped python3 nor the shell can parse YAML without these:
-  # python3-pyyaml covers `import yaml`, and yq covers shell pipelines
-  # (GitHub Actions workflows, skill frontmatter, Kubernetes manifests). A
-  # contributor agent assigned to edit YAML with only what this image ships
-  # otherwise hits `ModuleNotFoundError: No module named 'yaml'` and
-  # `yq: command not found`.
   - freedesktop-sdk.bst:components/python3-pyyaml.bst
   - lab-runner/yq.bst
-  # Standard POSIX/GNU userland beyond coreutils. A shell-enabled CI container
-  # that answers `which`, `xargs`, `awk`, `ps`, `tar`, `diff` and `patch` with
-  # exit 127 forces every consumer to either hand-roll a replacement or work
-  # around the gap; both cost more than carrying the real GNU tools.
-  # projectbluefin/review's worktree-guard wrapper sandboxes agent commands
-  # with bwrap (read-only root, writable worktree bind, private /tmp) when
-  # bubblewrap is available, and silently degrades to worktree-only isolation
-  # when it is not (issue #109). Ship it here at the FSDK seam rather than
-  # shimming it into the derived contributor image. Rootless nested
-  # sandboxing needs unprivileged user namespaces, so presence alone is not
-  # proof: `just verify` probes `bwrap --ro-bind / / true` — the exact probe
-  # review uses — inside the container.
   - freedesktop-sdk.bst:components/bubblewrap.bst
   - freedesktop-sdk.bst:components/diffutils.bst
   - freedesktop-sdk.bst:components/file.bst
   - freedesktop-sdk.bst:components/findutils.bst
   - freedesktop-sdk.bst:components/gawk.bst
-  # GNU tar execs gzip for .tar.gz streams; without it both `tar -xzf` and
-  # `tar -xf` on a gzip-compressed archive fail with "Cannot exec: No such
-  # file or directory" even though tar itself is present. gh, tmux and goose
-  # all publish .tar.gz releases, so every consumer that installs one needs
-  # this. zstd is not a substitute (built without zlib support here).
   - freedesktop-sdk.bst:components/gzip.bst
   - freedesktop-sdk.bst:components/less.bst
   - freedesktop-sdk.bst:components/patch.bst
   - freedesktop-sdk.bst:components/procps.bst
   - freedesktop-sdk.bst:components/tar.bst
   - freedesktop-sdk.bst:components/which.bst
-  # Contributor / CI linters
   - lab-runner/shellcheck.bst
   - lab-runner/hadolint.bst
   - lab-runner/actionlint.bst
@@ -56,9 +36,4 @@ depends:
   - lab-runner/just.bst
   - lab-runner/kubectl.bst
   - lab-runner/nginx.bst
-  # Image inspection: downstream review's landing agent verifies published
-  # tags with `skopeo inspect docker://<image>:stable` (issue #164). Depend
-  # on the catalog's skopeo stack rather than relisting its components so
-  # the dependency bundle (containers-common, gpgme, libassuan, sqlite,
-  # libgpg-error, glib) stays maintained in exactly one place.
   - skopeo/skopeo-stack.bst

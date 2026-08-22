@@ -1,0 +1,16 @@
+name: qemu-img
+kind: distroless
+description: Distroless qemu-img image carved from freedesktop-sdk
+export_description: Distroless qemu-img disk image utility built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,qemu-img
+entrypoint: ["/usr/bin/qemu-img"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 192
+stack:
+  depends:
+    - base/base-stack.bst
+    - qemu-img/qemu-img.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC

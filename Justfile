@@ -216,6 +216,17 @@ changed-targets BASE HEAD="HEAD":
         '{oci_images: $oci, vm_guest: $vm}'
 
 # ── Validate ──────────────────────────────────────────────────────────
+[group('build')]
+catalog-write:
+    python3 scripts/generate_image_elements.py --write
+
+[group('test')]
+catalog-check:
+    python3 scripts/generate_image_elements.py --check
+    python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
+    python3 -m unittest discover -s tests -p 'test_generated*.py' -v
+    python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
@@ -251,16 +262,10 @@ export:
     IMAGE_ID=$({{sudo_cmd}} podman pull -q oci:.build-out)
     rm -rf .build-out
 
-    case "{{image_name}}" in
-        base)       DESC="Minimal, high-integrity distroless base image built on freedesktop-sdk" ;;
-        static)     DESC="Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk" ;;
-        skopeo)     DESC="Skopeo OCI image utility built on freedesktop-sdk" ;;
-        lab-runner) DESC="Shell-enabled CI/CD utility container for Project Bluefin workflows" ;;
-        python)     DESC="Minimal, high-integrity distroless Python 3 runtime built on freedesktop-sdk" ;;
-        buildah)    DESC="Distroless Buildah container-building tool built on freedesktop-sdk" ;;
-        qemu-img)   DESC="Distroless qemu-img disk image utility built on freedesktop-sdk" ;;
-        *)          DESC="Project Bluefin distroless container image" ;;
-    esac
+    # The published description comes from the catalog record: export_description
+    # when the published string predates the record's description, else
+    # description. No case statement — adding an image never edits this recipe.
+    DESC="$(python3 -c "import yaml; d = yaml.safe_load(open('catalog/{{image_name}}.yaml')); print(d.get('export_description', d['description']))")"
 
     LABEL_ARGS=()
     [ -n "${OCI_IMAGE_CREATED}" ]  && LABEL_ARGS+=(--label "org.opencontainers.image.created=${OCI_IMAGE_CREATED}")
@@ -313,9 +318,9 @@ push-quay REPO:
     done < <(just tags)
 
 # ── Verify ────────────────────────────────────────────────────────────
-# Assert the image meets its contract: distroless images have no shell;
-# all images ship CA certs + tzdata (except static-tier Go binaries which
-# carry these in their own layer); lab-runner explicitly keeps a shell.
+# Assert the image meets its contract. Gates and ceilings are derived from
+# the catalog record via scripts/verify_contract.py — adding an image no
+# longer requires editing this recipe.
 [group('test')]
 verify:
     #!/usr/bin/env bash
@@ -323,27 +328,12 @@ verify:
     REF="{{image_registry}}/{{image_name}}:{{local_tag}}"
     IMG="{{image_name}}"
 
-    # Guard against silent size creep. These are uncompressed local Podman
-    # sizes (not registry transfer sizes), with headroom for FSDK growth.
-    case "$IMG" in
-        base)       MAX_BYTES=$((64 * 1024 * 1024)) ;;
-        static)     MAX_BYTES=$((80 * 1024 * 1024)) ;;
-        skopeo)     MAX_BYTES=$((224 * 1024 * 1024)) ;;
-        python)     MAX_BYTES=$((144 * 1024 * 1024)) ;;
-        qemu-img)   MAX_BYTES=$((192 * 1024 * 1024)) ;;
-        buildah)    MAX_BYTES=$((256 * 1024 * 1024)) ;;
-        # lab-runner is the documented shell-enabled exception. Its CLI
-        # contract includes the 136MiB stripped Argo v4 binary, the 57MiB
-        # already-stripped kubectl binary, and the ~73MiB of static
-        # shellcheck/hadolint/actionlint linters (#89), plus the terminfo
-        # database and the standard GNU userland. The slim recipe removes
-        # perl (~56MiB, git's unused scripting tail), which keeps the
-        # linter additions inside the existing 512MiB ceiling.
-        # skopeo (+ its containers-common/gpgme bundle) put the image at
-        # 524 MiB measured (#169) — 640 MiB leaves ~20% headroom.
-        lab-runner) MAX_BYTES=$((640 * 1024 * 1024)) ;;
-        *)          echo "FAIL: no size threshold configured for $IMG" >&2; exit 1 ;;
-    esac
+    # Derive gates, ceilings, and smoke-test args from the catalog record.
+    # IMG_KIND, MAX_BYTES, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
+    # REQUIRE_BINARIES, SMOKE_OPTS, SMOKE_ARGS, SHELL_PROBE are all set here.
+    eval "$(python3 scripts/verify_contract.py "$IMG" --env)"
+
+    # Guard against silent size creep (uncompressed local Podman size).
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
     if ! [[ "$SIZE_BYTES" =~ ^[0-9]+$ ]] || [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
         echo "FAIL: $IMG image size ${SIZE_BYTES} bytes exceeds ${MAX_BYTES} bytes" >&2
@@ -356,120 +346,133 @@ verify:
     LISTING="$(mktemp)"
     {{sudo_cmd}} podman export verify-base | tar -tf - > "$LISTING"
 
-    GATE=1
-    if [ "$IMG" = "lab-runner" ]; then
-        echo "==> [${GATE}/${GATE}] shell present (lab-runner is intentionally shell-enabled)"
-        if ! grep -qE '(^|/)bash$' "$LISTING"; then
-            echo "FAIL: bash missing from lab-runner — shell must be present"; exit 1
+    # NOTE: these loops use here-strings, not `... | while read`. A piped while
+    # loop runs in a subshell, so an `exit 1` inside it exits only the subshell.
+    # That construction happens to abort under `set -e` because the pipeline
+    # returns non-zero, but a merge gate must not depend on that subtlety. The
+    # here-string keeps the loop in the current shell, so `failed=1` propagates.
+    failed=0
+
+    # Forbidden-pattern gates: each name+pattern pair on a tab-separated line.
+    while IFS=$'\t' read -r gate pattern; do
+        [ -n "$gate" ] || continue
+        if grep -qE "$pattern" "$LISTING"; then
+            echo "FAIL: gate '$gate' violated — matched $pattern" >&2
+            failed=1
+        else
+            echo "OK: $gate"
         fi
-        echo "OK: bash present"
-        TOTAL=4
-        echo "==> [2/${TOTAL}] lab-runner CLI tools present"
-        for tool in argo just kubectl skopeo; do
-            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
-                echo "FAIL: ${tool} missing from lab-runner"; exit 1
+    done <<< "$(paste -d$'\t' <(printf '%s\n' "$FORBID_NAMES") <(printf '%s\n' "$FORBID_PATTERNS"))"
+
+    # Required-path gates: each entry must appear verbatim in the tar listing.
+    while read -r p; do
+        [ -n "$p" ] || continue
+        if ! grep -qxF "$p" "$LISTING"; then
+            echo "FAIL: required path missing: /$p" >&2
+            failed=1
+        else
+            echo "OK: /$p present"
+        fi
+    done <<< "$REQUIRE_PATHS"
+
+    # Any-of-paths gate: at least one alternative must be present (CA certs).
+    # Models the old recipe's: grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/...)$'
+    if [ -n "$REQUIRE_ANY_PATHS" ]; then
+        any_matched=0
+        while read -r p; do
+            [ -n "$p" ] || continue
+            if grep -qxF "$p" "$LISTING"; then
+                echo "OK: CA alternative present: /$p"
+                any_matched=1
+                break
             fi
-        done
-        echo "OK: argo, just, kubectl, and skopeo present"
-
-        echo "==> [3/${TOTAL}] lab-runner linter suite present"
-        for tool in shellcheck hadolint actionlint; do
-            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
-                echo "FAIL: ${tool} missing from lab-runner — linter suite must be present"; exit 1
-            fi
-        done
-        echo "OK: shellcheck, hadolint, and actionlint present"
-
-        echo "==> [4/${TOTAL}] lab-runner standard userland present"
-        for tool in which xargs awk ps tar diff patch less file gzip bwrap; do
-            if ! grep -qE "(^|/)${tool}$" "$LISTING"; then
-                echo "FAIL: ${tool} missing from lab-runner — standard userland must be present"; exit 1
-            fi
-        done
-        echo "OK: which, xargs, awk, ps, tar, diff, patch, less, file, gzip, and bwrap present"
-
-        echo "==> [4/${TOTAL}] lab-runner ships the full terminfo database"
-        # x/xterm-ghostty is not in ncurses (upstream names the entry
-        # "ghostty"); it is compiled in by base/terminfo-ghostty.bst (#105).
-        for entry in x/xterm-256color s/screen-256color t/tmux-direct x/xterm-direct x/xterm-ghostty; do
-            if ! grep -qxF "usr/share/terminfo/${entry}" "$LISTING"; then
-                echo "FAIL: required terminfo entry missing: /usr/share/terminfo/${entry}"; exit 1
-            fi
-        done
-        TERMINFO_COUNT="$(grep -cE '^usr/share/terminfo/./[^/]+$' "$LISTING" || true)"
-        if [ "$TERMINFO_COUNT" -lt 1000 ]; then
-            echo "FAIL: terminfo database looks incomplete ($TERMINFO_COUNT entries)"; exit 1
+        done <<< "$REQUIRE_ANY_PATHS"
+        if [ "$any_matched" -eq 0 ]; then
+            echo "FAIL: none of the required CA alternatives found" >&2
+            failed=1
         fi
-        echo "OK: full terminfo database present ($TERMINFO_COUNT entries)"
-    else
-        TOTAL=5
-        echo "==> [1/${TOTAL}] distroless: no shell present"
-        if grep -qE '(^|/)(ba)?sh$' "$LISTING"; then
-            echo "FAIL: a shell binary is present in the rootfs"; exit 1
-        fi
-        echo "OK: no shell"
-
-        echo "==> [2/${TOTAL}] CA certificate bundle present"
-        if ! grep -qE '^etc/(pki/tls/certs/ca-bundle\.crt|ssl/certs/ca-certificates\.crt)$' "$LISTING"; then
-            echo "FAIL: no CA bundle file found"; exit 1
-        fi
-        echo "OK: CA bundle present"
-
-        echo "==> [3/${TOTAL}] tzdata present"
-        if ! grep -qE '^usr/share/zoneinfo/UTC$' "$LISTING"; then
-            echo "FAIL: tzdata (zoneinfo/UTC) missing"; exit 1
-        fi
-        echo "OK: tzdata present"
-
-        echo "==> [4/${TOTAL}] slim: bloat must NOT be present (sanitizers, fortran)"
-        if grep -qE '/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so' "$LISTING"; then
-            echo "FAIL: slim bloat present — slim recipe regressed"; exit 1
-        fi
-        echo "OK: slim bloat removed"
-
-        echo "==> [5/${TOTAL}] slim: locale/build-tool bloat must NOT be present"
-        if grep -qE 'usr/lib(/[^/]*)?/locale/locale-archive$|usr/share/i18n/charmaps/|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$|libpcre2-(16|32|posix)\.so' "$LISTING"; then
-            echo "FAIL: locale/build-tool bloat present — slim recipe regressed"; exit 1
-        fi
-        echo "OK: locale/build-tool bloat removed"
     fi
 
-    echo "==> smoke test (executing binary)"
-    if [ "$IMG" = "skopeo" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" skopeo --version >/dev/null; then
-            echo "FAIL: skopeo failed to execute"; exit 1
+    # Required-binary gates: each name must appear as a filename in the listing.
+    while read -r b; do
+        [ -n "$b" ] || continue
+        if ! grep -qE "(^|/)${b}$" "$LISTING"; then
+            echo "FAIL: required binary missing: $b" >&2
+            failed=1
+        else
+            echo "OK: $b present"
         fi
-        echo "OK: skopeo executes successfully"
-    elif [ "$IMG" = "python" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
-            echo "FAIL: python failed to execute"; exit 1
+    done <<< "$REQUIRE_BINARIES"
+
+    # Shell-enabled images must ship a complete terminfo database. The specific
+    # entries are already in REQUIRE_PATHS; this count check proves nothing was
+    # accidentally dropped from the bulk database (#105).
+    # x/xterm-ghostty is not in ncurses (upstream names the entry "ghostty");
+    # it is compiled in by base/terminfo-ghostty.bst.
+    if [ "$IMG_KIND" = "shell-enabled" ]; then
+        TERMINFO_COUNT="$(grep -cE '^usr/share/terminfo/./[^/]+$' "$LISTING" || true)"
+        if [ "$TERMINFO_COUNT" -lt 1000 ]; then
+            echo "FAIL: terminfo database looks incomplete ($TERMINFO_COUNT entries)" >&2
+            failed=1
+        else
+            echo "OK: full terminfo database present ($TERMINFO_COUNT entries)"
         fi
-        echo "OK: python executes successfully"
-    elif [ "$IMG" = "buildah" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
-            echo "FAIL: buildah failed to execute"; exit 1
+    fi
+
+    [ "$failed" -eq 0 ] || { echo "FAIL: $IMG failed one or more gates" >&2; exit 1; }
+
+    # Smoke test: execute a binary to prove shared-library linkage is intact.
+    # SMOKE_OPTS contains podman options (e.g. --entrypoint /usr/bin/skopeo)
+    # that must precede the image reference; SMOKE_ARGS are the CMD arguments
+    # that follow it. Both are empty for images with no declared smoke test
+    # (base, static), in which case we skip this step entirely.
+    # Both arrive newline-delimited (one argument per line) and are read into
+    # arrays with mapfile, so an argument containing a space or a glob
+    # character stays exactly one argument — unquoted $SMOKE_ARGS would
+    # word-split and glob it apart.
+    SMOKE_OPTS_ARR=()
+    if [ -n "$SMOKE_OPTS" ]; then
+        mapfile -t SMOKE_OPTS_ARR <<< "$SMOKE_OPTS"
+    fi
+    SMOKE_ARGS_ARR=()
+    if [ -n "$SMOKE_ARGS" ]; then
+        mapfile -t SMOKE_ARGS_ARR <<< "$SMOKE_ARGS"
+    fi
+    if [ "${#SMOKE_OPTS_ARR[@]}" -gt 0 ] || [ "${#SMOKE_ARGS_ARR[@]}" -gt 0 ]; then
+        echo "==> smoke test (executing binary)"
+        # stdout only, matching the old recipe's smoke arms. Do NOT add 2>&1:
+        # on failure the container's stderr is the only clue why, and the next
+        # line prints nothing but "smoke test failed".
+        if ! {{sudo_cmd}} podman run --rm "${SMOKE_OPTS_ARR[@]}" "$REF" "${SMOKE_ARGS_ARR[@]}" >/dev/null; then
+            echo "FAIL: $IMG smoke test failed" >&2; exit 1
         fi
-        echo "OK: buildah executes successfully"
-    elif [ "$IMG" = "qemu-img" ]; then
-        if ! {{sudo_cmd}} podman run --rm "$REF" --version >/dev/null; then
-            echo "FAIL: qemu-img failed to execute"; exit 1
+        echo "OK: $IMG executes successfully"
+    fi
+
+    # Shell-enabled images run additional execution probes inside the shell.
+    # These probes rely on bash being the entrypoint; they are guarded by kind
+    # rather than by image name so any future shell-enabled image inherits them.
+    if [ "$IMG_KIND" = "shell-enabled" ]; then
+        # shell_probe from the record: tools that the lab-runner contract requires.
+        if [ -n "$SHELL_PROBE" ]; then
+            if ! {{sudo_cmd}} podman run --rm "$REF" -c "$SHELL_PROBE" >/dev/null; then
+                echo "FAIL: shell_probe failed" >&2; exit 1
+            fi
+            echo "OK: shell_probe passed"
         fi
-        echo "OK: qemu-img executes successfully"
-    elif [ "$IMG" = "lab-runner" ]; then
-        if ! {{sudo_cmd}} podman run --rm --entrypoint /usr/bin/argo "$REF" version --short >/dev/null; then
-            echo "FAIL: argo failed to execute"; exit 1
-        fi
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "kubectl version --client >/dev/null && curl --version && git --version && jq --version && python3 --version && skopeo --version" >/dev/null; then
-            echo "FAIL: lab-runner tools failed to execute"; exit 1
-        fi
+
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "shellcheck --version >/dev/null && hadolint --version >/dev/null && actionlint --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner linters failed to execute"; exit 1
         fi
+        echo "OK: linter suite executes successfully"
+
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
         fi
+        echo "OK: standard userland executes successfully"
+
         # skopeo --version proves the binary loads, not that the inspect code
         # path review's landing agent depends on works (issue #164). Build a
         # minimal OCI layout and inspect it via the oci: transport — the same
@@ -479,12 +482,16 @@ verify:
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && cd \"\$d\" && mkdir -p blobs/sha256 && printf '%s' '{}' > blobs/sha256/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}' > blobs/sha256/f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268 && printf '%s' '{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f20c43161d73848408ef247f0ec7111b19fe58ffebc0cbcaa0d2c8bda4967268\",\"size\":246}]}' > index.json && printf '%s' '{\"imageLayoutVersion\":\"1.0.0\"}' > oci-layout && skopeo inspect \"oci:\$d\" >/dev/null && cd / && rm -rf \"\$d\"" >/dev/null; then
             echo "FAIL: lab-runner skopeo cannot inspect a local OCI layout"; exit 1
         fi
+        echo "OK: skopeo OCI layout inspect works"
+
         # tar --version passing does not prove tar can read .tar.gz: GNU tar
         # execs gzip as a child process for the codec, so this only fails if
         # gzip is missing or broken (the exact regression from issue #87).
         if ! {{sudo_cmd}} podman run --rm "$REF" -c "d=\$(mktemp -d) && echo hi > \"\$d/f\" && tar -czf \"\$d/f.tar.gz\" -C \"\$d\" f && tar -xzf \"\$d/f.tar.gz\" -C \"\$d\" && rm -rf \"\$d\"" >/dev/null; then
             echo "FAIL: lab-runner cannot create/extract .tar.gz — gzip missing or broken"; exit 1
         fi
+        echo "OK: tar.gz round-trip works"
+
         # projectbluefin/review sandboxes agent commands with
         # `bwrap --ro-bind / / true` (read-only root, private /tmp) inside a
         # rootless podman run of this image (issue #109). `bwrap --version`
@@ -498,6 +505,8 @@ verify:
         if ! {{sudo_cmd}} podman run --rm --cap-add SYS_ADMIN "$REF" -c "bwrap --ro-bind / / true" >/dev/null; then
             echo "FAIL: lab-runner bwrap cannot create a sandbox (bwrap --ro-bind / / true failed)"; exit 1
         fi
+        echo "OK: bwrap sandbox works"
+
         echo "OK: lab-runner tools execute successfully"
     fi
 

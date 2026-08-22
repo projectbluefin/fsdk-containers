@@ -1,3 +1,7 @@
+# DO NOT EDIT. Generated from catalog/buildah.yaml by
+# scripts/generate_image_elements.py (compose).
+# Change the record, then run: just catalog-write
+
 kind: compose
 description: Chisel the buildah stack down to runtime-only, distroless.
 
@@ -10,7 +14,7 @@ config:
     - devel
     - doc
     - locale
-    - static-blocklist
-    - vm-only
-    - tests
     - shells
+    - static-blocklist
+    - tests
+    - vm-only

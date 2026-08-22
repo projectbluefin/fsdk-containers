@@ -1,0 +1,15 @@
+name: static
+kind: distroless
+description: "Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116."
+export_description: Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,static
+# static has its own init-script element; all other images use base/base-init-script.bst
+init_script: static/static-init-script.bst
+size_ceiling_mib: 80
+stack:
+  depends:
+    - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+    - freedesktop-sdk.bst:components/ca-certificates.bst
+    - freedesktop-sdk.bst:components/tzdata.bst
+    - freedesktop-sdk.bst:components/os-release.bst
+    - freedesktop-sdk.bst:integration/extra-fs.bst
