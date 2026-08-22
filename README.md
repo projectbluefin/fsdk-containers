@@ -20,6 +20,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/custodian` | — | Distroless Cloud Custodian (c7n) rules engine on FSDK Python: non-root (`65532:65532` + passwd entry), no shell, no package manager. Upstream ships Ubuntu 24.04 + apt at ~162 MB compressed. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 
 <a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
