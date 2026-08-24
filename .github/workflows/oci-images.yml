@@ -380,6 +380,9 @@ jobs:
             buildah) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" --version ;;
             qemu-img) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" --version ;;
             skopeo) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" skopeo --version ;;
+            # custodian runs non-root (65532:65532); --passwd=false proves the
+            # image ships its own /etc/passwd entry (k8s runtimes don't fabricate one)
+            custodian) podman run --rm --passwd=false --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" version ;;
             *) echo "ERROR: no publish smoke command configured for ${{ inputs.image }}" >&2; exit 1 ;;
           esac
 
