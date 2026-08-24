@@ -9,7 +9,7 @@ description: |
   `ref:` to a new v2 commit AND refreshing files/go.mod + files/go.sum to
   that commit's v2/go.mod / v2/go.sum.
 
-  MECHANISM: go_module (BLOCKED — see below). The Go tree is NOT vendored
+  MECHANISM: go_module (gate OPEN — see below). The Go tree is NOT vendored
   upstream (no v2/vendor/), so dependencies are declared as one
   `kind: go_module` source per module in v2/go.sum (24 modules at this pin).
   The plugin reconstructs a vendor/ tree at stage time (it stages each module
@@ -18,20 +18,33 @@ description: |
   GOPROXY=off -mod=vendor — mandatory on the RE grid, which has no network
   in the build phase.
 
-  KNOWN BLOCKER (Wave 1 owns the fix): project.conf junctions
-  buildstream-plugins-community 2.3.1 but enables only `git_repo` and
-  `patch_queue` under `sources:`. `go_module` ships in that tarball
-  (src/buildstream_plugins_community/sources/go_module.py, confirmed) but is
-  not registered, so this element fails at LOAD time. Verbatim error,
+  GATE STATUS: OPEN (the blocker below is RESOLVED — kept as history
+  because the failure mode is distinctive and may recur if project.conf
+  is edited). project.conf now registers `go_module` under the
+  plugins/buildstream-plugins-community.bst junction's `sources:` list,
+  landed by #145 (commit d36af3c) which closed #144. This element no
+  longer fails at LOAD time for that reason.
+
+  The resolved blocker, as it read: project.conf junctioned
+  buildstream-plugins-community 2.3.1 but enabled only `git_repo` and
+  `patch_queue` under `sources:`. `go_module` shipped in that tarball
+  (src/buildstream_plugins_community/sources/go_module.py) but was not
+  registered, so this element failed at LOAD time. Verbatim error,
   measured 2026-08-09 on the ghost grid
   (`just bst show --deps none kubestellar-hive/kubestellar-hive-stack.bst`):
 
       kubestellar-hive/hive-bin.bst [line 79 column 4]: No source plugin
       registered for kind 'go_module'
 
-  (line 79 is the first `kind: go_module` source below; the line number
-  drifts as the description is edited — the kind string is the invariant
-  part.) Do NOT edit project.conf from this lane.
+  If that error ever returns, the cause is the `sources:` list in
+  project.conf, not this element.
+
+  REMAINING WORK for the #146 spike: every `kind: go_module` source below
+  still lacks a `ref:` — 26 sources, 0 tracked as of this commit — so the
+  element resolves its plugin but cannot build reproducibly yet. Run
+  `bst source track kubestellar-hive/hive-bin.bst` (needs network for the
+  vanity ?go-get=1 lookups described under TRACKING, so not on the grid),
+  then grid-build the stack.
 
   TWO NON-OBVIOUS WRINKLES Wave 1/4 must know:
   1. go_module.track() (BST_REQUIRES_PREVIOUS_SOURCES_STAGE) reads go.mod and
@@ -52,7 +65,9 @@ description: |
   modules (go-docx, ledongthuc/pdf, go-qrcode, check.v1) resolve by commit
   sha directly.
 
-  ESCAPE HATCH if go_module cannot be enabled: the donate-clanker pattern
+  ESCAPE HATCH — NO LONGER NEEDED (go_module is enabled; kept only so a
+  future project.conf regression has a documented fallback rather than a
+  rediscovered one): the donate-clanker pattern
   (elements/podman-vm/donate-clanker-worker.bst) — 24 `kind: git_repo`
   sources (already-enabled plugin), each with a renovate git-refs pin, plus
   24 `go mod edit -replace=<module>=../<dir>` lines and
@@ -75,8 +90,9 @@ sources:
     path: elements/kubestellar-hive/files/go.sum
 
   # --- go.sum closure at afb7fa6 (24 modules; direct deps marked explicit
-  # by track from the anchored go.mod). refs pending `bst source track`
-  # once Wave 1 enables go_module. ---
+  # by track from the anchored go.mod). refs still pending: go_module is
+  # enabled (#145), so `bst source track` can now be run — it has not been.
+  # Until it is, these sources have no ref and the element cannot build. ---
   - kind: go_module
     url: github:fsnotify/fsnotify.git
     module: github.com/fsnotify/fsnotify

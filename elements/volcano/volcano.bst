@@ -19,24 +19,42 @@ description: |
   directives which the plugin does not record in vendor/modules.txt, and
   go's vendor consistency check would fail without them.
 
-  BLOCKED until Wave 1 enables `go_module` in project.conf (junction
-  plugins/buildstream-plugins-community.bst, sources list). Until then
-  this element fails to load with "unknown source kind" -- expected.
-  Wave 1 finish line:
-    1. project.conf: add `go_module` to the plugins-community sources.
-    2. `bst source track volcano/volcano.bst` to fill every `ref:` from
-       go.sum (the plugin's track() reads the staged git_repo's go.sum;
-       refs come out in git-describe form). Two entries need hand-filled
-       refs -- see their comments (cyphar.com/go-pathrs: plugin track
-       crashes on its 4-field go-import meta; stathat.com/c/consistent:
-       vanity domain defunct).
-    3. `just bst build volcano/volcano-stack.bst` -- everything else was
-       already proven in Wave 0 with a `go mod vendor` tarball staged
+  GATE STATUS: OPEN. `go_module` IS enabled — project.conf registers it
+  under the plugins/buildstream-plugins-community.bst junction's
+  `sources:` list, landed by #145 (commit d36af3c) which closed #144.
+  This element no longer fails to load for that reason.
+
+  The text this replaced said "BLOCKED until Wave 1 enables go_module ...
+  fails to load with 'unknown source kind' -- expected", which stopped
+  being true in the very commit that added this file: #145 enabled the
+  plugin and shipped this element in one change, and only the prose was
+  left behind. It cost the next reader a re-derivation, so it is stated
+  positively here rather than deleted.
+
+  REMAINING WORK for the #146 spike (steps 1-3 of the old finish line,
+  minus the step that is done):
+    1. DONE — project.conf registers `go_module`.
+    2. TODO — `bst source track volcano/volcano.bst` to fill every `ref:`
+       from go.sum (the plugin's track() reads the staged git_repo's
+       go.sum; refs come out in git-describe form). As of this commit
+       232 of the 235 go_module sources still carry the placeholder
+       comment `# ref: {...} filled by 'bst source track'` and NO real
+       `ref:`, so the element cannot build yet. Two entries need
+       hand-filled refs -- see their comments (cyphar.com/go-pathrs:
+       plugin track crashes on its 4-field go-import meta;
+       stathat.com/c/consistent: vanity domain defunct). Tracking needs
+       network for vanity ?go-get=1 lookups, so it cannot run in the
+       grid build phase.
+    3. TODO — `just bst build volcano/volcano-stack.bst`. Everything else
+       was already proven in Wave 0 with a `go mod vendor` tarball staged
        via a local source (identical vendor layout): the FSDK go
-       toolchain (go1.26.5 at GOROOT=%{libdir}/go), the env block below,
-       and these exact build/install commands produced working
-       statically-linked binaries on the ghost grid (vc-scheduler
-       --version reported Version: v1.15.1, Git SHA: 0a56ed33...).
+       toolchain (GOROOT=%{libdir}/go), the env block below, and these
+       exact build/install commands produced working statically-linked
+       binaries on the ghost grid (vc-scheduler --version reported
+       Version: v1.15.1, Git SHA: 0a56ed33...). Note that Wave 0's go
+       spike (#186) corrected the toolchain version: the FSDK component
+       is go1.26.6 at junction ref 26.08rc.1, not the go1.26.5 this note
+       previously cited.
 
   Environment notes (RE grid has no network during builds):
   - GOROOT is set explicitly: mandatory on the ghost BuildBarn grid.
