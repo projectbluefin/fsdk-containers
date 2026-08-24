@@ -1,39 +1,34 @@
 kind: stack
 description: |
-  Falco runtime dependencies (built on base stack) — DRAFT, Wave 0 spike.
+  Falco runtime stack — Wave 0 feasibility spike for issue #146. INERT: no
+  OCI element, no targets.json entry, nothing published.
 
-  MECHANISM CORRECTION (vs issue #113's table): falco is NOT a `go_module`
-  target. Falco is a C++ CMake project (falcosecurity/falco +
-  falcosecurity/libs: libscap/libsinsp + eBPF drivers). The only Go parts —
-  `falcoctl` and the `container` plugin — are downloaded by upstream's CMake
-  as PREBUILT binaries (cmake/modules/falcoctl.cmake and
-  container_plugin.cmake), not built from source. The `go_module` plugin is
-  only relevant if we choose to build those two from source ourselves (a Wave
-  1 dependency, not a blocker for the core engine).
+  The four answers (full evidence in falco/falco.bst):
+    1. Mechanism: upstream binary tarball (download.falco.org) — the same
+       artifact upstream's own image (`falcosecurity/falco`, wolfi-base +
+       apk + curl/jq — NOT distroless by this repo's no-shell definition,
+       so hard rule 3 does not apply) is built from. Mechanism correction
+       vs #113: NOT go_module, NOT FSDK component, and the from-source
+       CMake path (~10 new dep elements + a container-plugin patch; draft
+       in git history, PR #147) is unjustified at Wave 0 cost.
+       Caveat: the tarball statically bundles openssl/curl/gRPC etc., which
+       therefore do NOT inherit FSDK CVE patching — security fixes track
+       upstream falco releases.
+    2. Dependency set: glibc only (all heavy deps statically linked
+       upstream); provided here by base-stack.
+    3. Resolves and builds on the BuildBarn grid:
+       `just bst build falco/falco-stack.bst` — PASSED 2026-08-20
+       (x86_64), including the in-sandbox `falco --version` smoke test.
+    4. Upstream: falco 0.44.1 (2026-06-11), tarball sha256 pinned in
+       falco/falco.bst (verified live 2026-08-20; no upstream sidecar
+       checksums exist).
 
-  This stack assumes the build element (falco/falco.bst) links:
-    - libsinsp/libscap STATICALLY (libs default BUILD_SHARED_LIBS=OFF)
-    - jsoncpp / oneTBB / re2 / yaml-cpp STATICALLY (new elements to be added;
-      see falco.bst header for the full inventory and pins)
-    - openssl / curl / zlib / libbpf / libelf DYNAMICALLY from FSDK
-      components (all exist; FSDK libbpf is v1.7.0, falco pins v1.3.0 but
-      supports USE_BUNDLED_LIBBPF=OFF against a system libbpf)
-
-  The image is modern-eBPF-only (CO-RE probe compiled at build time, embedded
-  into libscap via `bpftool gen skeleton`; no kmod, no DKMS, no
-  falco-driver-loader shell script, no runtime downloads). Runtime contract:
-  --privileged + /host mounts (/proc, /etc, /var/run/docker.sock or CRI
-  socket), per upstream's LABEL usage. Falco is an inherently privileged
-  sensor: the #120 non-root contract does NOT apply (runs as root).
+  Runtime contract for the future OCI element (from upstream's LABEL usage):
+  --privileged + /host mounts (/proc, /etc, CRI socket); runs as root —
+  falco is an inherently privileged eBPF sensor, an intentional exception to
+  the #120 non-root contract. Modern-eBPF-only: no kmod, no shell, no
+  runtime downloads; entrypoint is /usr/bin/falco directly.
 
 depends:
   - base/base-stack.bst
-  - freedesktop-sdk.bst:components/openssl.bst
-  - freedesktop-sdk.bst:components/curl.bst
-  - freedesktop-sdk.bst:components/zlib.bst
-  - freedesktop-sdk.bst:components/libbpf.bst
-  - freedesktop-sdk.bst:components/elfutils.bst
-  # falco/falco.bst once it exists — commented out so this stack resolves
-  # standalone in Wave 0. The build element is a draft blocked on ~10 new
-  # dependency elements (see its header).
-  # - falco/falco.bst
+  - falco/falco.bst
