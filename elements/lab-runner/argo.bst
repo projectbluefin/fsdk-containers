@@ -22,7 +22,7 @@ sources:
       ref: 1edee3c25de0129e4d358a87591f04b89b522ceccb11975970d45217a3cd9cdd
   - arch == "aarch64":
       url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-arm64.gz"
-      ref: 3d395d46449cfbd153e459f61c52f87c666a2b207f2a1bbf17856d5b0384df3f
+      ref: 04e2e1e0fc6d738034ff356e5bc8b2b819f963bf007331df4606611b3fa967b6
   filename: argo.gz
 
 config:
