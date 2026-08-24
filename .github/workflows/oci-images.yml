@@ -54,6 +54,8 @@ jobs:
       - uses: taiki-e/install-action@ba47c86ac325773530516bb756137ac718732518 # v2
         with:
           tool: just
+      - name: Install python dependencies
+        run: python3 -m pip install --user pyyaml jsonschema
       - name: Compute OCI Metadata
         run: |
           echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"

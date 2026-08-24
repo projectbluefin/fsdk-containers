@@ -60,7 +60,8 @@ agent's session folder.
 ## Standing facts
 
 - BuildStream runs in the FSDK `bst2` container via `just bst`. Nothing to install
-  but `podman` + `just`.
+  but `podman` + `just`; `just build`/`just verify` also need `pyyaml` +
+  `jsonschema` importable by `python3` for the image catalog.
 - Local/agent builds execute on the ghost cluster's BuildBarn grid by default
   (`just bst` injects remote-execution config); `BST_LOCAL=1` is the explicit
   opt-out. CI runners build locally per-arch.

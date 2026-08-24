@@ -331,7 +331,10 @@ verify:
     # Derive gates, ceilings, and smoke-test args from the catalog record.
     # IMG_KIND, MAX_BYTES, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
     # REQUIRE_BINARIES, SMOKE_OPTS, SMOKE_ARGS, SHELL_PROBE are all set here.
-    eval "$(python3 scripts/verify_contract.py "$IMG" --env)"
+    # Capture first: `eval "$(cmd)"` swallows cmd's exit status (it would
+    # evaluate the empty string and continue); assignment preserves it.
+    CONTRACT_ENV=$(python3 scripts/verify_contract.py "$IMG" --env)
+    eval "$CONTRACT_ENV"
 
     # Guard against silent size creep (uncompressed local Podman size).
     SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
