@@ -22,7 +22,7 @@ sources:
       ref: 8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a
   - arch == "aarch64":
       url: "k8s-bin:release/%{kubectl_version}/bin/linux/arm64/kubectl"
-      ref: 3d86f24401c41ae5a46ac50eef8865fe891d3647d324a0836f6c63757a126e62
+      ref: 0ecf44450ee6063bf19dd166a103ee6df4a9034455c2abce626e6eea657d73fb
   filename: kubectl
 
 config:
