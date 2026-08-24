@@ -174,7 +174,10 @@ config:
     - rm -rf "%{install-root}/usr/share/mariadb-support"
     # Datadir + socket dir placeholders; Kubernetes mounts volumes over both.
     # Non-root wiring (65532:65532 + /etc/passwd entry, issue #120) is Wave 3.
-    - mkdir -p "%{install-root}/var/lib/mysql" "%{install-root}/run/mysqld"
+    # /etc must be created too: MariaDB's install tree has no etc/, so the
+    # my.cnf heredoc below fails with "No such file or directory" otherwise
+    # (found by the 2026-08-21 grid build).
+    - mkdir -p "%{install-root}/var/lib/mysql" "%{install-root}/run/mysqld" "%{install-root}/etc"
     - |
       cat > "%{install-root}/etc/my.cnf" <<'EOF'
       [mysqld]
