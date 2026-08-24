@@ -105,6 +105,23 @@ Two shortcuts worth knowing:
   autocloses them on its next run. That is usually less churn than force-pushing fixes
   onto each bot branch.
 
+## Multi-arch hazard: refresh can update one arch's ref and leave the other stale
+
+Observed 2026-08-24 on PRs #184 (kubectl v1.36.4) and #192 (argo v4.1.2): the version
+variable and the **x86_64** `ref:` were bumped, but the **aarch64** `ref:` still held the
+old version's digest. `validate` passes (it resolves the graph, it does not fetch), so the
+stale ref only fails at `pr-build-oci (…, aarch64)` — or worse, merges green on x86_64-only
+runs. Before merging any renovate bump on a multi-arch `remote` source, diff both arch
+refs and recompute any that did not change:
+
+```
+curl -sL https://dl.k8s.io/release/<ver>/bin/linux/arm64/kubectl.sha256   # sidecar, or
+curl -sL <url> | sha256sum                                                # recompute
+```
+
+`validate` being green is NOT evidence the refs are right — the per-arch `pr-build-oci`
+jobs are.
+
 ## Adding a new upstream package
 
 Put the version in a **variable**, annotate it, and build the URL from it. Never hardcode a
