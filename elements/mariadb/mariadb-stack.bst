@@ -30,7 +30,11 @@ description: |
      "Uploading input root"; rollout restart of scheduler, frontend and
      storage unblocked all six concurrent Wave 0 builds. Recorded in
      docs/skills/remote-execution.md.)
-  4. Upstream: MariaDB 11.8.8 (11.8 is the current LTS line),
+  4. Upstream: MariaDB 11.8.8. 11.8 is an LTS line but not the newest:
+     12.3 is upstream's current Stable/LTS series (EOL 2029-06-12). The
+     11.8 pin was the version verified at #147 spike time; renovate owns
+     the version from here (12.x bump already queued as PR #185), and
+     11.8.9 shipped 2026-08-22, so the pin lags its own series head.
      https://archive.mariadb.org/mariadb-11.8.8/source/mariadb-11.8.8.tar.gz
      sha256 bd023a4959faf012db7f0ebfc0d276729e67e5443df193163f98d80fdfc524c9
      — cross-verified against the official download REST API
