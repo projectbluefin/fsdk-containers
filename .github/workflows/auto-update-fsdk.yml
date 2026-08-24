@@ -27,7 +27,7 @@ jobs:
           # checks on it.
           persist-credentials: false
 
-      - uses: taiki-e/install-action@a2a5f6e99e1a31540baa0468acfa302cff0f359f # v2
+      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2
         with:
           tool: just
 
@@ -86,8 +86,13 @@ jobs:
           # Push with the app token, not the workflow's own credentials: a
           # branch pushed with GITHUB_TOKEN does not trigger the build
           # workflow, so the bump PR would carry no checks at all. Force push
-          # to overwrite any previous update branch.
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(echo -n "x-access-token:${GH_TOKEN}" | base64)" \
+          # to overwrite any previous update branch. `base64 -w0` keeps GNU
+          # base64's 76-column wrap from splitting the header, and
+          # `::add-mask::` registers the base64 blob (GitHub masks the raw
+          # token, not its encoding) in case git ever prints resolved config.
+          BASIC=$(echo -n "x-access-token:${GH_TOKEN}" | base64 -w0)
+          echo "::add-mask::${BASIC}"
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${BASIC}" \
             push --force "https://github.com/${REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
           
           # Create pull request if it doesn't already exist
