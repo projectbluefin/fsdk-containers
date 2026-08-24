@@ -1,6 +1,29 @@
 kind: manual
 description: Build valkey (Redis fork) from source for the distroless valkey server image.
 
+# --- Wave 0 feasibility spike (issue #146) — the four answers ---------------
+# 1. MECHANISM: tarball + `kind: manual` Makefile build. The FSDK junction
+#    (freedesktop-sdk-26.08rc.1) was checked first: no `components/valkey.bst`
+#    and no `components/redis.bst` exist upstream (both 404 at the pinned ref),
+#    so there is nothing to `depends:` on. This CONFIRMS #113's "tarball source
+#    build" assumption for valkey — no mechanism correction needed.
+# 2. DEPENDENCY SET — build: public-stacks/runtime-gnu.bst (shell+core
+#    runtime), components/{gcc,make,sed,grep,gawk}.bst, bootstrap/coreutils.bst
+#    (uname/expr/tr/install for jemalloc's unchecked autoconf shell-outs).
+#    Runtime: base-stack glibc only; jemalloc/libvalkey/lua are vendored and
+#    linked statically (see build-commands), so nothing else is needed.
+# 3. RESOLVES/BUILDS: yes — `just bst build valkey/valkey-stack.bst` built on
+#    the ghost BuildBarn grid (remote execution) 2026-08-21: artifact c255b92c
+#    SUCCESS, remote compile ~58 min, 0 failures. Payload checked out and
+#    verified: /usr/bin/valkey-server, /usr/bin/valkey-cli,
+#    /etc/valkey/valkey.conf, /data.
+# 4. UPSTREAM VERSION + REF: valkey 9.1.1 (upstream "Latest" release,
+#    published 2026-07-21). Source is the GitHub auto-generated tag archive;
+#    valkey does not publish detached signatures, so the verifiable ref is the
+#    pinned sha256 below — re-verified against the live URL on 2026-08-21
+#    (7d7232ac…85ab7ee). Renovate tracks github-tags valkey-io/valkey.
+# ----------------------------------------------------------------------------
+
 sources:
   - kind: tar
     url: https://github.com/valkey-io/valkey/archive/refs/tags/%{valkey_version}.tar.gz
