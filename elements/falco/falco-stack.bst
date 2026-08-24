@@ -5,12 +5,15 @@ description: |
 
   The four answers (full evidence in falco/falco.bst):
     1. Mechanism: upstream binary tarball (download.falco.org) — the same
-       artifact upstream's own maintained distroless image
-       (`falcosecurity/falco`, wolfi-base) is built from. Mechanism
-       correction vs #113: NOT go_module, NOT FSDK component, and the
-       from-source CMake path (~10 new dep elements + a container-plugin
-       patch; draft in git history, PR #147) is unjustified given hard
-       rule 3.
+       artifact upstream's own image (`falcosecurity/falco`, wolfi-base +
+       apk + curl/jq — NOT distroless by this repo's no-shell definition,
+       so hard rule 3 does not apply) is built from. Mechanism correction
+       vs #113: NOT go_module, NOT FSDK component, and the from-source
+       CMake path (~10 new dep elements + a container-plugin patch; draft
+       in git history, PR #147) is unjustified at Wave 0 cost.
+       Caveat: the tarball statically bundles openssl/curl/gRPC etc., which
+       therefore do NOT inherit FSDK CVE patching — security fixes track
+       upstream falco releases.
     2. Dependency set: glibc only (all heavy deps statically linked
        upstream); provided here by base-stack.
     3. Resolves and builds on the BuildBarn grid:

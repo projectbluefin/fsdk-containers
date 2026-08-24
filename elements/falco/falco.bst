@@ -20,15 +20,19 @@ description: |
           dep elements (jsoncpp, oneTBB, re2, yaml-cpp, bpftool, valijson,
           uthash, cxxopts, nlohmann-json, cpp-httplib) plus a patch_queue
           patch for the container-plugin prebuilt download — Wave 4 scale.
-       d) HARD RULE 3 FINDING (the real mechanism correction): upstream ships
-          a maintained distroless image — `falcosecurity/falco` (wolfi-base;
-          docker/falco/Dockerfile at tag 0.44.1). That image is built FROM
-          THIS VERY TARBALL: it downloads falco-${VERSION}-${ARCH}.tar.gz
-          from download.falco.org, extracts it, rm's /usr/src (driver
-          sources) and /usr/bin/falcoctl + /etc/falcoctl. This element does
-          exactly the same carve on top of our base stack instead of wolfi,
-          so the distroless-image value proposition is inherited, not
-          rebuilt.
+       d) HARD RULE 3 CHECK — does NOT apply. Upstream's own README calls
+          `falcosecurity/falco` "Distroless", but by this repo's definition
+          (AGENTS.md rule 4: distroless means no shell) it is not: the
+          Dockerfile (docker/falco/Dockerfile at tag 0.44.1) is FROM
+          cgr.dev/chainguard/wolfi-base and runs `apk add curl
+          ca-certificates jq libstdc++`, shipping busybox /bin/sh + apk.
+          There is no official shell-free image to consume, so building a
+          genuinely distroless falco here is the value add, not a rebuild.
+          Useful inheritance anyway: that image is built FROM THIS VERY
+          TARBALL (downloads falco-${VERSION}-${ARCH}.tar.gz from
+          download.falco.org, extracts it, rm's /usr/src driver sources and
+          /usr/bin/falcoctl + /etc/falcoctl). This element does the same
+          carve on top of our base stack instead of wolfi.
 
   2. DEPENDENCY SET — glibc only. readelf -d on usr/bin/falco (0.44.1):
      NEEDED = libm/libpthread/libc/libdl/librt + ld-linux — every heavy dep
@@ -37,8 +41,14 @@ description: |
      plugin (usr/share/falco/plugins/libcontainer.so, needed by the default
      config: etc/falco/config.d/falco.container_plugin.yaml sets
      `load_plugins: [container]`) is also glibc-only. Build-time: tar, gzip,
-     coreutils, runtime-gnu (shell). Runtime: base-stack provides glibc +
-     gcc-libs + ca-certificates + tzdata — nothing further required.
+     grep (smoke test), coreutils, runtime-gnu (shell). Runtime: base-stack
+     provides glibc + gcc-libs + ca-certificates + tzdata — nothing further
+     required.
+     CAVEAT (cost of the prebuilt mechanism): the statically bundled deps
+     (openssl, curl, gRPC, ...) do NOT inherit FSDK's CVE patching — the
+     repo's core value proposition. A mid-cycle openssl CVE in falco cannot
+     be fixed here; the only remedy is an upstream falco release, so this
+     image tracks falco's release cadence for security fixes.
 
   3. RESOLVES + BUILDS: yes — `just bst build falco/falco-stack.bst`
      succeeds on the BuildBarn RE grid (see falco-stack.bst header for the
