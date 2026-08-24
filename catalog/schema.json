@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/projectbluefin/fsdk-containers/catalog/schema.json",
+  "title": "fsdk-containers image record",
+  "description": "The single declarative record for one published OCI image. Adding an image means adding one of these; every BuildStream element and every verification gate is derived from it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "kind",
+    "description",
+    "size_ceiling_mib",
+    "stack"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "Image name. Must equal the filename stem and appear in elements/targets.json oci_images."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "distroless",
+        "shell-enabled"
+      ],
+      "description": "Selects the verification gate set. shell-enabled is a documented exception, currently only lab-runner."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Becomes org.opencontainers.image.description."
+    },
+    "export_description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "OPTIONAL: the description `just export` applies as org.opencontainers.image.description on the squashed published image. Defaults to description. Kept distinct because the published strings predate the catalog and differ from the element-level description; changing them would rewrite published image metadata. Never rendered into a BuildStream element, so it cannot affect cache keys."
+    },
+    "entrypoint": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      },
+      "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
+    },
+    "smoke": {
+      "type": "object",
+      "description": "OPTIONAL: omit for images that have no smoke test in the Justfile today (base, static).",
+      "additionalProperties": false,
+      "required": [
+        "args"
+      ],
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments appended to the entrypoint to prove the image runs."
+        },
+        "entrypoint_override": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Run this instead of the image entrypoint. Only for images whose entrypoint is not the thing under test."
+        },
+        "shell_probe": {
+          "type": "string",
+          "description": "Extra shell one-liner, permitted only when kind is shell-enabled."
+        }
+      }
+    },
+    "size_ceiling_mib": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Uncompressed local podman size ceiling. Superseded by the ratchet in a later phase; kept here so this plan changes no behaviour."
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "depends"
+      ],
+      "properties": {
+        "depends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ordered list of stack dependencies, transcribed verbatim from the committed element. Order affects the BuildStream cache key; do not sort, group, or dedupe."
+        }
+      }
+    },
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exclude_omit": {
+          "type": "array",
+          "description": "Canonical exclude domains this image deliberately does NOT exclude. Every omission needs a reason, so divergence is declared rather than silent.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "reason"
+            ],
+            "properties": {
+              "domain": {
+                "type": "string",
+                "enum": [
+                  "debug",
+                  "devel",
+                  "doc",
+                  "locale",
+                  "shells",
+                  "static-blocklist",
+                  "tests",
+                  "vm-only"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 20
+              }
+            }
+          }
+        }
+      }
+    },
+    "slim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extra": {
+          "type": "string",
+          "description": "Image-specific shell commands appended after the shared slim recipe. Phase 3 dependency-closure pruning is expected to delete most of these."
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Rootfs paths (no leading slash) that must be present, checked against the exported tar listing."
+        },
+        "require_binaries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Basenames that must appear somewhere in the rootfs listing."
+        }
+      }
+    },
+    "init_script": {
+      "type": "string",
+      "description": "Build-time init script element path. Defaults to base/base-init-script.bst. Override only for images with their own init-script element (e.g. static/static-init-script.bst)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form prose carried into the generated elements as a comment. Use for hard-won context that would otherwise be lost."
+    },
+    "keywords": {
+      "type": "string",
+      "description": "Verbatim value of the io.artifacthub.package.keywords label. This is the ONE non-obvious label that varies per image (7 distinct values across 7 images, e.g. lab-runner uses 'freedesktop-sdk,bluefin,ci' with no 'distroless'). It is transcribed, never derived, because deriving it would rewrite six images' labels."
+    }
+  }
+}

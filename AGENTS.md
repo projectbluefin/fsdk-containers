@@ -46,6 +46,10 @@ Only load the docs relevant to your task.
 
 BuildStream runs inside the FSDK `bst2` container via the `just bst` wrapper —
 nothing to install but `podman` + [`just`](https://github.com/casey/just).
+`just build` / `just verify` additionally read the image catalog via Python:
+`pyyaml` + `jsonschema` must be importable by `python3`
+(`python3 -m pip install --user pyyaml jsonschema`; the GHA ubuntu runners
+ship both preinstalled, and the workflows install them explicitly).
 Local/agent builds are submitted to the ghost cluster's BuildBarn
 remote-execution grid by default (never built on the local machine);
 `BST_LOCAL=1` is the explicit opt-out. See

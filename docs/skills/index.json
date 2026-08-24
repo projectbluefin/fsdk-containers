@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20",
+  "generated_at": "2026-08-21",
   "schema_version": "1.0",
   "skills": [
     {
@@ -23,7 +23,7 @@
     {
       "id": "add-new-image",
       "name": "add-new-image",
-      "one_line_purpose": "Scaffold a new distroless OCI image carved from FSDK components.",
+      "one_line_purpose": "Add a distroless OCI image by declaring one catalog record.",
       "entry_point": "docs/skills/add-new-image.md",
       "category": "ci-ops",
       "status": "active",
@@ -33,9 +33,9 @@
         "distroless",
         "images"
       ],
-      "description": "Scaffold a new distroless image (python, node, ruby, etc.) carved from FSDK components. Use when adding a new language runtime or tool image to fsdk-containers.",
+      "description": "Add a new distroless image by declaring one catalog record and generating its BuildStream elements.",
       "version": "1.0",
-      "last_updated": "2026-08-20",
+      "last_updated": "2026-08-21",
       "doc_type": "procedure"
     },
     {

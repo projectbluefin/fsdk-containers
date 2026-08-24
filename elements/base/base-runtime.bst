@@ -1,3 +1,7 @@
+# DO NOT EDIT. Generated from catalog/base.yaml by
+# scripts/generate_image_elements.py (compose).
+# Change the record, then run: just catalog-write
+
 kind: compose
 description: Chisel the base stack down to runtime-only, distroless.
 
@@ -10,11 +14,7 @@ config:
     - devel
     - doc
     - locale
-    - static-blocklist
-    - vm-only
-    - tests
-    # NOTE: 'shells' covers only /usr/share/fish and /usr/share/zsh data dirs.
-    # It does NOT include the bash binary (/usr/bin/bash, /usr/bin/sh -> bash),
-    # which lives in the 'runtime' split domain. The actual shell-binary removal
-    # that achieves distroless happens via an explicit rm -f in elements/oci/base.bst.
     - shells
+    - static-blocklist
+    - tests
+    - vm-only

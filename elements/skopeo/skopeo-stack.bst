@@ -1,7 +1,9 @@
+# DO NOT EDIT. Generated from catalog/skopeo.yaml by
+# scripts/generate_image_elements.py (stack).
+# Change the record, then run: just catalog-write
+
 kind: stack
-description: |
-  Skopeo runtime: base (glibc + CA + tzdata) plus skopeo and its
-  container library dependencies (containers-common, gpgme, libassuan).
+description: Distroless skopeo image carved from freedesktop-sdk
 
 depends:
   - base/base-stack.bst

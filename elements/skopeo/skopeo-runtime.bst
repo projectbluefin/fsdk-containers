@@ -1,5 +1,9 @@
+# DO NOT EDIT. Generated from catalog/skopeo.yaml by
+# scripts/generate_image_elements.py (compose).
+# Change the record, then run: just catalog-write
+
 kind: compose
-description: Chisel the skopeo stack to runtime-only, distroless.
+description: Chisel the skopeo stack down to runtime-only, distroless.
 
 build-depends:
   - skopeo/skopeo-stack.bst
@@ -10,7 +14,7 @@ config:
     - devel
     - doc
     - locale
-    - static-blocklist
-    - vm-only
-    - tests
     - shells
+    - static-blocklist
+    - tests
+    - vm-only

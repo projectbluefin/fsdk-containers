@@ -1,5 +1,9 @@
+# DO NOT EDIT. Generated from catalog/python.yaml by
+# scripts/generate_image_elements.py (stack).
+# Change the record, then run: just catalog-write
+
 kind: stack
-description: Python runtime dependencies (built on base stack)
+description: Distroless Python 3 image built on freedesktop-sdk
 
 depends:
   - base/base-stack.bst
