@@ -7,17 +7,17 @@ description: |
   empty until the user installs formulas at runtime.
 
 sources:
-  - kind: git_repo
-    url: github:Homebrew/brew.git
+- kind: git_repo
+  url: github:Homebrew/brew.git
     # renovate: datasource=github-tags depName=Homebrew/brew
-    track: 6.0.19
-    ref: 7b0f22a4ab77567edef114c8dfc423fb96e2fbaa
+  track: 6.0.19
+  ref: 6.0.19-0-g0942cac2eda7648d4857f4e5da60f1de303b6818
 
 depends:
   # coreutils + bash to run the install-commands. FSDK 26.08 removed both from
   # runtime-minimal, so name the shell stack that still provides them.
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
-  - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+- freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
 
 variables:
   # Brew ships ruby/bash/perl scripts; nothing to strip and stripping can
@@ -26,11 +26,11 @@ variables:
 
 config:
   install-commands:
-    - |
-      prefix="%{install-root}/home/linuxbrew/.linuxbrew"
-      mkdir -p "$prefix/Homebrew" "$prefix/bin" "$prefix/etc" "$prefix/share" \
-               "$prefix/Cellar" "$prefix/opt" "$prefix/lib" "$prefix/var/homebrew"
-      # The git_repo source is checked out at the build root; it is the brew tree.
-      cp -a . "$prefix/Homebrew/"
-      # Canonical entrypoint symlink: <prefix>/bin/brew -> <prefix>/Homebrew/bin/brew
-      ln -sf ../Homebrew/bin/brew "$prefix/bin/brew"
+  - |
+    prefix="%{install-root}/home/linuxbrew/.linuxbrew"
+    mkdir -p "$prefix/Homebrew" "$prefix/bin" "$prefix/etc" "$prefix/share" \
+             "$prefix/Cellar" "$prefix/opt" "$prefix/lib" "$prefix/var/homebrew"
+    # The git_repo source is checked out at the build root; it is the brew tree.
+    cp -a . "$prefix/Homebrew/"
+    # Canonical entrypoint symlink: <prefix>/bin/brew -> <prefix>/Homebrew/bin/brew
+    ln -sf ../Homebrew/bin/brew "$prefix/bin/brew"
