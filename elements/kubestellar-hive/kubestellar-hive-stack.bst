@@ -37,8 +37,10 @@ description: |
   kubestellar-hive makes sense only as the hub variant.
 
   WHAT THIS STACK CONTAINS (draft): the Go binaries via hive-bin.bst
-  (blocked: go_module not enabled in project.conf — Wave 1) and the ttyd
-  chain (libwebsockets.bst + ttyd.bst — buildable from FSDK components).
+  (go_module IS now enabled in project.conf — #145 closed #144 — so the
+  load-time gate is open; what remains there is `bst source track` to fill
+  the 26 untracked go_module refs) and the ttyd chain (libwebsockets.bst +
+  ttyd.bst — buildable from FSDK components).
   What it CANNOT contain on today's grid: the Node dashboard proxy —
   FSDK has NO node component (checked components/ at the pinned junction
   ref), buildstream-plugins-community 2.3.1 has NO npm source plugin, and
@@ -63,8 +65,13 @@ description: |
     Deterministic across two runs (same blob) — grid storage shard issue
     (ctest.debug belongs to cmake's debug split staged into the build
     sandbox), NOT an element error. Retry when the grid CAS is healthy.
-  - kubestellar-hive/hive-bin.bst: blocked at load by go_module (see
-    hive-bin.bst for the verbatim error Wave 1 must fix).
+  - kubestellar-hive/hive-bin.bst: WAS blocked at load by an unregistered
+    go_module plugin; that gate is open as of #145 (see hive-bin.bst for
+    the historical error and the conditions that would bring it back).
+    Not yet re-measured since: its 26 go_module sources are still
+    untracked (no `ref:`), so the next step is `bst source track` and then
+    a grid build — neither has been done, and this element must not be
+    described as spiked until both are.
 
 depends:
   - base/base-stack.bst
