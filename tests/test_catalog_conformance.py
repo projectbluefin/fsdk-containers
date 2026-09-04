@@ -209,5 +209,106 @@ class RecordsDescribeRealityTests(unittest.TestCase):
                 )
 
 
+class PathOwnershipTests(unittest.TestCase):
+    """`image_paths` is the pull-request build gate's half of the manifest.
+
+    `oci_images` and `image_paths` are two independent structures in
+    elements/targets.json that must describe the same set of images. Only
+    `oci_images` was cross-checked (against catalog/), so an image could be
+    published with no path ownership at all: `just changed-targets` matches a
+    changed file against `image_paths` only, and an image absent from it can
+    never be selected. That fails open — the image's pull-request build gate
+    is silently disabled rather than erroring.
+
+    These tests close the loop: every published image owns paths, every owned
+    path set belongs to a published image, and the paths an image owns
+    actually cover the four files that define it — its catalog record and the
+    three elements scripts/generate_image_elements.py generates from it.
+    """
+
+    def _owns(self, image, path):
+        """Mirror the prefix/exact matching in the `changed-targets` recipe."""
+        for prefix in TARGETS["image_paths"][image]:
+            if prefix.endswith("/"):
+                if path.startswith(prefix):
+                    return True
+            elif path == prefix:
+                return True
+        return False
+
+    def test_every_published_image_owns_paths(self):
+        published = set(TARGETS["oci_images"])
+        owning = set(TARGETS["image_paths"])
+        self.assertEqual(
+            published - owning,
+            set(),
+            "images in oci_images with no image_paths entry: their "
+            "pull-request build gate can never select them",
+        )
+
+    def test_every_path_owner_is_a_published_image(self):
+        published = set(TARGETS["oci_images"])
+        owning = set(TARGETS["image_paths"])
+        self.assertEqual(
+            owning - published,
+            set(),
+            "image_paths entries for images not in oci_images",
+        )
+
+    def test_image_paths_cover_the_files_that_define_the_image(self):
+        for name in TARGETS["oci_images"]:
+            with self.subTest(image=name):
+                for path in (
+                    f"catalog/{name}.yaml",
+                    f"elements/oci/{name}.bst",
+                    f"elements/{name}/{name}-runtime.bst",
+                    f"elements/{name}/{name}-stack.bst",
+                ):
+                    self.assertTrue(
+                        self._owns(name, path),
+                        f"{name} does not own {path}: a change to it would "
+                        f"select no build target",
+                    )
+
+    def test_no_image_owns_another_images_paths(self):
+        for name in TARGETS["oci_images"]:
+            for other in TARGETS["oci_images"]:
+                if other == name:
+                    continue
+                with self.subTest(image=name, other=other):
+                    self.assertFalse(
+                        self._owns(name, f"catalog/{other}.yaml"),
+                        f"{name} claims ownership of catalog/{other}.yaml",
+                    )
+                    self.assertFalse(
+                        self._owns(name, f"elements/oci/{other}.bst"),
+                        f"{name} claims ownership of elements/oci/{other}.bst",
+                    )
+
+    def test_shared_paths_cover_the_manifest_and_its_consumers(self):
+        """A change to the gate's own inputs must still select the canary."""
+        shared = set(TARGETS["shared_paths"])
+        for path in (
+            "elements/targets.json",
+            "Justfile",
+            "scripts/catalog.py",
+            "scripts/generate_image_elements.py",
+            "catalog/schema.json",
+        ):
+            self.assertIn(
+                path,
+                shared,
+                f"{path} defines the build gate but is not a shared path",
+            )
+
+    def test_canary_image_is_published(self):
+        self.assertIn(
+            TARGETS["canary_image"],
+            TARGETS["oci_images"],
+            "canary_image is not a published image, so a shared-path change "
+            "would select a target that cannot be built",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
