@@ -16,6 +16,9 @@ build-depends:
 - freedesktop-sdk.bst:components/sed.bst
 - freedesktop-sdk.bst:components/grep.bst
 - freedesktop-sdk.bst:components/diffutils.bst
+# buildah's Makefile derives its SOURCES prerequisite list with `find`;
+# FSDK 26.08's tighter build userland no longer provides it implicitly.
+- freedesktop-sdk.bst:components/findutils.bst
 - freedesktop-sdk.bst:components/gzip.bst
 
 depends:
@@ -33,7 +36,7 @@ sources:
   url: github:containers/buildah.git
   # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.0
-  ref: b459120c69f877227039ca6ddb8131c11f6e641d
+  ref: v1.45.0-0-g7ae7d5a4021b24d02a5c281badca8c4d8ebbf442
 
 config:
   build-commands:
