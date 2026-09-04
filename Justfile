@@ -227,6 +227,11 @@ catalog-check:
     python3 -m unittest discover -s tests -p 'test_generated*.py' -v
     python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
+[group('test')]
+skill-catalog-check:
+    python3 scripts/generate_skill_index.py --check
+    python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
