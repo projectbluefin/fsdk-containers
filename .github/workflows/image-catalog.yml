@@ -57,3 +57,6 @@ jobs:
 
       - name: Generated elements match their records semantically
         run: python3 -m unittest discover -s tests -p 'test_generated*.py' -v
+
+      - name: Release-tracked git sources pin the tracked tag
+        run: python3 -m unittest discover -s tests -p 'test_tracked*.py' -v

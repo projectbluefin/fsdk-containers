@@ -80,6 +80,20 @@ so this went unnoticed for multiple bump cycles.
 gh run list --workflow=refresh-bst-refs.yml --limit 20   # "skipped" on the renovate PR = gate miss
 ```
 
+For `kind: git_repo` sources a stale `ref:` does **not** fail the fetch — the old
+commit still exists, so the build silently compiles the previous release while the
+element claims the new one. The first symptom can be a compile error far from the
+cause: #234 tracked buildah v1.45.0 while pinning v1.44.1's commit, which surfaced
+only when FSDK 26.08.0's Go 1.27 could not build the older vendored grpc/x/net
+pair (`undefined: http2.TrailerPrefix`). Verify the pair against the live tag:
+
+```
+git ls-remote --tags https://github.com/<org>/<repo> "refs/tags/<track>^{}"
+```
+
+`tests/test_tracked_refs.py` (wired into `just catalog-check`) automates that check
+for the exact-tag `git_repo` sources feeding the published OCI images.
+
 Manual repair is exactly what `bst source track` does for `tar`/`remote` sources (it
 downloads the URL and writes back the sha256 — see `/apache/buildstream`
 `DownloadableFileSource.track`), so either works:
