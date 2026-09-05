@@ -82,7 +82,14 @@ FSDK release. We track upstream FSDK releases and active development/beta branch
 so users can test upcoming FSDK features early. Tags are derived automatically from
 the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
-- `:25.08` or `:26.08` -- FSDK minor line (the most rolling tag published)
+- `:26.08` -- FSDK minor line (the most rolling tag published). **Only the
+  currently pinned line moves.** `just tags` derives the whole tag set from the
+  pinned junction ref, so when the pin crosses to a new minor line the old line
+  stops being republished -- permanently, code-only changes included. `:25.08`
+  froze this way on 2026-08-09 and is inert, not merely stale. Before reporting a
+  merged change as missing from an image, check that you are probing the current
+  line or a digest built after the change; see
+  [`docs/skills/bump-fsdk-version.md`](docs/skills/bump-fsdk-version.md).
 - `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
 - `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
 

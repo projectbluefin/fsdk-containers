@@ -227,6 +227,11 @@ catalog-check:
     python3 -m unittest discover -s tests -p 'test_generated*.py' -v
     python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
+[group('test')]
+skill-catalog-check:
+    python3 scripts/generate_skill_index.py --check
+    python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
@@ -520,6 +525,14 @@ verify:
 # docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
+# Host-side checks for the guest bootstrap contract: no VM, no BuildStream.
+# Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py and runs the
+# tests/podman-vm-contract.sh pin/shape assertions.
+[group('test')]
+podman-vm-check:
+    python3 -m unittest discover -s tests -p 'test_donate_clanker*.py' -v
+    tests/podman-vm-contract.sh
+
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
 [group('vm')]
 build-podman-vm:
@@ -749,7 +762,7 @@ publish-podman-vm:
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "6.0.18"
+brew_version := "6.0.19"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]
