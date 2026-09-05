@@ -227,6 +227,11 @@ catalog-check:
     python3 -m unittest discover -s tests -p 'test_generated*.py' -v
     python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
+[group('test')]
+skill-catalog-check:
+    python3 scripts/generate_skill_index.py --check
+    python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
@@ -749,7 +754,7 @@ publish-podman-vm:
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "6.0.18"
+brew_version := "6.0.19"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]
