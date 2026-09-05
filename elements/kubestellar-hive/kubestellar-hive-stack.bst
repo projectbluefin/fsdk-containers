@@ -37,8 +37,8 @@ description: |
   kubestellar-hive makes sense only as the hub variant.
 
   WHAT THIS STACK CONTAINS (draft): the Go binaries via hive-bin.bst
-  (blocked: go_module not enabled in project.conf — Wave 1) and the ttyd
-  chain (libwebsockets.bst + ttyd.bst — buildable from FSDK components).
+  (fully tracked and locally buildable with go_module) and the ttyd chain
+  (libwebsockets.bst + ttyd.bst — buildable from FSDK components).
   What it CANNOT contain on today's grid: the Node dashboard proxy —
   FSDK has NO node component (checked components/ at the pinned junction
   ref), buildstream-plugins-community 2.3.1 has NO npm source plugin, and
@@ -63,8 +63,13 @@ description: |
     Deterministic across two runs (same blob) — grid storage shard issue
     (ctest.debug belongs to cmake's debug split staged into the build
     sandbox), NOT an element error. Retry when the grid CAS is healthy.
-  - kubestellar-hive/hive-bin.bst: blocked at load by go_module (see
-    hive-bin.bst for the verbatim error Wave 1 must fix).
+  - kubestellar-hive/hive-bin.bst (2026-08-24): all 24 module refs resolve
+    from the pinned afb7fa6 anchors, and an authoritative `go mod vendor`
+    modules.txt is staged. A full offline `BST_LOCAL=1 just bst build`
+    succeeded and its artifact contains usr/bin/hive, usr/bin/bd, and
+    usr/bin/hive-backup. This is degraded local evidence only: the test
+    environment lacked both the ghost-grid kubeconfig and kubectl, so #146's
+    grid-build criterion still needs to be rerun where the grid is available.
 
 depends:
   - base/base-stack.bst

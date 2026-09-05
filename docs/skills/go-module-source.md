@@ -1,7 +1,7 @@
 ---
 name: go-module-source
-version: "1.0"
-last_updated: 2026-08-09
+version: "1.1"
+last_updated: 2026-08-24
 id: go-module-source
 one_line_purpose: Build Go projects from source with the go_module plugin — vendored deps, no network at build time.
 entry_point: docs/skills/go-module-source.md
@@ -88,6 +88,13 @@ Traps observed:
 - `bst source track` rewrites the element file with BuildStream's
   round-trip YAML: hand-tuned indentation drifts, comments survive.
   Review the diff after tracking.
+- `bst source track` also advances any earlier `git_repo` source with a
+  moving `track:` ref. If later local sources pin root-level `go.mod` and
+  `go.sum` anchors for a subdirectory module, that can silently produce a
+  mixed element: a new project commit with dependency refs derived from the
+  old anchors. Either refresh the anchors, generated `modules.txt`, and build
+  metadata as one version bump, or restore the original project `ref:` after
+  tracking. `kubestellar-hive/hive-bin.bst` is the latter case.
 
 ## The `vendor/modules.txt` trap — ship your own for anything non-trivial
 
