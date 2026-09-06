@@ -9,11 +9,13 @@ on:
     paths:
       - 'docs/skills/**'
       - 'scripts/generate_skill_index.py'
+      - 'tests/test_skill_index.py'
   push:
     branches: [main]
     paths:
       - 'docs/skills/**'
       - 'scripts/generate_skill_index.py'
+      - 'tests/test_skill_index.py'
 
 permissions: {}
 
@@ -29,6 +31,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install python dependencies
+        run: python3 -m pip install --user pyyaml jsonschema
+
+      # Exercises the generator's guard rails: missing front matter, missing
+      # required keys, an entry_point that disagrees with its own path, the
+      # pin_unchanged_generated_at logic, and validate_catalog error reporting.
+      - name: Generator guard rails hold
+        run: python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
 
       # Validates every skill's front matter against docs/skills/index.schema.json
       # and fails if the committed index.json/index.md are not what the front
