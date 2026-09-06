@@ -1,14 +1,27 @@
 name: Validate Renovate Config
-# Thin caller -- logic lives in projectbluefin/actions/reusable-validate-renovate.yml
+# `validate` is a thin caller -- schema logic lives in
+# projectbluefin/actions/reusable-validate-renovate.yml. `atomic-tests` runs
+# tests/test_renovate_atomic.py, the regression suite guarding that the
+# custom.regex manager still matches real BuildStream annotations and that
+# the ref-refresh + no-automerge safety net around them is still wired up
+# (see tests/test_renovate_atomic.py and #210).
 
 on:
   pull_request:
     paths:
       - "renovate.json"
+      - "elements/**"
+      - "Justfile"
+      - ".github/workflows/refresh-bst-refs.yml"
+      - "tests/test_renovate_atomic.py"
   push:
     branches: [main]
     paths:
       - "renovate.json"
+      - "elements/**"
+      - "Justfile"
+      - ".github/workflows/refresh-bst-refs.yml"
+      - "tests/test_renovate_atomic.py"
 
 permissions: {}
 
@@ -17,3 +30,21 @@ jobs:
     permissions:
       contents: read
     uses: projectbluefin/actions/.github/workflows/reusable-validate-renovate.yml@a4bd91d1b36b3636ddb4140ae8be4406d642e877 # v1
+
+  atomic-tests:
+    name: Renovate BuildStream metadata stays atomic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install python dependencies
+        run: python3 -m pip install --user pyyaml
+
+      - name: Renovate manager, packageRules and refresh workflow stay wired
+        run: python3 -m unittest discover -s tests -p 'test_renovate*.py' -v
