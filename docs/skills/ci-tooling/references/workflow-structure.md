@@ -10,9 +10,9 @@ other in the Actions UI:
 
 | File | Called by | Purpose |
 |---|---|---|
-| `build.yml` | GitHub triggers | `validate` + the pull-request build gate (`changed-targets`, `pr-build-oci`, `pr-build-vm-guest`), `matrix` (resolves the OCI image list once), fans out one `oci-images.yml` call per image, calls `vm-guest.yml`, then a `summary` job |
+| `build.yml` | GitHub triggers | `validate` + the pull-request build gate (`changed-targets`, `pr-guest-contract`, `pr-build-oci`, `pr-build-vm-guest`), `matrix` (resolves the OCI image list once), fans out one `oci-images.yml` call per image, calls `vm-guest.yml`, then a `summary` job |
 | `oci-images.yml` | `build.yml` via `workflow_call`, `image` input | `build` + `manifest` jobs for exactly one OCI distroless image |
-| `vm-guest.yml` | `build.yml` via `workflow_call` | `build` job (matrix arch) for the podman-vm guest disk lane |
+| `vm-guest.yml` | `build.yml` via `workflow_call` | `guest-contract` job gating a `build` job (matrix arch) for the podman-vm guest disk lane |
 | `.github/actions/vm-boot-test` | `vm-guest.yml` and `build.yml` | composite action: install QEMU + UEFI firmware for one arch and run `tests/vm-boot.sh`, so the PR gate cannot drift from the release check |
 
 Supporting workflows, none of which touch publication:
@@ -33,13 +33,14 @@ Supporting workflows, none of which touch publication:
 | `validate` (`build.yml`) | `pull_request` only | `bst show` element graph resolution, no build |
 | `changed-targets` (`build.yml`) | `pull_request` only | `just changed-targets` against the merge base: which images and/or the VM guest this PR can break |
 | `pr-build-oci` (`build.yml`) | `pull_request`, affected images only | build + `just verify` per affected image per architecture. No login, push, sign, or attest step exists in this job |
+| `pr-guest-contract` (`build.yml`) | `pull_request`, when the VM guest is affected | `just podman-vm-check`: unit tests for `donate-clanker-bootstrap.py` plus `tests/podman-vm-contract.sh`'s pin/shape assertions. No VM, no BuildStream |
 | `pr-build-vm-guest` (`build.yml`) | `pull_request`, when the VM guest is affected | build, checksum, and QEMU boot-test the guest disk. No release upload exists in this job |
 | `matrix` (`build.yml`) | not on `pull_request` | reads `elements/targets.json` (`just image-matrix`) once and optionally narrows it to a validated manual-dispatch image |
 | `oci-images` (`build.yml`) | after `matrix` | matrix-calls `oci-images.yml` once per selected image |
 | `build` (`oci-images.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix per architecture (x86_64 + aarch64) for that one image: build + verify + tag-push |
 | `manifest` (`oci-images.yml`) | after that image's `build` matrix on `push`/`workflow_dispatch` | assemble and push the image's multi-arch manifest, sign, attach SBOM, publish GitHub provenance attestation |
 | `publish-smoke` (`oci-images.yml`) | after `manifest` succeeds | native-runner pull of each architecture tag, OCI-config smoke execution, manifest signature verification, and SBOM referrer discovery |
-| `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the zstd-compressed disks (`.raw.zst`, `.qcow2.zst`) + checksum sidecars + SBOM as GitHub Release assets and attests them |
+| `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch`, after `guest-contract` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the zstd-compressed disks (`.raw.zst`, `.qcow2.zst`) + checksum sidecars + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
 The **canonical manifest** for the OCI image lane is `elements/targets.json`
