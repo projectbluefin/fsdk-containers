@@ -39,18 +39,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Get mergeraptor token
-        id: token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
-          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
-
+      # Renovate branches live in this repository (not a fork), so a plain
+      # read-only checkout is enough here -- the mergeraptor app token is
+      # minted later, only once a write-back is actually needed, and never
+      # while `bst source track` / `just validate` run PR-controlled Justfile
+      # and BuildStream plugin code. `persist-credentials: false` keeps the
+      # default GITHUB_TOKEN out of the git config too, so no credential of
+      # any kind is present in the environment during validation.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-          token: ${{ steps.token.outputs.token }}
+          persist-credentials: false
           # Full history: the three-dot diff below needs a merge base, and two
           # disjoint depth-1 fetches have no common history ("no merge base").
           fetch-depth: 0
@@ -99,16 +99,52 @@ jobs:
           BST_LOCAL: '1'
         run: just validate
 
-      - name: Commit refreshed refs
+      - name: Check for refreshed refs
+        id: diff
         if: steps.changed.outputs.elements != ''
         run: |
           set -euo pipefail
           if git diff --quiet -- 'elements/*.bst' 'elements/**/*.bst'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Refs already current; nothing to push."
-            exit 0
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # Minted only now, after `bst source track` / `just validate` have
+      # already run PR-controlled code with no elevated credential present.
+      # Mergeraptor is an org-level GitHub App, so exfiltrating this token
+      # would escalate a single-repo write into org-wide push/PR/dispatch
+      # permissions -- it must not exist while untrusted code executes above.
+      - name: Get mergeraptor token
+        id: token
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+          private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+
+      - name: Commit and push refreshed refs
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
           git config user.name 'mergeraptor[bot]'
           git config user.email '${{ secrets.MERGERAPTOR_APP_ID }}+mergeraptor[bot]@users.noreply.github.com'
           git add 'elements/*.bst' 'elements/**/*.bst'
           git commit -m 'chore(deps): refresh BuildStream source refs'
-          git push
+
+          # Push with the app token via an explicit masked extraheader, not a
+          # persisted credential and not a token-in-URL: the URL form leaks
+          # into git's error messages and GIT_TRACE/GIT_CURL_VERBOSE output.
+          # `base64 -w0` keeps GNU base64's 76-column wrap from splitting the
+          # header, and `::add-mask::` registers the base64 blob (GitHub masks
+          # the raw token, not its encoding) in case git ever prints the
+          # resolved config.
+          BASIC=$(echo -n "x-access-token:${GH_TOKEN}" | base64 -w0)
+          echo "::add-mask::${BASIC}"
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${BASIC}" \
+            push "https://github.com/${REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
