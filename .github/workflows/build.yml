@@ -140,11 +140,34 @@ jobs:
           BUILD_IMAGE_NAME=${{ matrix.image }} just build
           BUILD_IMAGE_NAME=${{ matrix.image }} just verify
 
+  # Cheap host-side gate for the guest bootstrap contract: no VM, no
+  # BuildStream. Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py
+  # and runs tests/podman-vm-contract.sh's pin/shape assertions, so a typo in
+  # worker_environment() (or a stale pin) fails on ubuntu-24.04 in seconds,
+  # before pr-build-vm-guest's matrix legs spend 180 minutes each building and
+  # boot-testing the disk under QEMU.
+  pr-guest-contract:
+    needs: changed-targets
+    if: github.event_name == 'pull_request' && needs.changed-targets.outputs.vm_guest == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@5bf6ce016fd2e72eefc647cbca1e4213f65955b8 # v2
+        with:
+          tool: just
+      - name: Guest bootstrap contract (no VM, no BuildStream)
+        run: just podman-vm-check
+
   # Same shape for the VM guest: build, checksum, and boot-test only. The
   # release upload, SBOM attestation, and release verification live in
   # vm-guest.yml and are unreachable from a pull request.
   pr-build-vm-guest:
-    needs: changed-targets
+    needs: [changed-targets, pr-guest-contract]
     if: github.event_name == 'pull_request' && needs.changed-targets.outputs.vm_guest == 'true'
     strategy:
       fail-fast: false
