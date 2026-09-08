@@ -87,6 +87,15 @@ class SchemaTests(unittest.TestCase):
         self.assertNotIn("smoke", record)
         catalog.validate(record)
 
+    def test_numeric_oci_user_is_allowed(self):
+        record = valid_record(user="1000:1000")
+        self.assertEqual(catalog.validate(record)["user"], "1000:1000")
+
+    def test_oci_user_must_be_numeric(self):
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(valid_record(user="dev:contributors"))
+        self.assertIn("user", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

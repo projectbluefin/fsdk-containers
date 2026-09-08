@@ -32,6 +32,17 @@ class GateDerivationTests(unittest.TestCase):
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
         self.assertEqual(vc.gates_for(record)["max_bytes"], 144 * 1024 * 1024)
 
+    def test_declared_oci_user_is_exported_for_runtime_verification(self):
+        record = {
+            "name": "synthetic",
+            "kind": "shell-enabled",
+            "description": "Synthetic record with a non-root OCI user",
+            "user": "1000:1000",
+            "size_ceiling_mib": 64,
+            "stack": {"depends": []},
+        }
+        self.assertEqual(vc.gates_for(record)["user"], "1000:1000")
+
     def test_tzdata_and_ca_are_gated_on_every_distroless_image(self):
         """Regression: static declares no require_paths, and deriving the
         baseline from the record silently dropped its tzdata check."""
@@ -206,6 +217,14 @@ class SmokeArgBoundaryTests(unittest.TestCase):
         opts, args = self._bash_roundtrip(env, cwd=str(ROOT))
         self.assertEqual(opts, [])
         self.assertEqual(args, [])
+
+
+class VerifyRecipeTests(unittest.TestCase):
+    def test_declared_oci_user_is_checked_against_the_built_image(self):
+        recipe = (ROOT / "Justfile").read_text()
+        self.assertIn('OCI_USER', recipe)
+        self.assertIn('podman image inspect --format', recipe)
+        self.assertIn('OCI user', recipe)
 
 
 if __name__ == "__main__":

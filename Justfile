@@ -334,7 +334,7 @@ verify:
     IMG="{{image_name}}"
 
     # Derive gates, ceilings, and smoke-test args from the catalog record.
-    # IMG_KIND, MAX_BYTES, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
+    # IMG_KIND, MAX_BYTES, OCI_USER, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
     # REQUIRE_BINARIES, SMOKE_OPTS, SMOKE_ARGS, SHELL_PROBE are all set here.
     # Capture first: `eval "$(cmd)"` swallows cmd's exit status (it would
     # evaluate the empty string and continue); assignment preserves it.
@@ -348,6 +348,15 @@ verify:
         exit 1
     fi
     echo "OK: image size ${SIZE_BYTES} bytes (limit ${MAX_BYTES})"
+
+    if [ -n "$OCI_USER" ]; then
+        ACTUAL_USER=$({{sudo_cmd}} podman image inspect --format '{{"{{.Config.User}}"}}' "$REF")
+        if [ "$ACTUAL_USER" != "$OCI_USER" ]; then
+            echo "FAIL: $IMG OCI user ${ACTUAL_USER:-<unset>} does not match ${OCI_USER}" >&2
+            exit 1
+        fi
+        echo "OK: OCI user $OCI_USER"
+    fi
 
     {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT

@@ -45,6 +45,11 @@
       },
       "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
     },
+    "user": {
+      "type": "string",
+      "pattern": "^[0-9]+(?::[0-9]+)?$",
+      "description": "OPTIONAL numeric OCI Config.User, as UID or UID:GID. Numeric identities avoid requiring passwd/group resolution in distroless images."
+    },
     "smoke": {
       "type": "object",
       "description": "OPTIONAL: omit for images that have no smoke test in the Justfile today (base, static).",

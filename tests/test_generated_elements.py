@@ -113,6 +113,19 @@ class OciGenerationTests(unittest.TestCase):
             [c.strip() for c in commands],
         )
 
+    def test_oci_user_is_rendered_when_declared(self):
+        record = {
+            "name": "acceptance-probe",
+            "kind": "shell-enabled",
+            "description": "Throwaway record proving OCI user generation",
+            "entrypoint": ["/usr/bin/bash"],
+            "user": "1000:1000",
+            "size_ceiling_mib": 64,
+            "stack": {"depends": []},
+        }
+        generated = gen.render_oci(record)
+        self.assertIn("User: '1000:1000'", generated)
+
 
 class YamlSingleQuoteTests(unittest.TestCase):
     """Finding 3: values interpolated into single-quoted YAML scalars inside
