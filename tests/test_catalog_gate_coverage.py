@@ -19,11 +19,17 @@ pattern the repository actually invokes and assert that the set covers every
 test module on disk, so the next unreachable file fails CI instead of
 disappearing into it.
 
-Two modules are currently run by a ``Justfile`` recipe but by no workflow;
-they are recorded in ``KNOWN_LOCAL_ONLY`` below because closing that gap means
-editing ``.github/workflows/image-catalog.yml``. The set is a ratchet in both
-directions: a new divergence fails, and so does an entry that has stopped being
-a real hole.
+A workflow reaches the suite in one of two ways, and both count. It can spell
+the ``unittest discover`` invocation itself, as ``image-catalog.yml`` and
+``skill-catalog.yml`` do, or it can ``run: just <recipe>`` and let the recipe
+spell it, as ``build.yml``'s ``pr-guest-contract`` job does with
+``just podman-vm-check``. Reading only the literal invocations misreports the
+second form as an uncovered hole, so the CI side resolves ``just`` recipe names
+(transitively through recipe dependencies) into the Justfile bodies they run.
+
+``KNOWN_LOCAL_ONLY`` records modules a ``Justfile`` recipe runs but no workflow
+does. The set is a ratchet in both directions: a new divergence fails, and so
+does an entry that has stopped being a real hole. It is currently empty.
 """
 
 from pathlib import Path
@@ -45,6 +51,64 @@ DISCOVER_RE = re.compile(
     r"(?P<quote>['\"]?)(?P<pattern>[^'\"\s]+)(?P=quote)"
 )
 
+# `just <recipe>` as written in a workflow `run:` step, possibly behind
+# leading `VAR=value` assignments (e.g. `BUILD_IMAGE_NAME=base just build`).
+# Only the recipe name is captured; its arguments are irrelevant here.
+JUST_CALL_RE = re.compile(r"(?:^|[|&;(]|\s)just\s+(?P<recipe>[A-Za-z0-9_][\w-]*)")
+
+# Start of a Justfile recipe: `name arg1 *ARGS: dep1 dep2`, at column zero.
+# Attributes (`[group('test')]`) and settings lines are not recipes.
+JUST_RECIPE_RE = re.compile(
+    r"^(?P<name>[A-Za-z0-9_][\w-]*)(?P<params>[^:=\n]*):(?!=)(?P<deps>[^\n]*)$"
+)
+
+
+def _strip_yaml_comments(text):
+    """Drop whole-line YAML comments so prose cannot look like a command."""
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+def _just_recipes(text):
+    """Map every Justfile recipe name to its (body, dependency names)."""
+    recipes = {}
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if not line or line[0].isspace():
+            continue
+        match = JUST_RECIPE_RE.match(line)
+        if not match:
+            continue
+        body = []
+        for following in lines[index + 1 :]:
+            if following.strip() and not following[0].isspace():
+                break
+            body.append(following)
+        deps = [
+            token
+            for token in match.group("deps").split()
+            if re.fullmatch(r"[A-Za-z0-9_][\w-]*", token)
+        ]
+        recipes[match.group("name")] = ("\n".join(body), deps)
+    return recipes
+
+
+def _recipe_text(names, recipes):
+    """Bodies of `names` plus everything they depend on, transitively."""
+    seen = set()
+    pending = list(names)
+    chunks = []
+    while pending:
+        name = pending.pop()
+        if name in seen or name not in recipes:
+            continue
+        seen.add(name)
+        body, deps = recipes[name]
+        chunks.append(body)
+        pending.extend(deps)
+    return "\n".join(chunks)
+
 
 def _discovery_patterns(text):
     """Patterns from every `unittest discover` rooted at `tests` in `text`."""
@@ -58,27 +122,39 @@ def _discovery_patterns(text):
 def _sources():
     """Every committed file that can invoke the Python test suite."""
     yield JUSTFILE
+    yield from _workflow_sources()
+
+
+def _workflow_sources():
     yield from sorted(WORKFLOW_DIR.glob("*.yml"))
     yield from sorted(WORKFLOW_DIR.glob("*.yaml"))
+
+
+def _ci_patterns():
+    """Discovery patterns a workflow runs, directly or through `just`."""
+    patterns = set()
+    invoked_recipes = set()
+    for source in _workflow_sources():
+        text = _strip_yaml_comments(source.read_text())
+        patterns |= _discovery_patterns(text)
+        invoked_recipes |= {
+            match.group("recipe") for match in JUST_CALL_RE.finditer(text)
+        }
+    recipes = _just_recipes(JUSTFILE.read_text())
+    patterns |= _discovery_patterns(_recipe_text(invoked_recipes, recipes))
+    return patterns
 
 
 def _test_modules():
     return sorted(p.name for p in TESTS_DIR.glob("test_*.py"))
 
 
-# Modules that a `Justfile` recipe runs but no workflow does. Each entry is a
-# real hole in the merge gate, recorded here only because closing it requires
-# editing `.github/workflows/image-catalog.yml`, which is out of scope for the
-# change that introduced this file. The set is a ratchet: it may shrink freely,
-# and a *new* divergence still fails, but an existing one does not block
-# unrelated work. Tracked by issue #226 recommendation 1 (replace the whole
-# per-pattern allowlist with one total `discover -p 'test_*.py'`).
-KNOWN_LOCAL_ONLY = frozenset(
-    {
-        "test_donate_clanker_bootstrap.py",  # Justfile `test-donate-clanker`
-        "test_skill_index.py",  # Justfile `test-skill-index`
-    }
-)
+# Modules a `Justfile` recipe runs but no workflow does, directly or through a
+# `run: just <recipe>` step. Each entry would be a real hole in the merge gate.
+# The set is a ratchet: it may shrink freely, a *new* divergence still fails,
+# and an entry that has stopped being a hole must be removed. It is empty —
+# every module on disk is reachable from some workflow.
+KNOWN_LOCAL_ONLY = frozenset()
 
 
 class GateCoverageTests(unittest.TestCase):
@@ -113,11 +189,7 @@ class GateCoverageTests(unittest.TestCase):
     def test_ci_gate_covers_every_module_the_justfile_covers(self):
         """A green local run must not be broader than the merge gate."""
         just_patterns = _discovery_patterns(JUSTFILE.read_text())
-        ci_patterns = set()
-        for source in _sources():
-            if source == JUSTFILE:
-                continue
-            ci_patterns |= _discovery_patterns(source.read_text())
+        ci_patterns = _ci_patterns()
 
         modules = _test_modules()
 
@@ -135,8 +207,9 @@ class GateCoverageTests(unittest.TestCase):
             [],
             "modules run by a Justfile recipe but by no workflow: they gate "
             f"nothing on a pull request: {unrecorded}. Add a discovery step to "
-            ".github/workflows/image-catalog.yml, or — only if the gap is "
-            "deliberate and tracked — record it in KNOWN_LOCAL_ONLY.",
+            "a workflow, or a `run: just <recipe>` step that reaches them, or "
+            "— only if the gap is deliberate and tracked — record it in "
+            "KNOWN_LOCAL_ONLY.",
         )
 
     def test_known_local_only_exceptions_are_all_still_real(self):
@@ -147,11 +220,7 @@ class GateCoverageTests(unittest.TestCase):
         permission to diverge.
         """
         just_patterns = _discovery_patterns(JUSTFILE.read_text())
-        ci_patterns = set()
-        for source in _sources():
-            if source == JUSTFILE:
-                continue
-            ci_patterns |= _discovery_patterns(source.read_text())
+        ci_patterns = _ci_patterns()
 
         modules = set(_test_modules())
 
@@ -189,6 +258,87 @@ class GateCoverageTests(unittest.TestCase):
             "test_renovate_atomic.py is back but still matches no discovery "
             "pattern; it would not run, exactly as before",
         )
+
+
+class JustResolutionTests(unittest.TestCase):
+    """Unit coverage for the `just`-following half of the CI-side model."""
+
+    JUSTFILE_SAMPLE = "\n".join(
+        [
+            "set shell := ['bash', '-c']",
+            "",
+            "[group('test')]",
+            "podman-vm-check: prereq",
+            "    python3 -m unittest discover -s tests -p 'test_donate_clanker*.py' -v",
+            "    tests/podman-vm-contract.sh",
+            "",
+            "prereq:",
+            "    python3 -m unittest discover -s tests -p 'test_prereq*.py' -v",
+            "",
+            "unused:",
+            "    python3 -m unittest discover -s tests -p 'test_unused*.py' -v",
+            "",
+            "bst *ARGS:",
+            "    echo {{ARGS}}",
+        ]
+    )
+
+    def test_recipes_are_parsed_with_bodies_and_dependencies(self):
+        recipes = _just_recipes(self.JUSTFILE_SAMPLE)
+        self.assertEqual(
+            set(recipes), {"podman-vm-check", "prereq", "unused", "bst"}
+        )
+        body, deps = recipes["podman-vm-check"]
+        self.assertIn("test_donate_clanker*.py", body)
+        self.assertEqual(deps, ["prereq"])
+        self.assertEqual(recipes["bst"][1], [])
+
+    def test_assignments_and_attributes_are_not_recipes(self):
+        recipes = _just_recipes(self.JUSTFILE_SAMPLE)
+        self.assertNotIn("set", recipes)
+        self.assertNotIn("[group('test')]", recipes)
+
+    def test_recipe_text_follows_dependencies_transitively(self):
+        recipes = _just_recipes(self.JUSTFILE_SAMPLE)
+        text = _recipe_text(["podman-vm-check"], recipes)
+        self.assertEqual(
+            _discovery_patterns(text),
+            {"test_donate_clanker*.py", "test_prereq*.py"},
+        )
+
+    def test_recipe_text_ignores_unknown_recipe_names(self):
+        recipes = _just_recipes(self.JUSTFILE_SAMPLE)
+        self.assertEqual(_recipe_text(["no-such-recipe"], recipes), "")
+
+    def test_just_call_matches_recipe_behind_env_assignments(self):
+        found = {
+            m.group("recipe")
+            for m in JUST_CALL_RE.finditer("run: BUILD_IMAGE_NAME=base just verify")
+        }
+        self.assertEqual(found, {"verify"})
+
+    def test_just_call_ignores_a_bare_tool_declaration(self):
+        self.assertIsNone(JUST_CALL_RE.search("          tool: just\n"))
+
+    def test_yaml_comments_cannot_supply_a_pattern(self):
+        text = _strip_yaml_comments(
+            "  # run: python3 -m unittest discover -s tests -p 'test_ghost*.py'\n"
+            "  run: python3 -m unittest discover -s tests -p 'test_real*.py'\n"
+        )
+        self.assertEqual(_discovery_patterns(text), {"test_real*.py"})
+
+    def test_repository_ci_patterns_include_a_just_only_invocation(self):
+        """The live tree proves the indirection is exercised, not hypothetical.
+
+        `build.yml`'s `pr-guest-contract` job runs `just podman-vm-check`; no
+        workflow spells that discovery pattern itself. Reading only literal
+        invocations reported it as an uncovered hole.
+        """
+        literal = set()
+        for source in _workflow_sources():
+            literal |= _discovery_patterns(_strip_yaml_comments(source.read_text()))
+        self.assertNotIn("test_donate_clanker*.py", literal)
+        self.assertIn("test_donate_clanker*.py", _ci_patterns())
 
 
 if __name__ == "__main__":
