@@ -68,8 +68,14 @@ Only one process may hold the port open at a time.
 
 See [ci-tooling](../../ci-tooling/SKILL.md) for the full workflow structure. In
 short, `.github/workflows/vm-guest.yml` is a reusable workflow (called from
-`build.yml`) with a per-arch matrix job (x86_64, aarch64) plus an aggregate
-`verify-release` job. Each leg
+`build.yml`) with a `guest-contract` job gating a per-arch matrix job (x86_64,
+aarch64), plus an aggregate `verify-release` job. `guest-contract` runs `just
+podman-vm-check` -- the unit tests for
+`elements/podman-vm/files/donate-clanker-bootstrap.py` plus
+`tests/podman-vm-contract.sh`'s pin/shape assertions -- on a plain
+`ubuntu-24.04` runner, no BuildStream and no QEMU. It fails in seconds on a
+typo in `worker_environment()` or a stale pin, before either architecture's
+expensive matrix leg starts. Each leg
 builds the raw disk, converts it to QCOW2, verifies both checksums,
 generates the SBOM, boot-tests it under plain QEMU (both architectures, via
 `tests/vm-boot.sh`), and

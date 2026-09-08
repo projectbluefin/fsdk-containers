@@ -24,7 +24,29 @@ on:
 permissions: {}
 
 jobs:
+  # Cheap host-side gate for the guest bootstrap contract: no VM, no
+  # BuildStream. Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py
+  # and runs the tests/podman-vm-contract.sh pin/shape assertions, so a typo
+  # in worker_environment() (or a stale pin) fails in seconds instead of
+  # after a full QEMU boot-test on a matrix runner.
+  guest-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: taiki-e/install-action@5bf6ce016fd2e72eefc647cbca1e4213f65955b8 # v2
+        with:
+          tool: just
+      - name: Guest bootstrap contract (no VM, no BuildStream)
+        run: just podman-vm-check
+
   build:
+    needs: guest-contract
     strategy:
       fail-fast: false
       matrix:
