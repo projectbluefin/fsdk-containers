@@ -19,8 +19,8 @@ pattern the repository actually invokes and assert that the set covers every
 test module on disk, so the next unreachable file fails CI instead of
 disappearing into it.
 
-Two modules are currently run by a ``Justfile`` recipe but by no workflow;
-they are recorded in ``KNOWN_LOCAL_ONLY`` below because closing that gap means
+One module is currently run by a ``Justfile`` recipe but by no workflow;
+it is recorded in ``KNOWN_LOCAL_ONLY`` below because closing that gap means
 editing ``.github/workflows/image-catalog.yml``. The set is a ratchet in both
 directions: a new divergence fails, and so does an entry that has stopped being
 a real hole.
@@ -76,7 +76,6 @@ def _test_modules():
 KNOWN_LOCAL_ONLY = frozenset(
     {
         "test_donate_clanker_bootstrap.py",  # Justfile `test-donate-clanker`
-        "test_skill_index.py",  # Justfile `test-skill-index`
     }
 )
 
