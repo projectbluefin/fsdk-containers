@@ -12,7 +12,7 @@ variables:
   # Keep it disabled and strip this upstream binary explicitly below.
   strip-binaries: ""
   # renovate: datasource=github-releases depName=argoproj/argo-workflows
-  argo_version: v4.1.2
+  argo_version: v4.1.3
 
 sources:
 - kind: remote
