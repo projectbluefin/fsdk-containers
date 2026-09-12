@@ -15,6 +15,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import catalog  # noqa: E402
 import verify_contract as vc  # noqa: E402
 
+# The python image's smoke probe exercises real stdlib (see catalog/python.yaml):
+# it is not the trivial --version, so the two assertions below pin it here.
+PYTHON_SMOKE = [
+    "-c",
+    "import sys, json, ssl, ctypes, sqlite3, zoneinfo; print(sys.version.split()[0])",
+]
+
 
 class GateDerivationTests(unittest.TestCase):
     def test_distroless_images_forbid_a_shell(self):
@@ -73,7 +80,7 @@ class GateDerivationTests(unittest.TestCase):
 
     def test_smoke_command_uses_the_entrypoint_by_default(self):
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
-        self.assertEqual(vc.smoke_argv(record), ["--version"])
+        self.assertEqual(vc.smoke_argv(record), PYTHON_SMOKE)
 
     def test_smoke_command_honours_an_override(self):
         """skopeo has no entrypoint; its smoke test must use the positional form."""
@@ -96,8 +103,9 @@ class SmokeSplitTests(unittest.TestCase):
 
     def test_todays_records_split_where_expected(self):
         expected = {
-            # podman run --rm "$REF" --version
-            "python": ([], ["--version"]),
+            # podman run --rm "$REF" -c "import sys, json, ssl, ctypes,
+            # sqlite3, zoneinfo; ..." — exercises real stdlib, not --version.
+            "python": ([], PYTHON_SMOKE),
             # podman run --rm "$REF" skopeo --version
             "skopeo": ([], ["skopeo", "--version"]),
             # podman run --rm --entrypoint /usr/bin/argo "$REF" version --short

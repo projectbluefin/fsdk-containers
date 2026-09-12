@@ -16,29 +16,13 @@ build-depends:
 variables:
   (@):
     - include/slim.yml
+    - include/slim-python.yml
     - include/fsdk-version.yml
 
 config:
   commands:
     - "%{slim-distroless-commands}"
-    - |
-      set -eu
-      L=/layer
-      rm -rf "$L"/usr/lib/python*/test \
-             "$L"/usr/lib/python*/*/test \
-             "$L"/usr/lib/python*/*/tests \
-             "$L"/usr/lib/python*/ensurepip \
-             "$L"/usr/lib/python*/idlelib \
-             "$L"/usr/lib/python*/tkinter \
-             "$L"/usr/lib/python*/turtledemo \
-             "$L"/usr/lib/python*/turtle.py \
-             "$L"/usr/lib/python*/lib2to3 \
-             "$L"/usr/lib/python*/pydoc_data \
-             "$L"/usr/lib/python*/__phello__ \
-             "$L"/usr/lib/python*/config-* \
-             "$L"/usr/lib/python*/*/config-* \
-             "$L"/usr/lib/python*/*.a \
-             "$L"/usr/lib/python*/*/*.a
+    - "%{slim-python-commands}"
     - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do

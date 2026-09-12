@@ -153,11 +153,22 @@ def render_oci(record: dict) -> str:
     lines.append("variables:")
     lines.append("  (@):")
     lines.append("    - include/slim.yml")
+    # Per-runtime-family slim fragments (slim-python.yml, ...). Each defines a
+    # %{slim-<stem>-commands} variable the commands block below references.
+    for _frag in record.get("slim", {}).get("includes", []):
+        lines.append(f"    - include/{_frag}")
     lines.append("    - include/fsdk-version.yml")
     lines.append("")
     lines.append("config:")
     lines.append("  commands:")
     lines.append(f'    - "{slim_var}"')
+
+    # Family bloat-stripping recipes composed in after the shared OS recipe.
+    # A fragment include/slim-python.yml defines %{slim-python-commands}; the
+    # variable name is the filename stem plus -commands.
+    for _frag in record.get("slim", {}).get("includes", []):
+        _stem = _frag[:-len(".yml")]
+        lines.append(f'    - "%{{{_stem}-commands}}"')
 
     extra = record.get("slim", {}).get("extra")
     if extra:

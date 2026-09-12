@@ -104,6 +104,26 @@ class SchemaTests(unittest.TestCase):
             catalog.validate(record)
         self.assertIn("smoke", str(ctx.exception))
 
+    def test_slim_includes_accepts_a_valid_fragment(self):
+        record = valid_record(slim={"includes": ["slim-python.yml"]})
+        catalog.validate(record)
+
+    def test_slim_extra_still_valid(self):
+        record = valid_record(slim={"extra": "set -eu\necho hi\n"})
+        catalog.validate(record)
+
+    def test_slim_includes_rejects_a_non_slip_fragment_name(self):
+        record = valid_record(slim={"includes": ["foo.yml"]})
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(record)
+        self.assertIn("slim", str(ctx.exception))
+
+    def test_slim_includes_rejects_a_missing_yml_suffix(self):
+        record = valid_record(slim={"includes": ["slim-python"]})
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(record)
+        self.assertIn("slim", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

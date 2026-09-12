@@ -104,14 +104,19 @@ class OciGenerationTests(unittest.TestCase):
                 for key, value in SHARED_LABELS.items():
                     self.assertIn(f"'{key}': '{value}'", text)
 
-    def test_slim_extra_is_emitted_verbatim(self):
+    def test_slim_family_include_is_emitted(self):
+        """The python image composes its family fragment from include/.
+
+        The shared OS slim recipe is still the first command; the
+        %{slim-python-commands} family recipe composes after it, and the
+        fragment itself is listed in the element's variables:(@)."""
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
         generated = yaml.safe_load(gen.render_oci(record))
         commands = generated["config"]["commands"]
-        self.assertIn(
-            record["slim"]["extra"].strip(),
-            [c.strip() for c in commands],
-        )
+        variables = generated["variables"]["(@)"]
+        self.assertIn("include/slim-python.yml", variables)
+        self.assertEqual(commands[0], "%{slim-distroless-commands}")
+        self.assertEqual(commands[1], "%{slim-python-commands}")
 
 
 class YamlSingleQuoteTests(unittest.TestCase):

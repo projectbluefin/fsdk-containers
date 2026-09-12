@@ -5,7 +5,13 @@ export_description: Minimal, high-integrity distroless Python 3 runtime built on
 keywords: distroless,freedesktop-sdk,bluefin,python
 entrypoint: ["/usr/bin/python3"]
 smoke:
-  args: ["--version"]
+  # Exercise real stdlib functionality, not just --version. The #130 jlink
+  # failure passed --version and would have shipped broken; a probe that only
+  # prints a version proves nothing about what the image can actually do. This
+  # imports the modules a container Python runtime must support (json
+  # serialization, ssl/TLS, ctypes FFI, sqlite3) and, via zoneinfo, proves the
+  # kept tzdata is reachable. Requires the python3 entrypoint from the record.
+  args: ["-c", "import sys, json, ssl, ctypes, sqlite3, zoneinfo; print(sys.version.split()[0])"]
 size_ceiling_mib: 144
 stack:
   depends:
@@ -15,21 +21,8 @@ gates:
   require_paths:
     - usr/share/zoneinfo/UTC
 slim:
-  extra: |
-    set -eu
-    L=/layer
-    rm -rf "$L"/usr/lib/python*/test \
-           "$L"/usr/lib/python*/*/test \
-           "$L"/usr/lib/python*/*/tests \
-           "$L"/usr/lib/python*/ensurepip \
-           "$L"/usr/lib/python*/idlelib \
-           "$L"/usr/lib/python*/tkinter \
-           "$L"/usr/lib/python*/turtledemo \
-           "$L"/usr/lib/python*/turtle.py \
-           "$L"/usr/lib/python*/lib2to3 \
-           "$L"/usr/lib/python*/pydoc_data \
-           "$L"/usr/lib/python*/__phello__ \
-           "$L"/usr/lib/python*/config-* \
-           "$L"/usr/lib/python*/*/config-* \
-           "$L"/usr/lib/python*/*.a \
-           "$L"/usr/lib/python*/*/*.a
+  # Python-family bloat stripping lives in include/slim-python.yml (a shared
+  # recipe, not an inline block) so any future Python image inherits it. The
+  # generator emits `- include/slim-python.yml` and `-%{slim-python-commands}`
+  # for this record. See docs/skills/slim-an-image.md — Per-family recipes.
+  includes: [slim-python.yml]
