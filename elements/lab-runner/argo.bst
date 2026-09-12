@@ -19,7 +19,7 @@ sources:
   (?):
   - arch == "x86_64":
       url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-amd64.gz"
-      ref: 1edee3c25de0129e4d358a87591f04b89b522ceccb11975970d45217a3cd9cdd
+      ref: f3cf6ae424e9d2b3139efd29f673e7efc47a68881352a26a4122f72c4fc0efd4
   - arch == "aarch64":
       url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-arm64.gz"
       ref: 04e2e1e0fc6d738034ff356e5bc8b2b819f963bf007331df4606611b3fa967b6
