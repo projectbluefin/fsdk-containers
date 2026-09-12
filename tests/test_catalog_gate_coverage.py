@@ -76,7 +76,6 @@ def _test_modules():
 KNOWN_LOCAL_ONLY = frozenset(
     {
         "test_donate_clanker_bootstrap.py",  # Justfile `test-donate-clanker`
-        "test_skill_index.py",  # Justfile `test-skill-index`
     }
 )
 

@@ -1,0 +1,40 @@
+name: review-runtime
+kind: distroless
+description: Distroless review appliance runtime carved from freedesktop-sdk — python3, node, bash, git, curl
+export_description: Distroless review appliance runtime built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,review
+entrypoint: ["/usr/bin/python3"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 320
+stack:
+  depends:
+    - base/base-stack.bst
+    - freedesktop-sdk.bst:components/python3.bst
+    - node/node-stack.bst
+    - freedesktop-sdk.bst:components/git.bst
+    - freedesktop-sdk.bst:components/curl.bst
+    - freedesktop-sdk.bst:bootstrap/bash.bst
+    - freedesktop-sdk.bst:components/diffutils.bst
+    - freedesktop-sdk.bst:components/findutils.bst
+    - freedesktop-sdk.bst:components/gawk.bst
+    - freedesktop-sdk.bst:components/gzip.bst
+    - freedesktop-sdk.bst:components/less.bst
+    - freedesktop-sdk.bst:components/sed.bst
+    - freedesktop-sdk.bst:components/tar.bst
+gates:
+  require_binaries:
+    - bash
+    - python3
+    - node
+    - git
+    - curl
+    - diff
+    - find
+    - gawk
+    - gzip
+    - less
+    - sed
+    - tar
+  require_paths:
+    - usr/share/zoneinfo/UTC
