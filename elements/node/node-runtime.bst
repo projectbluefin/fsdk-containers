@@ -1,3 +1,7 @@
+# DO NOT EDIT. Generated from catalog/node.yaml by
+# scripts/generate_image_elements.py (compose).
+# Change the record, then run: just catalog-write
+
 kind: compose
 description: Chisel the node stack down to runtime-only, distroless.
 
@@ -10,10 +14,7 @@ config:
     - devel
     - doc
     - locale
-    - static-blocklist
-    - vm-only
-    - tests
-    # NOTE: 'shells' covers only /usr/share/fish and /usr/share/zsh data dirs.
-    # The bash binary lives in the 'runtime' domain; the SLIM recipe's
-    # explicit rm -f in the OCI element does the actual shell removal.
     - shells
+    - static-blocklist
+    - tests
+    - vm-only

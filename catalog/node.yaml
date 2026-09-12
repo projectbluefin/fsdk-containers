@@ -1,0 +1,16 @@
+name: node
+kind: distroless
+description: Distroless Node.js LTS runtime built on freedesktop-sdk
+export_description: Minimal, high-integrity distroless Node.js runtime built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,node
+entrypoint: ["/usr/bin/node"]
+smoke:
+  args: ["--version"]
+size_ceiling_mib: 180
+stack:
+  depends:
+    - base/base-stack.bst
+    - node/node.bst
+gates:
+  require_paths:
+    - usr/share/zoneinfo/UTC

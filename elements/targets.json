@@ -8,7 +8,8 @@
     "python",
     "buildah",
     "qemu-img",
-    "review-runtime"
+    "review-runtime",
+    "node"
   ],
 
   "$comment_image_paths": "Path prefixes each OCI image owns. `just changed-targets` matches changed files against these to decide which images a pull request must actually build and verify, so a one-image change costs one build instead of fourteen. A prefix ending in '/' matches everything under that directory; anything else matches that exact path.",
@@ -20,7 +21,8 @@
     "python": ["elements/oci/python.bst", "elements/python/", "catalog/python.yaml"],
     "buildah": ["elements/oci/buildah.bst", "elements/buildah/", "catalog/buildah.yaml"],
     "qemu-img": ["elements/oci/qemu-img.bst", "elements/qemu-img/", "catalog/qemu-img.yaml"],
-    "review-runtime": ["elements/oci/review-runtime.bst", "elements/review-runtime/", "catalog/review-runtime.yaml"]
+    "review-runtime": ["elements/oci/review-runtime.bst", "elements/review-runtime/", "catalog/review-runtime.yaml"],
+    "node": ["elements/oci/node.bst", "elements/node/", "catalog/node.yaml"]
   },
 
   "$comment_shared_paths": "Changes here can affect every target (the FSDK junction, the shared slim recipe, project-wide options, the build tooling itself, the catalog schema and its generation/verification scripts). Building all seven images times two architectures on every such pull request is not viable, so these select the canary image below instead: a real end-to-end build and `just verify` of the image every other image is carved from.",
