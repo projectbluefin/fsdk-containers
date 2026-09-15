@@ -33,7 +33,7 @@ sources:
   url: https://archive.mariadb.org/mariadb-%{mariadb_version}/source/mariadb-%{mariadb_version}.tar.gz
     # sha256 verified against the archive's own sha256sums.txt
     # (archive.mariadb.org/mariadb-12.3.2/source/sha256sums.txt)
-  ref: e99d739fd4a55f9a11dea7bd2287a262673e287550af3071c8469dd2bec0c163
+  ref: 6d6b69bddcf6d33935064f23ed3d47948f6d19438711b2a81087eb28d9d255c7
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
