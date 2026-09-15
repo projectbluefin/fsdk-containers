@@ -87,7 +87,7 @@ depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=MariaDB/server extractVersion=^mariadb-(?<version>.+)$
-  mariadb_version: 12.3.3
+  mariadb_version: 13.1.1
   hardening-flags: ""
   (?):
   - arch == "x86_64":
