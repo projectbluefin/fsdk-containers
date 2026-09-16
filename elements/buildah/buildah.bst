@@ -36,7 +36,7 @@ sources:
   url: github:containers/buildah.git
   # renovate: datasource=github-tags depName=containers/buildah
   track: v1.45.1
-  ref: v1.45.0-0-g7ae7d5a4021b24d02a5c281badca8c4d8ebbf442
+  ref: v1.45.1-0-gc8ac1936bb2e956c1d8790eba1bb3829a1241369
 
 config:
   build-commands:
