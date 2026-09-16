@@ -207,6 +207,40 @@ sources:
         self.assertIn("aarch64 changed=False", err)
         self.assertIn("ppc64le changed=False", err)
 
+    def test_kubectl_multiarch_refs_match_upstream(self):
+        # Issue #215 / PR #213 regression test: ensure kubectl element has matching multi-arch refs
+        # and version-agnostic alignment with upstream release checksums when online.
+        import re
+        import urllib.request
+        import urllib.error
+
+        root = Path(__file__).parents[1]
+        kubectl_bst = root / "elements" / "lab-runner" / "kubectl.bst"
+        content = kubectl_bst.read_text(encoding="utf-8")
+        refs = extract_arch_refs(content)
+        self.assertIn("x86_64", refs)
+        self.assertIn("aarch64", refs)
+
+        match = re.search(r"kubectl_version:\s*([^\s]+)", content)
+        self.assertIsNotNone(match, "kubectl_version variable not found in kubectl.bst")
+        version = match.group(1).strip()
+
+        arch_map = {"x86_64": "amd64", "aarch64": "arm64"}
+        for arch, k8s_arch in arch_map.items():
+            url = f"https://dl.k8s.io/release/{version}/bin/linux/{k8s_arch}/kubectl.sha256"
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "fsdk-test"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    expected_hash = resp.read().decode("utf-8").strip()
+                    self.assertEqual(
+                        refs[arch],
+                        expected_hash,
+                        f"kubectl ref for {arch} ({refs[arch]}) does not match upstream {version} {k8s_arch} hash ({expected_hash})",
+                    )
+            except (urllib.error.URLError, TimeoutError, OSError):
+                # Skip remote network check if offline or rate limited
+                pass
+
 
 if __name__ == "__main__":
     unittest.main()
