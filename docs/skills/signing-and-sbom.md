@@ -24,6 +24,8 @@ Use this skill when auditing, debugging, or extending fsdk-containers' supply ch
 Since `fsdk-containers` OCI images are strictly distroless with no package manager databases (no RPM or dpkg database present in the rootfs), standard post-build scanners like Syft or Trivy cannot accurately map the packages. They will report 0 or 1 package.
 To produce authoritative, high-integrity SBOMs, we generate them directly from BuildStream's build-graph using `buildstream-sbom`. This captures all 500+ package definitions, point-release versions, and patch levels from upstream freedesktop-sdk metadata.
 
+FSDK provenance (`io.projectbluefin.fsdk.version` / `io.projectbluefin.fsdk.ref`) is encoded into the SBOM's `creationInfo.creators` at generation time (`just sbom`/`just sboms` in the Justfile), so the signed SBOM evidences which FSDK release and junction ref it was carved from -- matching the image labels without relying on mutable OCI labels alone (#128).
+
 ---
 
 ## Signing and SBOM Architecture
@@ -55,8 +57,13 @@ jq '.packages | length' base.spdx.json
 
 # 3. Check for specific FSDK components (e.g. glibc, openssl)
 jq -r '.packages[].name' base.spdx.json | grep -E "glibc|openssl"
-```
 
+# 4. Verify FSDK provenance is attested in the SBOM (not merely a label on the
+#    image). The version/ref are encoded as SPDX creators at SBOM generation
+#    time (Justfile `sbom`/`sboms`), so the signed SBOM evidences which FSDK
+#    release and junction ref it was carved from -- matching the image labels.
+jq -r '.creationInfo.creators[] | select(test("io.projectbluefin.fsdk"))' base.spdx.json
+```
 To verify a published image and its signature/attestation from the command line:
 
 ```bash
