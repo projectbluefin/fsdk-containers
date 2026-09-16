@@ -26,7 +26,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
-  nginx_version: 1.31.5
+  nginx_version: 1.31.6
 
 config:
   configure-commands:
