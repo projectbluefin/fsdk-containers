@@ -1,7 +1,10 @@
 """Unit and regression tests for multi-arch source ref parity."""
 
 from pathlib import Path
+import re
 import unittest
+import urllib.error
+import urllib.request
 
 import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
@@ -210,10 +213,6 @@ sources:
     def test_kubectl_multiarch_refs_match_upstream(self):
         # Issue #215 / PR #213 regression test: ensure kubectl element has matching multi-arch refs
         # and version-agnostic alignment with upstream release checksums when online.
-        import re
-        import urllib.request
-        import urllib.error
-
         root = Path(__file__).parents[1]
         kubectl_bst = root / "elements" / "lab-runner" / "kubectl.bst"
         content = kubectl_bst.read_text(encoding="utf-8")
@@ -221,11 +220,12 @@ sources:
         self.assertIn("x86_64", refs)
         self.assertIn("aarch64", refs)
 
-        match = re.search(r"kubectl_version:\s*([^\s]+)", content)
+        match = re.search(r"^\s*kubectl_version:\s*(\S+)\s*$", content, re.MULTILINE)
         self.assertIsNotNone(match, "kubectl_version variable not found in kubectl.bst")
         version = match.group(1).strip()
 
         arch_map = {"x86_64": "amd64", "aarch64": "arm64"}
+        verified_count = 0
         for arch, k8s_arch in arch_map.items():
             url = f"https://dl.k8s.io/release/{version}/bin/linux/{k8s_arch}/kubectl.sha256"
             try:
@@ -237,9 +237,17 @@ sources:
                         expected_hash,
                         f"kubectl ref for {arch} ({refs[arch]}) does not match upstream {version} {k8s_arch} hash ({expected_hash})",
                     )
-            except (urllib.error.URLError, TimeoutError, OSError):
-                # Skip remote network check if offline or rate limited
-                pass
+                    verified_count += 1
+            except urllib.error.HTTPError as exc:
+                self.fail(f"Upstream release checksum fetch failed for {version} ({url}): {exc}")
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                self.skipTest(f"upstream unreachable for {url}: {exc}")
+
+        self.assertEqual(
+            verified_count,
+            len(arch_map),
+            f"Expected {len(arch_map)} verified architectures, verified {verified_count}",
+        )
 
 
 if __name__ == "__main__":
