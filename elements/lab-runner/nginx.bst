@@ -4,7 +4,7 @@ description: Build nginx from source for the lab-runner utility image.
 sources:
 - kind: tar
   url: https://nginx.org/download/nginx-%{nginx_version}.tar.gz
-  ref: e951607d534836624bd36b6b45a71dbfb055237deae3738da6bbf3270dada279
+  ref: 974ed5298a5e398e008704ed5db284e655fc270c596493dbccada452448fc9f1
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -26,7 +26,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
-  nginx_version: 1.31.5
+  nginx_version: 1.31.6
 
 config:
   configure-commands:
