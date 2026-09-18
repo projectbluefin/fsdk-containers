@@ -84,6 +84,11 @@ class _GitRepo:
     def remove(self, rel: str) -> None:
         (self.path / rel).unlink()
 
+    def start_orphan_branch(self, name: str) -> None:
+        """Begin a disconnected history: no merge base with the current branch."""
+        self._git("checkout", "-q", "--orphan", name)
+        self._git("rm", "-rq", "--cached", ".")
+
     def commit(self, message: str) -> str:
         self._git("add", "-A")
         self._git("commit", "-q", "-m", message)
@@ -115,7 +120,6 @@ class MultiarchRefsCliTests(unittest.TestCase):
 
         content = get_git_file_content(base, "elements/tool.bst")
 
-        self.assertIsNotNone(content)
         self.assertIn("ref: aaa", content)
 
     def test_get_git_file_content_returns_none_for_unknown_path(self):
@@ -159,8 +163,7 @@ class MultiarchRefsCliTests(unittest.TestCase):
         """
         self.repo.write("elements/tool.bst", _bst("aaa", "bbb"))
         base = self.repo.commit("base")
-        self.repo._git("checkout", "-q", "--orphan", "other")
-        self.repo._git("rm", "-rq", "--cached", ".")
+        self.repo.start_orphan_branch("other")
         self.repo.write("elements/tool.bst", _bst("ccc", "ddd", version="v2.0.0"))
         other = self.repo.commit("unrelated root")
 
@@ -338,11 +341,12 @@ class MalformedElementTests(unittest.TestCase):
     def test_non_mapping_document_yields_no_refs(self):
         self.assertEqual(extract_arch_refs("- just\n- a\n- list\n"), {})
 
-    def test_missing_sources_key_yields_no_refs(self):
-        self.assertEqual(extract_arch_refs("kind: manual\n"), {})
-
-    def test_null_sources_yields_no_refs(self):
-        self.assertEqual(extract_arch_refs("sources:\n"), {})
+    def test_absent_or_null_sources_yields_no_refs(self):
+        # Both shapes collapse to the same `doc.get("sources") or []`: a
+        # document with no `sources` key, and one whose `sources` is null.
+        for content in ("kind: manual\n", "sources:\n"):
+            with self.subTest(content=content):
+                self.assertEqual(extract_arch_refs(content), {})
 
     def test_non_mapping_source_entry_is_skipped(self):
         self.assertEqual(extract_arch_refs("sources:\n- just-a-string\n"), {})
