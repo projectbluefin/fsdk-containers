@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24",
+  "generated_at": "2026-09-12",
   "schema_version": "1.0",
   "skills": [
     {
@@ -351,8 +351,8 @@
         "split-rules"
       ],
       "description": "The SLIM recipe \u2014 what to strip from an FSDK-carved image, the size levers, and their risk tiers. Use when shrinking an image or extending the shared slim block.",
-      "version": "1.1",
-      "last_updated": "2026-08-20",
+      "version": "1.2",
+      "last_updated": "2026-09-12",
       "doc_type": "procedure"
     },
     {
