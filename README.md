@@ -20,7 +20,8 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
-| `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. One of two scoped exceptions to the no-shell rule among the OCI images (the other is `review-runtime`). Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/review-runtime` | — | **Deliberately shell-enabled** review-appliance runtime (bash, python3, node, git, curl, plus the POSIX text tools: diff, find, gawk, gzip, less, sed, tar). The second scoped exception to the no-shell rule; its shell surface is enforced by `gates.require_binaries` in `catalog/review-runtime.yaml`. Multi-arch: linux/amd64, linux/arm64. |
 
 <a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
 shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
@@ -28,7 +29,7 @@ and coreutils together; the SLIM recipe removes only bash. In FSDK 26.08+, the
 split becomes explicit: `runtime-minimal` drops both bash and coreutils, which move
 to `public-stacks/runtime-gnu`. The distroless `base` image continues to compose
 from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
-(lab-runner, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
+(lab-runner, review-runtime, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
 
 ### Machine images (not distroless)
 
