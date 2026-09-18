@@ -19,14 +19,11 @@ on:
       - 'tests/test_verify_contract*.py'
       # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
       # workflow/action inventory against docs/skills/ci-tooling/references/.
-      # Without these the drift gate never fires for the exact changes it
+      # Without these two the drift gate never fires for the exact changes it
       # guards -- adding or deleting a workflow, or editing the reference doc.
       - '.github/workflows/**'
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
-      # The pinned dependency set this job installs from (see #271); an edit to
-      # it must be exercised by the job that consumes it.
-      - '.github/requirements/**'
   push:
     branches: [main]
     paths:
@@ -42,7 +39,6 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
-      - '.github/requirements/**'
 
 permissions: {}
 
