@@ -8,13 +8,12 @@ Go 1.27 could no longer compile that older source's vendored grpc/x/net pair
 resolves the element graph, not the upstream tag — so check the pin against
 the live tag here.
 
-Scope is the published OCI image lanes from elements/targets.json (the lanes
-the oci-images workflow builds). Junction tracks with globs
+Scope covers all element files under elements/ (both published OCI image lanes
+and unbundled helper/runtime elements such as brew). Junction tracks with globs
 (`freedesktop-sdk-26.08*`), branch tracks (`gnome-50`, `v2`), and untracked
 pins name no single release tag, so there is nothing to verify against.
 """
 
-import json
 from pathlib import Path
 import re
 import subprocess
@@ -34,17 +33,8 @@ DESCRIBE = re.compile(r"^(?P<tag>.+)-0-g(?P<sha>[0-9a-f]{40})$")
 PLAIN_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
-def _oci_element_files():
-    targets = json.loads((ROOT / "elements" / "targets.json").read_text())
-    files = []
-    for paths in targets["image_paths"].values():
-        for entry in paths:
-            path = ROOT / entry
-            if entry.endswith("/"):
-                files.extend(sorted(path.rglob("*.bst")))
-            elif path.suffix == ".bst":
-                files.append(path)
-    return files
+def _element_files():
+    return sorted((ROOT / "elements").rglob("*.bst"))
 
 
 def _git_repo_sources(path):
@@ -84,7 +74,7 @@ def _tag_commit(url, tag):
 class TrackedGitRefTests(unittest.TestCase):
     def test_exact_tag_tracks_pin_the_tagged_commit(self):
         checked = 0
-        for path in _oci_element_files():
+        for path in _element_files():
             for source in _git_repo_sources(path):
                 track = source.get("track", "")
                 ref = source.get("ref", "")

@@ -146,6 +146,14 @@
         "extra": {
           "type": "string",
           "description": "Image-specific shell commands appended after the shared slim recipe. Phase 3 dependency-closure pruning is expected to delete most of these."
+        },
+        "includes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^slim-[a-z0-9]+\\.yml$",
+            "description": "Per-runtime-family slim fragments from include/ (e.g. slim-python.yml) composed into this image after the shared OS recipe. Each fragment defines a %{slim-<stem>-commands} variable the generator references. This is how family bloat-stripping recipes generalise into include/ instead of living inline in a record's slim.extra (#130)."
+          }
         }
       }
     },
