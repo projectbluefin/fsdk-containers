@@ -80,6 +80,20 @@ so this went unnoticed for multiple bump cycles.
 gh run list --workflow=refresh-bst-refs.yml --limit 20   # "skipped" on the renovate PR = gate miss
 ```
 
+For `kind: git_repo` sources a stale `ref:` does **not** fail the fetch — the old
+commit still exists, so the build silently compiles the previous release while the
+element claims the new one. The first symptom can be a compile error far from the
+cause: #234 tracked buildah v1.45.0 while pinning v1.44.1's commit, which surfaced
+only when FSDK 26.08.0's Go 1.27 could not build the older vendored grpc/x/net
+pair (`undefined: http2.TrailerPrefix`). Verify the pair against the live tag:
+
+```
+git ls-remote --tags https://github.com/<org>/<repo> "refs/tags/<track>^{}"
+```
+
+`tests/test_catalog_tracked_refs.py` (wired into `just catalog-check`) automates that check
+for the exact-tag `git_repo` sources feeding the published OCI images.
+
 Manual repair is exactly what `bst source track` does for `tar`/`remote` sources (it
 downloads the URL and writes back the sha256 — see `/apache/buildstream`
 `DownloadableFileSource.track`), so either works:
@@ -90,7 +104,7 @@ curl -sL <url> | sha256sum
 
 # Option B: on a checkout of the renovate branch (rewrites the file in
 # BuildStream's canonical YAML style — expect whole-file reflow):
-BST_LOCAL=1 just bst source track <element>
+BST_LOCAL=1 just track <element>
 ```
 
 Then `just validate` and, to prove the fetch end-to-end, `just bst source fetch <element>`.
@@ -105,22 +119,18 @@ Two shortcuts worth knowing:
   autocloses them on its next run. That is usually less churn than force-pushing fixes
   onto each bot branch.
 
-## Multi-arch hazard: refresh can update one arch's ref and leave the other stale
+## Multi-arch sources: tracking and ref parity
 
-The refresh automation can bump the version variable and the **x86_64** `ref:` while
-leaving the **aarch64** `ref:` holding the old version's digest (seen on kubectl and argo
-bumps). `validate` passes (it resolves the graph, it does not fetch), so the stale ref
-only fails at `pr-build-oci (…, aarch64)` — or worse, merges green on x86_64-only runs.
-Before merging any renovate bump on a multi-arch `remote` source, diff both arch refs and
-recompute any that did not change:
+Multi-arch binary sources (`kubectl`, `argo`, `just`, etc.) use `(?)` conditionals with
+`arch == "x86_64"` and `arch == "aarch64"`. A plain `bst source track` on an x86_64 runner
+only evaluates the active architecture and leaves the other stale.
 
-```
-curl -sL https://dl.k8s.io/release/<ver>/bin/linux/arm64/kubectl.sha256   # sidecar, or
-curl -sL <url> | sha256sum                                                # recompute
-```
-
-`validate` being green is NOT evidence the refs are right — the per-arch `pr-build-oci`
-jobs are.
+To prevent this:
+- `.github/workflows/refresh-bst-refs.yml` tracks every supported architecture in sequence
+  (`just bst -o arch <arch> source track`) and verifies ref parity before committing.
+- The PR gate runs `scripts/check_multiarch_refs.py` (`just check-refs`) to fail fast if
+  exactly one architecture's ref was updated.
+- For local manual updates, run `just track <element>` to track all architectures together.
 
 ## Adding a new upstream package
 

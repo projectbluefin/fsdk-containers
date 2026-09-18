@@ -114,11 +114,13 @@ def require_any_paths_for(record: dict) -> list[str]:
 def smoke_argv(record: dict) -> list[str]:
     """Arguments to append to `podman run --rm <ref>` for the smoke test.
 
-    Returns [] for an image with no smoke block (base, static); the Justfile
-    skips the smoke step entirely in that case, matching today's behaviour.
+    Returns [] for an image whose smoke is "none" (base, static) -- every
+    record must say so explicitly now, there is no longer a silent-omission
+    case. The Justfile/CI fall back to the plain runnability probe then,
+    matching today's behaviour.
     """
     smoke = record.get("smoke")
-    if not smoke:
+    if not isinstance(smoke, dict):
         return []
     argv: list[str] = []
     override = smoke.get("entrypoint_override")
@@ -176,7 +178,8 @@ def main() -> int:
     print(f"SMOKE_ARGS={shlex.quote(chr(10).join(cmd_args))}")
     # shell_probe is a bash one-liner declared in shell-enabled records; empty
     # string for distroless images, which have no shell to run probes in.
-    shell_probe = record.get("smoke", {}).get("shell_probe", "") or ""
+    smoke = record.get("smoke")
+    shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
     return 0
 

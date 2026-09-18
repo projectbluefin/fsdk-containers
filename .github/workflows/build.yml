@@ -104,6 +104,11 @@ jobs:
             echo "- podman-vm guest built and boot-tested: \`$(jq -r '.vm_guest' <<<"${TARGETS}")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify multi-arch ref parity
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/check_multiarch_refs.py --base "${BASE_SHA}" --head HEAD
+
   # Deliberately NOT a call into oci-images.yml: this job has no login, tag,
   # push, sign, or attest step at all, so a pull request -- including one from
   # a fork -- has no code path to publication. It only needs `contents: read`.

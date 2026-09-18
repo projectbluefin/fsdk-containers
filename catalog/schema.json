@@ -10,7 +10,8 @@
     "kind",
     "description",
     "size_ceiling_mib",
-    "stack"
+    "stack",
+    "smoke"
   ],
   "properties": {
     "name": {
@@ -46,32 +47,39 @@
       "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
     },
     "smoke": {
-      "type": "object",
-      "description": "OPTIONAL: omit for images that have no smoke test in the Justfile today (base, static).",
-      "additionalProperties": false,
-      "required": [
-        "args"
-      ],
-      "properties": {
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Arguments appended to the entrypoint to prove the image runs."
+      "description": "How to prove this image runs. Either a smoke-test block, or the literal string \"none\" for images that genuinely have no smoke test in the Justfile today (base, static). Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
+      "oneOf": [
+        {
+          "const": "none"
         },
-        "entrypoint_override": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Run this instead of the image entrypoint. Only for images whose entrypoint is not the thing under test."
-        },
-        "shell_probe": {
-          "type": "string",
-          "description": "Extra shell one-liner, permitted only when kind is shell-enabled."
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "args"
+          ],
+          "properties": {
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Arguments appended to the entrypoint to prove the image runs."
+            },
+            "entrypoint_override": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Run this instead of the image entrypoint. Only for images whose entrypoint is not the thing under test."
+            },
+            "shell_probe": {
+              "type": "string",
+              "description": "Extra shell one-liner, permitted only when kind is shell-enabled."
+            }
+          }
         }
-      }
+      ]
     },
     "size_ceiling_mib": {
       "type": "integer",
