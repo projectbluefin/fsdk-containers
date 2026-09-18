@@ -50,7 +50,7 @@ set, CA certificates — so `datetime`/TLS work out of the box without the wheel
 gymnastics other distroless suites push onto you.
 
 Pipeline: `stack` (deps) -> `compose` (chisel) -> `script` (slim + oci-builder).
-See [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) for the recipe.
+See [docs/skills/slim-an-image/SKILL.md](docs/skills/slim-an-image/SKILL.md) for the recipe.
 
 ## Verify signatures
 

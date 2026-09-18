@@ -89,7 +89,7 @@ Verified against `project.conf`, `Justfile`, and `include/`:
 
 BuildStream runs inside the FSDK `bst2` container via the `just bst` wrapper. Local and
 agent builds are submitted to the ghost cluster's BuildBarn grid by default; `BST_LOCAL=1`
-is the explicit opt-out. See [remote-execution.md](../remote-execution/SKILL.md).
+is the explicit opt-out. See [remote-execution.md](../remote-execution.md).
 
 | Goal | Command |
 |---|---|

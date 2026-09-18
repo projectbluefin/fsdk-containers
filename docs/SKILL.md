@@ -21,9 +21,9 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 
 | If your task is... | Load |
 | ------------------ | ---- |
-| Write or review a `.bst` file — kinds, variables, sources, directives | [`skills/buildstream.md`](skills/buildstream.md) |
+| Write or review a `.bst` file — kinds, variables, sources, directives | [`skills/buildstream/SKILL.md`](skills/buildstream/SKILL.md) |
 | A build is failing, or content is missing from an image | [`skills/bst-debugging.md`](skills/bst-debugging.md) |
-| Bump a junction ref, touch `patches/`, or diagnose cache misses | [`skills/bst-junctions.md`](skills/bst-junctions.md) |
+| Bump a junction ref, touch `patches/`, or diagnose cache misses | [`skills/bst-junctions/SKILL.md`](skills/bst-junctions/SKILL.md) |
 | Build an upstream Go/Rust tool FSDK does not ship | [`skills/bst-packaging.md`](skills/bst-packaging.md) |
 
 ### Images and workflow
@@ -34,10 +34,10 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 | Add a component + stack only, no OCI image | [`skills/add-fsdk-component/SKILL.md`](skills/add-fsdk-component/SKILL.md) |
 | Add a non-distroless nspawn machine image (dev env, tarball) | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
 | Add a bootable EFI/raw VM guest image (QEMU disk) | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
-| Make an image smaller / apply the SLIM recipe | [`skills/slim-an-image.md`](skills/slim-an-image.md) |
+| Make an image smaller / apply the SLIM recipe | [`skills/slim-an-image/SKILL.md`](skills/slim-an-image/SKILL.md) |
 | Move to a new FSDK release / retag | [`skills/bump-fsdk-version.md`](skills/bump-fsdk-version.md) |
 | Keep non-FSDK upstream packages current / add a tracked version pin | [`skills/track-upstream-versions.md`](skills/track-upstream-versions.md) |
-| Prove an image is still distroless | [`skills/verify-distroless.md`](skills/verify-distroless.md) |
+| Prove an image is still distroless | [`skills/verify-distroless/SKILL.md`](skills/verify-distroless/SKILL.md) |
 | Supply chain security (signing and SBOM) | [`skills/signing-and-sbom.md`](skills/signing-and-sbom.md) |
 | Add donate-clanker VM artifacts | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
 | Write or debug a CI workflow | [`skills/ci-tooling/SKILL.md`](skills/ci-tooling/SKILL.md) |
