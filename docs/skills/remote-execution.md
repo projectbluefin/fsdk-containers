@@ -103,6 +103,40 @@ actions, RE is not active.
 | `Failed to determine missing blobs: ... 127.0.0.1:18980: Connection refused` with **concurrent** `just bst` runs | every `just bst` binds its own forward on 18980 and `kill`s it on exit; only one bind wins, so a finishing sibling severs the forward your in-flight upload is streaming through | rerun — or route around the shared port: `BST_FLAGS="--config /src/<override>.conf"` with a copy of `.bst-re.conf` whose three `url:`s point at a stable forward (e.g. the long-lived `:8980` one); bst merges repeated `--config`, later wins |
 | `Worker {... "pod":"worker-*" ...} disappeared while task was executing` after a long remote wait | worker pod was replaced mid-action (redeploy/OOM); the action dies with it, result never returns | rerun once replacement workers are `Running` (`kubectl get pods -n buildbarn`); all other elements resume from CAS, only the interrupted action recompiles |
 | `Failed to obtain input file "...": Shard N: Object not found`, raised **after** the remote build already reported success | the default buildtree-caching step walks the whole input tree back against the bb-storage shards; a shard that 404s one input fails the command even though the build itself succeeded | retry — the identical cache key usually succeeds. If it repeats, `BST_FLAGS="--cache-buildtrees never" just bst build <element>` (turned 3 consecutive failures into an immediate success). **Do not suspect your element**: it names a random unrelated input file each time. |
+| `rm: cannot remove '/buildstream/<project>/<element>': Read-only file system`, as the **last** install command | an element tried to `rm -rf "%{build-root}"` itself. The parent of `%{build-root}` is a read-only mount, so the final unlink fails with `EROFS` even though the recursive delete already emptied the tree | delete the **contents**, never the directory: `rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*`. See below. |
+
+## Sandbox: `%{build-root}` contents are writable, the directory itself is not
+
+`%{build-root}` (`/buildstream/<project>/<element>`) is where sources stage and
+the build runs, so its **contents** are writable. Its **parent** is a read-only
+mount, so the build-root directory entry cannot be unlinked.
+
+This matters because `%{build-root}` is a declared REAPI Command output and is
+captured into CAS alongside `%{install-root}` — and bb-storage rejects any
+single blob over ~2.42 GiB. A large C++ build (node's `out/` is multi-GB) must
+therefore drop its build tree in the last install command, or output capture
+fails after a successful compile.
+
+The obvious way to do that is wrong:
+
+```sh
+rm -rf "%{build-root}"            # EROFS on the final unlink — build fails
+rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*   # correct
+```
+
+`rm -rf` is depth-first, so the broken form **does** empty the tree and then
+dies removing the now-empty directory. The error names only the build-root path,
+which reads like a permissions problem with the whole tree; it is not. The three
+globs cover dotfiles (source tarballs routinely ship `.github/`, `.gitignore`);
+an unmatched glob stays literal and `rm -f` exits 0 on a nonexistent path, so
+the command is safe under `set -e` and idempotent on an already-empty directory.
+
+**Note the distinction from the file-pool hazard below.** `runCommandsAs:
+{userId: 0}` means root ignores read-only *permission bits* — which is what lets
+a build corrupt the staged input pool. It does **not** confer the ability to
+write to a read-only *mount*: `EROFS` is enforced against root too. An element
+comment asserting that the sandbox "marks `%{build-root}` read-write" is
+conflating the two and will produce this failure.
 
 ## Data-integrity failure: a build element corrupted the worker file pool
 
