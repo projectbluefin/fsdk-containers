@@ -350,6 +350,16 @@ jobs:
       TAG: ${{ needs.manifest.outputs.tag }}
       MANIFEST_DIGEST: ${{ needs.manifest.outputs.digest }}
     steps:
+      # Checkout is needed so the publish-smoke command can be derived from
+      # the catalog record (scripts/verify_contract.py) instead of a
+      # hand-maintained case list — the same derivation `just verify` uses.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Install python dependencies
+        run: python3 -m pip install --user pyyaml jsonschema
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
@@ -375,15 +385,34 @@ jobs:
           actual_arch="$(podman image inspect --format '{{.Architecture}}' "${REPO}@${arch_digest}")"
           test "${actual_arch}" = "${PLATFORM_ARCH}"
           # All published images must be runnable with their OCI config.
-          case "${{ inputs.image }}" in
-            base|static) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" /usr/bin/true ;;
-            lab-runner) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" -c 'true' ;;
-            python) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" --version ;;
-            buildah) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" --version ;;
-            qemu-img) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" --version ;;
-            skopeo) podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" skopeo --version ;;
-            *) echo "ERROR: no publish smoke command configured for ${{ inputs.image }}" >&2; exit 1 ;;
-          esac
+          # The smoke command comes from the catalog record — the single
+          # source of truth per elements/targets.json — derived exactly the
+          # way `just verify` derives it. Adding an image never touches this
+          # job; a record with no smoke: block gets the plain runnability
+          # probe (today's base/static behaviour).
+          CONTRACT_ENV=$(python3 scripts/verify_contract.py "${{ inputs.image }}" --env)
+          eval "$CONTRACT_ENV"
+          SMOKE_OPTS_ARR=()
+          if [ -n "$SMOKE_OPTS" ]; then
+            mapfile -t SMOKE_OPTS_ARR <<< "$SMOKE_OPTS"
+          fi
+          SMOKE_ARGS_ARR=()
+          if [ -n "$SMOKE_ARGS" ]; then
+            mapfile -t SMOKE_ARGS_ARR <<< "$SMOKE_ARGS"
+          fi
+          if [ "${#SMOKE_OPTS_ARR[@]}" -gt 0 ] || [ "${#SMOKE_ARGS_ARR[@]}" -gt 0 ]; then
+            podman run --rm --platform "linux/${PLATFORM_ARCH}" "${SMOKE_OPTS_ARR[@]}" "${REPO}@${arch_digest}" "${SMOKE_ARGS_ARR[@]}"
+          else
+            podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" /usr/bin/true
+          fi
+          # Shell-enabled images (lab-runner) additionally run shell_probe
+          # through the image's own default entrypoint -- SMOKE_OPTS/ARGS
+          # above override the entrypoint (e.g. to /usr/bin/argo), so without
+          # this the default entrypoint would never be exercised at all.
+          # Mirrors the Justfile's `verify` recipe exactly (see #324).
+          if [ "$IMG_KIND" = "shell-enabled" ] && [ -n "$SHELL_PROBE" ]; then
+            podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" -c "$SHELL_PROBE"
+          fi
 
       - name: Verify published manifest signature
         run: |

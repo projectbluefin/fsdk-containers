@@ -34,10 +34,17 @@ match **both** or the VM boots to an idle login prompt:
 
 The envelope is protocol **version 2**: required `hive_endpoint`,
 `registration_token`, `backend`, `run_id`; optional `goose_provider`,
-`goose_model`, `provider_secret`. Validate the required keys and ignore
-unknown ones -- an exact key-set comparison rejects every real envelope the
-moment donate-clanker adds an optional field. The acknowledgement must be
-`{"version": 2, "type": "control_ack"}`; the launcher aborts on anything else.
+`goose_model`, `provider_secret`, `identity.v1`. Validate the required keys
+and ignore unknown ones -- an exact key-set comparison rejects every real
+envelope the moment donate-clanker adds an optional field. The
+acknowledgement must be `{"version": 2, "type": "control_ack"}`; the
+launcher aborts on anything else.
+
+The optional `identity.v1` field carries a contributor's GitHub
+personal-access token. When present, it is mapped to `GH_TOKEN` so the
+worker can fork, push, and open pull requests. The versioned field name
+lets the host and guest evolve independently: a future `identity.v2` can
+change the schema without breaking guests that only understand v1.
 
 The worker reads its Hive credentials from the environment *first*, using
 these names and no others:
@@ -49,6 +56,7 @@ AGENT_BACKEND              <- backend
 GOOSE_PROVIDER             <- goose_provider (default: github_copilot)
 GOOSE_MODEL                <- goose_model
 GITHUB_COPILOT_TOKEN       <- provider_secret
+GH_TOKEN                   <- identity.v1 (contributor mode only)
 ```
 
 The bootstrap additionally exports `DONATE_CLANKER_RUN_ID` (from the

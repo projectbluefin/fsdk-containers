@@ -24,6 +24,7 @@ def valid_record(**overrides):
         "description": "A valid record used as a negative-test baseline",
         "size_ceiling_mib": 64,
         "stack": {"depends": []},
+        "smoke": "none",
     }
     record.update(overrides)
     return record
@@ -80,12 +81,28 @@ class SchemaTests(unittest.TestCase):
         record = valid_record(kind="shell-enabled", smoke={"args": [], "shell_probe": "true"})
         self.assertEqual(catalog.validate(record)["kind"], "shell-enabled")
 
-    def test_a_record_may_omit_entrypoint_and_smoke(self):
-        """base and static have neither today; the schema must not force them."""
+    def test_a_record_may_omit_entrypoint(self):
+        """base and static have none today; the schema must not force one."""
         record = valid_record()
         self.assertNotIn("entrypoint", record)
-        self.assertNotIn("smoke", record)
         catalog.validate(record)
+
+    def test_smoke_none_is_the_explicit_opt_out(self):
+        """base and static declare smoke: none rather than omitting smoke."""
+        record = catalog.load_record(ROOT / "catalog" / "base.yaml")
+        self.assertEqual(record["smoke"], "none")
+
+    def test_smoke_cannot_be_omitted(self):
+        """Every record must say what its smoke test is, even if that's none.
+
+        Omission used to default silently to the trivial probe, which made a
+        forgotten smoke block indistinguishable from a deliberate opt-out.
+        """
+        record = valid_record()
+        del record["smoke"]
+        with self.assertRaises(catalog.CatalogError) as ctx:
+            catalog.validate(record)
+        self.assertIn("smoke", str(ctx.exception))
 
 
 if __name__ == "__main__":

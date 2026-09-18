@@ -91,7 +91,9 @@ jobs:
           ELEMENTS: ${{ steps.changed.outputs.elements }}
         run: |
           # shellcheck disable=SC2086  # word splitting intended: multiple element args
-          just bst source track $ELEMENTS
+          for arch in x86_64 aarch64; do
+            just bst -o arch "$arch" source track $ELEMENTS
+          done
 
       - name: Validate element graph
         if: steps.changed.outputs.elements != ''
@@ -110,6 +112,13 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Verify multi-arch ref parity
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 scripts/check_multiarch_refs.py --base "$BASE_SHA"
 
       # Minted only now, after `bst source track` / `just validate` have
       # already run PR-controlled code with no elevated credential present.
