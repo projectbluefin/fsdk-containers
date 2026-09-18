@@ -12,6 +12,18 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from check_multiarch_refs import check_parity, extract_arch_refs
 
 
+def _http_status_is_transient(code: int) -> bool:
+    """Is an upstream HTTP status transport weather rather than a finding?
+
+    ``dl.k8s.io`` is a CDN redirector, so a 5xx or a 429 says nothing about
+    this repository and must not fail CI on an unrelated ``elements/**`` edit.
+    Every other 4xx -- a 404 above all -- means the version declared in
+    ``kubectl.bst`` has no such artifact upstream, which is precisely the
+    drift this gate exists to catch.
+    """
+    return code == 429 or code >= 500
+
+
 SAMPLE_BST_BEFORE = """kind: manual
 variables:
   tool_version: v1.0.0
@@ -239,7 +251,14 @@ sources:
                     )
                     verified_count += 1
             except urllib.error.HTTPError as exc:
-                self.fail(f"Upstream release checksum fetch failed for {version} ({url}): {exc}")
+                if _http_status_is_transient(exc.code):
+                    self.skipTest(
+                        f"upstream returned HTTP {exc.code} for {url}: {exc}"
+                    )
+                self.fail(
+                    f"Upstream release checksum fetch failed with HTTP {exc.code} "
+                    f"for {version} ({url}): {exc}"
+                )
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 self.skipTest(f"upstream unreachable for {url}: {exc}")
 
@@ -248,6 +267,15 @@ sources:
             len(arch_map),
             f"Expected {len(arch_map)} verified architectures, verified {verified_count}",
         )
+
+    def test_upstream_404_fails_while_throttling_and_5xx_skip(self):
+        # The network test above cannot exercise this offline, and inverting
+        # the branch is the failure that matters: a 404 on a declared version
+        # would be swallowed as "CDN hiccup" and the gate would pass on drift.
+        # 429 is the precedence trap -- a 4xx that must still skip.
+        self.assertFalse(_http_status_is_transient(404))
+        self.assertTrue(_http_status_is_transient(429))
+        self.assertTrue(_http_status_is_transient(500))
 
 
 if __name__ == "__main__":
