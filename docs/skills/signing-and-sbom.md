@@ -1,7 +1,7 @@
 ---
 name: signing-and-sbom
-version: "1.1"
-last_updated: 2026-08-20
+version: "1.2"
+last_updated: 2026-09-18
 id: signing-and-sbom
 one_line_purpose: Sign published images and attach SPDX SBOMs as OCI referrers.
 entry_point: docs/skills/signing-and-sbom.md
@@ -57,17 +57,41 @@ jq '.packages | length' base.spdx.json
 jq -r '.packages[].name' base.spdx.json | grep -E "glibc|openssl"
 ```
 
-To verify a published image and its signature/attestation from the command line:
+To verify published OCI artifacts (runner and appliance images) and their signature/attestation:
 
 ```bash
-# Verify the keyless signature of an image
+# Verify the keyless signature of an image (pin to manifest digest)
 cosign verify \
   --certificate-identity-regexp="https://github.com/projectbluefin/fsdk-containers/.github/workflows/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
   ghcr.io/projectbluefin/base:26.08
+  # Or with digest: ghcr.io/projectbluefin/base@sha256:<digest>
 
-# Discover and retrieve the attached SBOM
+# Discover and retrieve the attached SPDX SBOM referrer
 oras discover ghcr.io/projectbluefin/base:26.08
+
+# Verify GitHub provenance attestation for the OCI image
+gh attestation verify oci://ghcr.io/projectbluefin/base:26.08 \
+  -R projectbluefin/fsdk-containers \
+  --signer-repo projectbluefin/fsdk-containers
+```
+
+To verify published VM guest release artifacts (`podman-vm`):
+
+```bash
+# 1. Verify download integrity via SHA256 checksum sidecar
+sha256sum -c donate-clanker-vm-26.08-x86_64.raw.zst.sha256
+
+# 2. Decompress and verify uncompressed disk integrity
+zstd -d --keep donate-clanker-vm-26.08-x86_64.raw.zst
+sha256sum -c donate-clanker-vm-26.08-x86_64.raw.sha256
+
+# 3. Verify cryptographic authenticity and build provenance (via GitHub Attestations)
+# Note: Checksum sidecars verify download integrity but zero authenticity.
+# Authenticity must be verified using GitHub Artifact Attestations:
+gh attestation verify donate-clanker-vm-26.08-x86_64.raw.zst \
+  -R projectbluefin/fsdk-containers \
+  --signer-repo projectbluefin/fsdk-containers
 ```
 
 ---
@@ -149,7 +173,12 @@ not a scanner quirk.
   registry-referrer/`--bundle-from-oci` path is lost. The SPDX SBOM referrer
   has no such limit: plain `oras attach` + `cosign sign` loops in shell.
 - **The VM guest disk has no registry**, so it uses `actions/attest` with
-  `subject-path` (glob over `.raw`/`.qcow2`) and `push-to-registry: false`,
+  `subject-path` (glob over `.raw`/`.qcow2`/`.raw.zst`/`.qcow2.zst`) and `push-to-registry: false`,
   plus a second call with `sbom-path` for the SPDX file — per arch, matching
   the independent-per-arch publication pattern.
+  Consumers verify the downloaded asset file with
+  `gh attestation verify <asset-file> -R projectbluefin/fsdk-containers --signer-repo projectbluefin/fsdk-containers`.
+  Note that `subject-path` attests both uncompressed and compressed disks, but only
+  compressed `.zst` files, checksum sidecars, and SPDX SBOMs are published to GitHub Releases
+  because uncompressed disks exceed GitHub's 2 GiB per-asset limit.
 
