@@ -1,0 +1,64 @@
+# Per-runtime-family bloat stripping for the Python image family.
+# Included under an element's variables: mapping with (@), alongside include/slim.yml.
+# Referenced by the OCI script element as %{slim-python-commands}.
+#
+# This is the Python half of the SLIM recipe. include/slim.yml carves the OS
+# layer (shells, sanitizers, locale, gconv, pcre); this fragment carves the
+# payload layer that the split-rule domains leave behind. It is a separate
+# fragment, not a section of slim.yml, so the JVM / Node / Go / C-daemon
+# families get their own equivalents without polluting the shared OS recipe
+# (see docs/skills/slim-an-image.md — "Per-family recipes").
+#
+# Scope boundary (projectbluefin/fsdk-containers#130): remove only what cannot
+# be used at runtime. Keep the interpreter, the stdlib the app links, and tzdata
+# + CA certs (the distroless differentiator). Do NOT guess-prune site-packages,
+# tree-shake, or drop "unused" modules — that silently removes capabilities the
+# way jlink's missing jdk.incubator.vector did.
+slim-python-commands: |
+  set -eu
+  L=/layer
+
+  # Python's own test suite ships inside the interpreter tree (~30-40 MB) and
+  # is never exercised at runtime by an app that only imports the stdlib.
+  rm -rf "$L"/usr/lib/python*/test \
+         "$L"/usr/lib/python*/*/test \
+         "$L"/usr/lib/python*/*/tests
+
+  # ensurepip bootstraps pip into a fresh venv; an app that installs nothing at
+  # runtime does not need it, and it drags pip/setuptools/wheel (build tooling)
+  # into the image. Keep it gone.
+  rm -rf "$L"/usr/lib/python*/ensurepip
+
+  # GUI / interactive front-ends (idle, tkinter, turtledemo) pull tk + a heavy
+  # interactive tail the container runtime domain does not need.
+  rm -rf "$L"/usr/lib/python*/idlelib \
+         "$L"/usr/lib/python*/tkinter \
+         "$L"/usr/lib/python*/turtledemo \
+         "$L"/usr/lib/python*/turtle.py
+
+  # Dead interpreter machinery: lib2to3 (removed from Python 3.12), the pydoc
+  # help bundle, the __phello__ experiment, and the config scaffolding for
+  # building C extensions against the installed interpreter.
+  rm -rf "$L"/usr/lib/python*/lib2to3 \
+         "$L"/usr/lib/python*/pydoc_data \
+         "$L"/usr/lib/python*/__phello__ \
+         "$L"/usr/lib/python*/config-* \
+         "$L"/usr/lib/python*/*/config-*
+
+  # Statically linked .a libraries: nothing at runtime links a static archive,
+  # and they duplicate what the shared .so runtimes already provide.
+  rm -f "$L"/usr/lib/python*/*.a \
+        "$L"/usr/lib/python*/*/*.a
+
+# ── Measured candidates, NOT yet applied (leave the smoke test green first) ──
+# These are the next levers the #130 measurement pass should land per-family,
+# each behind a smoke test that proves the app's real functionality still runs:
+#
+#   * __pycache__/ bytecode caches — always regenerable, zero functional risk,
+#     but a published-image change so measure before applying.
+#   * pip/setuptools/wheel modules under usr/lib/python*/site-packages when the
+#     app does not `pip install` at runtime (cloud-custodian, in-toto).
+#   * .dist-info EXTRA records and vendored wheels bundled in site-packages.
+#
+# Do not add these to the recipe above until a smoke test exercises the target
+# app; a silent capability removal fails at runtime, not at build (see #130).
