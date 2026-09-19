@@ -5,7 +5,6 @@ export_description: Skopeo OCI image utility built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,skopeo
 smoke:
   args: ["skopeo", "--version"]
-size_ceiling_mib: 224
 stack:
   depends:
     - base/base-stack.bst

@@ -214,7 +214,7 @@ npx --yes --package renovate -- renovate-config-validator renovate.json
 
 `renovate.json` sets `automerge: false` for the `custom.regex` manager. A version bump here
 changes the contents of a shipped image: the ref must be refreshed, the build must succeed,
-and `just verify` (size ceiling + gates + smoke test) must pass. GitHub Actions bumps are
+and `just verify` (gates + smoke test) must pass. GitHub Actions bumps are
 automerged; upstream software is not.
 
 ## Known gap

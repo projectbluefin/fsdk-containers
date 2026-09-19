@@ -6,7 +6,6 @@ keywords: distroless,freedesktop-sdk,bluefin,review
 entrypoint: ["/usr/bin/python3"]
 smoke:
   args: ["--version"]
-size_ceiling_mib: 320
 stack:
   depends:
     - base/base-stack.bst

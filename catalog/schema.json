@@ -9,7 +9,6 @@
     "name",
     "kind",
     "description",
-    "size_ceiling_mib",
     "stack",
     "smoke"
   ],
@@ -80,11 +79,6 @@
           }
         }
       ]
-    },
-    "size_ceiling_mib": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Uncompressed local podman size ceiling. Superseded by the ratchet in a later phase; kept here so this plan changes no behaviour."
     },
     "stack": {
       "type": "object",

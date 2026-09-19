@@ -6,7 +6,6 @@ keywords: distroless,freedesktop-sdk,bluefin,qemu-img
 entrypoint: ["/usr/bin/qemu-img"]
 smoke:
   args: ["--version"]
-size_ceiling_mib: 192
 stack:
   depends:
     - base/base-stack.bst

@@ -67,7 +67,7 @@ agent's session folder.
   opt-out. CI runners build locally per-arch.
 - Compose from FSDK `components/*`, never `platform.bst`.
 - Slim by default; keep tzdata + common charsets + CA certs.
-- `just verify` is the merge contract: a per-image size ceiling, 5 distroless
+- `just verify` is the merge contract: 4 distroless
   gates (3 for the shell-enabled `lab-runner`), and a smoke test.
 - There is deliberately no `:latest` tag. The FSDK minor line is the most
   permissive tag published.

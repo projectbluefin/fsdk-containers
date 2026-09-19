@@ -10,7 +10,6 @@ smoke:
   shell_probe: >-
     kubectl version --client >/dev/null && curl --version && git --version &&
     jq --version && python3 --version && skopeo --version
-size_ceiling_mib: 640
 compose:
   exclude_omit:
     - domain: shells

@@ -58,7 +58,6 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
             "description": "Throwaway record proving generation needs no code",
             "entrypoint": ["/usr/bin/true"],
             "smoke": {"args": []},
-            "size_ceiling_mib": 64,
             "keywords": "probe,acceptance",
             "stack": {
                 "depends": [
@@ -113,7 +112,6 @@ class AddingAnImageCostsOneFileTests(unittest.TestCase):
             "description": "Throwaway record proving generation needs no code",
             "entrypoint": ["/usr/bin/true"],
             "smoke": {"args": []},
-            "size_ceiling_mib": 64,
             "keywords": "probe,acceptance",
             "stack": {
                 "depends": [

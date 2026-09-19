@@ -12,7 +12,6 @@ smoke:
   # serialization, ssl/TLS, ctypes FFI, sqlite3) and, via zoneinfo, proves the
   # kept tzdata is reachable. Requires the python3 entrypoint from the record.
   args: ["-c", "import sys, json, ssl, ctypes, sqlite3, zoneinfo; print(sys.version.split()[0])"]
-size_ceiling_mib: 144
 stack:
   depends:
     - base/base-stack.bst

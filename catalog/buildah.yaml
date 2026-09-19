@@ -6,7 +6,6 @@ keywords: distroless,freedesktop-sdk,bluefin,buildah
 entrypoint: ["/usr/bin/buildah"]
 smoke:
   args: ["--version"]
-size_ceiling_mib: 256
 stack:
   depends:
     - base/base-stack.bst

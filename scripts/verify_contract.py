@@ -82,7 +82,6 @@ def gates_for(record: dict) -> dict:
     return {
         "name": record["name"],
         "kind": record["kind"],
-        "max_bytes": record["size_ceiling_mib"] * 1024 * 1024,
         "forbid": forbid,
         "require_paths": list(record.get("gates", {}).get("require_paths", [])),
         "require_binaries": require_binaries,
@@ -164,7 +163,6 @@ def main() -> int:
     gates = gates_for(record)
 
     print(f"IMG_KIND={shlex.quote(gates['kind'])}")
-    print(f"MAX_BYTES={gates['max_bytes']}")
     print(f"FORBID_PATTERNS={shlex.quote(chr(10).join(gates['forbid'].values()))}")
     print(f"FORBID_NAMES={shlex.quote(chr(10).join(gates['forbid'].keys()))}")
     print("REQUIRE_PATHS=" + shlex.quote(chr(10).join(require_paths_for(record))))

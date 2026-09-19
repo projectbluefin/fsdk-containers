@@ -58,7 +58,7 @@ remote-execution grid by default (never built on the local machine);
 ```
 just validate   # resolve the element graph (no build)
 just build      # build + load ghcr.io/projectbluefin/base:build
-just verify     # per-image contract: size ceiling + 5 gates + smoke test
+just verify     # per-image contract: gates + smoke test
 just tags       # show FSDK-derived tags
 ```
 

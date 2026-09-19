@@ -22,7 +22,6 @@ def valid_record(**overrides):
         "name": "probe",
         "kind": "distroless",
         "description": "A valid record used as a negative-test baseline",
-        "size_ceiling_mib": 64,
         "stack": {"depends": []},
         "smoke": "none",
     }

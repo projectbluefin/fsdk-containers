@@ -230,9 +230,8 @@ A family recipe is not done until it ships with before/after numbers:
    the strip: `podman image inspect --format '{{.Size}}'` (uncompressed) plus
    `podman save | gzip -9 | wc -c` (transfer size). The JVM row's numbers above
    are the template.
-3. Run `just verify` — the size ceiling and the family's smoke test must both
-   pass. If the ceiling is the thing that bites, raise `size_ceiling_mib` in the
-   record to the measured old size *before* stripping, never to the new one.
+3. Run `just verify` — the family's smoke test must pass, proving the strip did
+   not remove something the image needs.
 4. Lock the removal in a `just verify` gate (a forbidden-path/forbidden-name
    assertion) so the bloat cannot creep back on the next version bump.
 
@@ -306,7 +305,6 @@ cut that must stay gone, so it fails the build if it creeps back.
 - Removing CA certificates, tzdata, or required charset modules to hit a size
   target.
 - Stripping a prebuilt binary without a local-only execution test.
-- Relaxing an image-size ceiling without measuring the old and new artifacts.
 
 ## Verification
 

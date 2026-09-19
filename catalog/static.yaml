@@ -6,7 +6,6 @@ keywords: distroless,freedesktop-sdk,bluefin,static
 # static has its own init-script element; all other images use base/base-init-script.bst
 init_script: static/static-init-script.bst
 smoke: none
-size_ceiling_mib: 80
 stack:
   depends:
     - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst

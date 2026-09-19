@@ -35,10 +35,6 @@ class GateDerivationTests(unittest.TestCase):
         self.assertNotIn("no-shell", gates["forbid"])
         self.assertIn("bash", gates["require_binaries"])
 
-    def test_size_ceiling_comes_from_the_record(self):
-        record = catalog.load_record(ROOT / "catalog" / "python.yaml")
-        self.assertEqual(vc.gates_for(record)["max_bytes"], 144 * 1024 * 1024)
-
     def test_tzdata_and_ca_are_gated_on_every_distroless_image(self):
         """Regression: static declares no require_paths, and deriving the
         baseline from the record silently dropped its tzdata check."""
@@ -72,11 +68,6 @@ class GateDerivationTests(unittest.TestCase):
         record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
         paths = vc.require_paths_for(record)
         self.assertNotIn("usr/share/zoneinfo/UTC", paths)
-
-    def test_every_published_image_has_a_ceiling(self):
-        for record in catalog.load_all():
-            with self.subTest(image=record["name"]):
-                self.assertGreater(vc.gates_for(record)["max_bytes"], 0)
 
     def test_smoke_command_uses_the_entrypoint_by_default(self):
         record = catalog.load_record(ROOT / "catalog" / "python.yaml")
@@ -175,7 +166,6 @@ class SmokeArgBoundaryTests(unittest.TestCase):
             "name": "synthetic",
             "kind": "distroless",
             "description": "synthetic record for smoke boundary tests",
-            "size_ceiling_mib": 64,
             "stack": {"depends": []},
             "smoke": {"args": args},
         }

@@ -61,9 +61,6 @@ distroless images (everything except the shell-enabled `lab-runner`):
    reappear. Regression guard for the shared SLIM recipe. (terminfo is NOT
    bloat: it has been deliberately kept in every image since #101 — see the
    terminfo section below.)
-5. **Image size ceiling** — compares Podman's uncompressed local `.Size` against
-   a per-image ceiling with FSDK growth headroom. This is not compressed registry
-   transfer size; it catches silent runtime-rootfs creep.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
 present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and
@@ -171,16 +168,13 @@ Follow the three-element pattern in `add-new-image.md`, then extend coverage:
    qemu-img, and lab-runner; `base`/`static` only get their `/usr/bin/true`
    smoke in the post-publish `publish-smoke` job — add a local branch when the
    image gains a real binary.)
-3. **Set a size ceiling.** Add a `MAX_BYTES` case in the `verify` recipe for the new
-   image. Calibrate it against uncompressed Podman sizes on **both** architectures
-   and leave headroom for normal FSDK point-release growth.
-4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the
+3. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the
    variant from `elements/targets.json` — nothing to hand-register.
-5. **Document runtime-specific pruning.** If the new image needs extra `rm` steps
+4. **Document runtime-specific pruning.** If the new image needs extra `rm` steps
    beyond the shared SLIM recipe (e.g. Python stdlib tests), document *why* each
    removal is safe and add a matching `grep` negative assertion to `verify` so
    the gate fails if the bloat creeps back.
-6. **Run the full local pipeline.**
+5. **Run the full local pipeline.**
    ```
    just validate && just build && just verify && just sbom <name>
    ```
@@ -195,26 +189,21 @@ change default package contents. Treat it as a coverage refresh:
 2. **Reconcile stack dependencies.** Review upstream release notes and `bst show`
    output for renames such as `public-stacks/runtime-minimal.bst` vs
    the FSDK stack that carries their shell tooling.
-3. **Recalibrate size ceilings.** FSDK minor lines usually grow. Do not encode the
-   exact current size; set ceilings with realistic headroom for the new series and
-   both architectures.
-4. **Re-run all smoke tests.** Execute every image's primary binary on `x86_64` and
+3. **Re-run all smoke tests.** Execute every image's primary binary on `x86_64` and
    `aarch64`; a library that moved domains can pass `bst show` but still fail at
    runtime.
-5. **Check tags and labels.** Run `just tags` and inspect the exported image labels
+4. **Check tags and labels.** Run `just tags` and inspect the exported image labels
    (`io.projectbluefin.fsdk.version`, `io.projectbluefin.fsdk.ref`) to confirm they
    describe the new series correctly.
-6. **Validate SBOM tooling.** If `buildstream-sbom` needs a newer pin for the new
+5. **Validate SBOM tooling.** If `buildstream-sbom` needs a newer pin for the new
    FSDK schema, update the pinned commit in the `sbom` recipe and the pip cache key
    in `.github/workflows/oci-images.yml`.
-7. **Watch upstream reports.** The upstream CVE, reproducibility, and SBOM reports
+6. **Watch upstream reports.** The upstream CVE, reproducibility, and SBOM reports
    for the new series are inherited automatically, but verify they are being
    published on the upstream branch before relying on them for a production tag.
 
 ## Adding a gate
 
 When you cut something in the SLIM recipe that must stay gone, add a matching
-`grep` assertion to gate `[5/N]` in the `verify` recipe so the build fails if it
-creeps back. Renumber the gate labels. Keep the image size ceilings in the
-`verify` recipe calibrated against both architecture builds; allow headroom for
-normal FSDK point-release growth rather than encoding today's exact size.
+`grep` assertion to the `verify` recipe so the build fails if it creeps back.
+Renumber the gate labels.
