@@ -211,6 +211,59 @@ publish pipeline attached with `oras discover --format json` (`.referrers[]`,
 not `.manifests[]`), pulls it, and scans that. It reports; it never gates — a
 CVE in an FSDK component is fixed by bumping FSDK, not by failing this repo.
 
+### In-manifest but not yet published
+
+A target belongs in `elements/targets.json` from the day its catalog record and
+elements land, not from its first publish — that is what makes the PR gate and
+`just changed-targets` see it at all. So there is always a window in which a
+target is canonical but GHCR has nothing under its name, and the two scheduled
+workflows must absorb it rather than fail:
+
+- `ghcr-cleanup.yml` filters the candidate list to packages GHCR actually has
+  before handing it to `dataaxiom/ghcr-cleanup-action`, whose lookup 404s the
+  whole run otherwise. An all-unpublished manifest yields an empty list, and
+  the `if: steps.packages.outputs.list != ''` guard makes that a clean no-op.
+- `vulnerability-scan.yml` treats skopeo's `manifest unknown` exactly like "no
+  SBOM referrer": warn, set `found=false`, and skip the downstream steps.
+
+Both skips are **narrow on purpose, and the narrowness is the hard part.**
+Absorbing "not published yet" must never widen into absorbing "could not
+tell". A blanket `2>/dev/null … || true`, or a classifier that matches only on
+message text, converts an expired credential, a registry 5xx, a rate limit or a
+scoped-token 403 into a green job that pruned nothing and scanned nothing —
+week after week, under a warning that names the wrong cause. Require **both**
+a non-zero exit status *and* the specific diagnostic string, and fail the step
+on every other error:
+
+```bash
+set +e
+RESP="$(gh api "orgs/${OWNER}/packages/container/${pkg}/versions" 2>&1)"; RC=$?
+set -e
+if [[ "${RC}" -ne 0 ]] && printf '%s' "${RESP}" | grep -qi 'not found'; then
+```
+
+Three traps are load-bearing here, and all three shipped looking fine:
+
+- **`set -e` and bare assignment.** With no `local`/`declare`/`export` prefix,
+  an assignment's exit status *is* its command substitution's, so
+  `RESP="$(gh api …)"` under `set -euo pipefail` kills the step on the very 404
+  the classifier exists to absorb — before any `grep` runs. Suspend `errexit`
+  across that one expected failure and keep the status in `RC`.
+- **`jq -r '.Digest'` prints the literal string `null`** when the key is
+  absent, which `[[ -z … ]]` does not catch; `${REGISTRY}/${IMAGE}@null` then
+  reaches `oras discover`. Always use `.Digest // empty`.
+- **`gh api` needs a credential in scope.** `actions/checkout` runs with
+  `persist-credentials: false`, and a token on a later `uses:` step is not in
+  the environment of a `run:` step, so the step needs its own
+  `env: GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`. Without it every package looks
+  unpublished and cleanup silently prunes nothing forever.
+
+`bash -n` cannot catch any of this: it is a parser, not an evaluator, and no
+`set -e` interaction is visible to it. Prove a classifier by extracting the
+step's `run:` block from the YAML and executing it against stub binaries on
+`PATH` that reproduce each failure mode — the benign one, and at least one
+that must *not* be absorbed.
+
 ### Repository settings that make the gate real (admin, not in git)
 
 Branch protection on `main` (verify: `gh api

@@ -44,13 +44,53 @@ jobs:
       # Derived from the canonical manifest, so a new image is covered the day
       # it is added instead of whenever someone remembers this file exists.
       - id: packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] | join(",")' elements/targets.json)"
-          echo "==> packages: ${LIST}"
-          echo "list=${LIST}" >> "$GITHUB_OUTPUT"
+          echo "==> candidate packages: ${LIST}"
+
+          # A target in the manifest that GHCR has not published yet (a
+          # brand-new image before its first fsdk-updated publish) makes the
+          # cleanup action's package lookup return HTTP 404 and fail the whole
+          # run. Only hand the action packages that actually exist, so an
+          # in-manifest-but-unpublished image is skipped instead of breaking a
+          # scheduled cleanup.
+          #
+          # A package is skipped only when the lookup BOTH failed and said so:
+          # `gh api` exits non-zero and the body names a missing package. Two
+          # traps live in those three lines. First, `errexit` is on and a bare
+          # assignment inherits its command substitution's exit status, so an
+          # unguarded `RESP="$(gh api ...)"` would kill the step on the very
+          # 404 this filter exists to absorb -- suspend `errexit` across that
+          # one expected failure and keep the status in RC. Second, gating on
+          # RC as well as the message means a successful response that merely
+          # mentions "not found" can never drop a live package, and any other
+          # failure -- a scope error on a limited token, a 5xx -- keeps the
+          # package, so cleanup never silently disables itself.
+          EXISTING=()
+          IFS=',' read -ra PKGS <<< "${LIST}"
+          for pkg in "${PKGS[@]}"; do
+            set +e
+            RESP="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${pkg}/versions" 2>&1)"
+            RC=$?
+            set -e
+            if [[ "${RC}" -ne 0 ]] && printf '%s' "${RESP}" | grep -qi 'not found'; then
+              echo "== skipping unpublished package: ${pkg}"
+            else
+              EXISTING+=("${pkg}")
+            fi
+          done
+          FILTERED="$(printf '%s\n' "${EXISTING[@]}" | paste -sd, -)"
+          echo "==> cleaning: ${FILTERED}"
+          echo "list=${FILTERED}" >> "$GITHUB_OUTPUT"
 
       - name: Prune untagged images
+        # Skip the whole action when no candidate package exists on GHCR yet
+        # (e.g. the only unpublished target), so a run against a fresh manifest
+        # is a clean no-op instead of a 404 failure.
+        if: steps.packages.outputs.list != ''
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
         with:
           packages: ${{ steps.packages.outputs.list }}
