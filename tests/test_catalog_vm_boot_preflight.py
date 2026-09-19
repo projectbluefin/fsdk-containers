@@ -234,9 +234,11 @@ class VmBootPreflightTests(unittest.TestCase):
         naming another disk would otherwise pass while the disk under test was
         never hashed at all.
         """
+        self.write_disk("donate-clanker-vm-0.9-x86_64.raw")
         disk = self.write_disk(
             "donate-clanker-vm-1.0-x86_64.raw",
             manifest_name="donate-clanker-vm-0.9-x86_64.raw",
+            manifest_digest=hashlib.sha256(b"not really a disk").hexdigest(),
         )
         self.install_qemu_stubs()
         result = self.run_script(str(disk))
