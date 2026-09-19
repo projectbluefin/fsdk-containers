@@ -24,7 +24,7 @@ Use when adding a new runtime/tool image carved from FSDK.
 
 - The tool already ships an official, maintained CNCF/upstream distroless image
   (e.g. `kubectl`). Consume that upstream image instead.
-- You only need to shrink an existing image → `slim-an-image.md`.
+- You only need to shrink an existing image → `slim-an-image/SKILL.md`.
 
 ## Adding an image
 

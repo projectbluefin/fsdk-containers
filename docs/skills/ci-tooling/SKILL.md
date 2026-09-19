@@ -28,7 +28,7 @@ metadata:
 ## When NOT to Use
 
 - Debugging a BST build failure (see `bump-fsdk-version.md`)
-- Debugging `just verify` gate logic (see `verify-distroless.md`)
+- Debugging `just verify` gate logic (see `verify-distroless/SKILL.md`)
 
 ## Org Conventions
 

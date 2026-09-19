@@ -40,8 +40,8 @@ remote-execution topology are this repo's.
 
 - CI trigger, token, or workflow problems → [ci-tooling](ci-tooling/SKILL.md)
 - Writing a new element from scratch → [add-new-image.md](add-new-image.md) or
-  [buildstream.md](buildstream.md)
-- Junction refs / patch queue / cache-key questions → [bst-junctions.md](bst-junctions.md)
+  [buildstream/SKILL.md](buildstream/SKILL.md)
+- Junction refs / patch queue / cache-key questions → [bst-junctions/SKILL.md](bst-junctions/SKILL.md)
 - The grid itself is unreachable → [remote-execution.md](remote-execution.md)
 - The image builds but fails a gate → [verify-distroless](verify-distroless/SKILL.md)
 
@@ -109,7 +109,7 @@ Typical causes:
   binary — plain text, shell scripts, fonts, JSON, prebuilt archives. Set
   `variables: { strip-binaries: "" }` on that element.
 - Forgot `mkdir -p` before an install or symlink target
-- An overlap conflict → see the overlap section of [buildstream.md](buildstream.md)
+- An overlap conflict → see the overlap section of [buildstream/SKILL.md](buildstream/SKILL.md)
 - Files landing outside `/usr`
 
 ### 5) Image composition failures
@@ -134,7 +134,7 @@ failure modes that do not exist locally.
   not a broken compiler. Diagnose the grid; do not "fix" the element.
 - **`/dev/stdin` redirection fails on the grid but passes locally.** Bubblewrap mounts
   `/proc`, a bare chroot runner does not. Use `install -Dm644 /dev/null <target>` then
-  `cat > <target> <<'EOF'`. See [buildstream.md](buildstream.md).
+  `cat > <target> <<'EOF'`. See [buildstream/SKILL.md](buildstream/SKILL.md).
 - **Go builds need explicit `GOROOT: "%{libdir}/go"`** or remote actions fail with
   `go: cannot find GOROOT directory` even though `go` is present.
 - **`BST_LOCAL=1` is a diagnostic, not an operating model.** Use it to isolate whether a
