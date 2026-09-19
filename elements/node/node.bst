@@ -105,12 +105,11 @@ config:
   install-commands:
     - make install DESTDIR="%{install-root}"
     # Strip the installed binary: unstripped node is ~2.7 GB of V8 symbols.
-    # bst's REAPI sandbox marks %{build-root} AND %{install-root} read-write,
-    # so BOTH are declared Command outputs and captured into CAS — and
-    # bb-storage rejects any single blob over ~2.42 GiB, which failed output
-    # capture twice even though the compile itself succeeded. strip-binaries
-    # stays "" (FSDK's strip stage would need debug-utils staged); strip the
-    # one binary that matters explicitly instead.
+    # %{install-root} and %{build-root} are both declared Command outputs and
+    # captured into CAS, and bb-storage rejects any single blob over ~2.42 GiB,
+    # which failed output capture twice even though the compile itself
+    # succeeded. strip-binaries stays "" (FSDK's strip stage would need
+    # debug-utils staged); strip the one binary that matters explicitly.
     - strip --strip-unneeded "%{install-root}/usr/bin/node"
     # Layout on record (lands in the bst log; also the size feed for #127).
     - du -sh "%{install-root}"/* 2>/dev/null | sort -rh | head -30 || true
@@ -123,6 +122,12 @@ config:
         [ "$p" = "usr" ] || rm -rf "$p"
       done
     # Drop the build tree (multi-GB out/ objects) so the declared build-root
-    # output captures nothing. Must be the LAST command — it deletes the cwd.
-    # bst's capture recreates the working directory when missing.
-    - rm -rf "%{build-root}"
+    # output captures an empty directory. Remove the CONTENTS ONLY: the sandbox
+    # mounts %{build-root}'s PARENT read-only, so unlinking the build-root
+    # directory itself fails with EROFS and aborts the build. `rm -rf` is
+    # depth-first, so the plain `rm -rf "%{build-root}"` this replaces did empty
+    # the tree and then died on the final unlink — taking review-runtime, and
+    # every PR that builds it, red. The three globs cover dotfiles (node's
+    # tarball ships .github/, .gitignore, …); an unmatched glob stays literal
+    # and `rm -f` exits 0 on a nonexistent path. Keep this LAST.
+    - rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*
