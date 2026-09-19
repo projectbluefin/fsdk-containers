@@ -40,9 +40,9 @@ not install BuildStream locally.
 | Task | Skill |
 | ---- | ----- |
 | Add a new distroless image | [docs/skills/add-new-image.md](docs/skills/add-new-image.md) |
-| Apply / extend the SLIM recipe | [docs/skills/slim-an-image.md](docs/skills/slim-an-image.md) |
+| Apply / extend the SLIM recipe | [docs/skills/slim-an-image/SKILL.md](docs/skills/slim-an-image/SKILL.md) |
 | Bump the FSDK version | [docs/skills/bump-fsdk-version.md](docs/skills/bump-fsdk-version.md) |
-| Verify distroless guarantees | [docs/skills/verify-distroless.md](docs/skills/verify-distroless.md) |
+| Verify distroless guarantees | [docs/skills/verify-distroless/SKILL.md](docs/skills/verify-distroless/SKILL.md) |
 
 ## Conventions
 
