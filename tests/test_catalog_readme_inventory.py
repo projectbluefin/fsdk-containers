@@ -7,11 +7,12 @@ require exactly one entry in ``oci_images``, its record at ``catalog/<name>.yaml
 and its path ownership in ``image_paths``.
 
 ``README.md`` publishes a second list of the same set -- the ``## Images`` table --
-and nothing compared the two. It drifted: ``review-runtime`` was published,
-signed and attested while the only consumer-facing list of what this repository
-ships had no row for it, and the ``lab-runner`` row went on describing itself as
-"the one scoped exception to the no-shell rule among the OCI images" after
-``catalog/review-runtime.yaml`` started *requiring* bash.
+and nothing compared the two. It drifted: ``review-runtime`` was registered in
+``oci_images``, and so in the build matrix and every gate driven by it, while the
+only consumer-facing list of what this repository ships had no row for it at all.
+(That image is still not published: its build is blocked on ``node/node.bst``,
+issue #289. Membership in ``oci_images`` is what this gate tracks, not the
+registry.)
 
 That is the same fail-open shape ``tests/test_catalog_ci_inventory.py`` closed
 for the workflow inventory and ``tests/test_catalog_gate_coverage.py`` closed for
