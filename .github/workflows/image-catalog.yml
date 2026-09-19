@@ -17,6 +17,7 @@ on:
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
       - 'tests/test_verify_contract*.py'
+      - '.github/requirements/**'
       # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
       # workflow/action inventory against docs/skills/ci-tooling/references/.
       # Without these two the drift gate never fires for the exact changes it
@@ -36,6 +37,7 @@ on:
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
       - 'tests/test_verify_contract*.py'
+      - '.github/requirements/**'
       - '.github/workflows/**'
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
@@ -56,7 +58,7 @@ jobs:
           persist-credentials: false
 
       - name: Install python dependencies
-        run: python3 -m pip install --user pyyaml jsonschema
+        run: 'python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt'
 
       - name: Records are valid and describe the committed elements
         run: python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
