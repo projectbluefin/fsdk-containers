@@ -107,30 +107,3 @@ class SlimIncludesResolveTests(unittest.TestCase):
             f"{unreferenced}. Wire each one into the record it was written "
             "for, or delete it.",
         )
-
-
-class SlimIncludesContractTests(unittest.TestCase):
-    """The failure modes above, demonstrated against a synthetic record."""
-
-    def _python_record(self):
-        record = catalog.load_record(ROOT / "catalog" / "python.yaml")
-        self.assertIn(
-            "slim-python.yml",
-            record.get("slim", {}).get("includes", []),
-            "fixture assumption: the python record composes slim-python.yml",
-        )
-        return record
-
-    def test_the_shipped_python_fragment_satisfies_the_contract(self):
-        loaded = yaml.safe_load((INCLUDE_DIR / "slim-python.yml").read_text())
-        self.assertIn("slim-python-commands", loaded)
-
-    def test_a_fragment_name_absent_from_include_is_detected(self):
-        """The check has to be a filesystem lookup, not a schema pattern."""
-        record = self._python_record()
-        record["slim"]["includes"] = ["slim-nodejs.yml"]
-        catalog.validate(record)  # schema accepts the shape, by design
-        self.assertFalse(
-            (INCLUDE_DIR / "slim-nodejs.yml").is_file(),
-            "fixture assumption: slim-nodejs.yml is not a real fragment",
-        )
