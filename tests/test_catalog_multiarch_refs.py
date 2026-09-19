@@ -5,6 +5,7 @@ import re
 import unittest
 import urllib.error
 import urllib.request
+from unittest import mock
 
 import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
@@ -269,13 +270,33 @@ sources:
         )
 
     def test_upstream_404_fails_while_throttling_and_5xx_skip(self):
-        # The network test above cannot exercise this offline, and inverting
-        # the branch is the failure that matters: a 404 on a declared version
-        # would be swallowed as "CDN hiccup" and the gate would pass on drift.
-        # 429 is the precedence trap -- a 4xx that must still skip.
-        self.assertFalse(_http_status_is_transient(404))
-        self.assertTrue(_http_status_is_transient(429))
-        self.assertTrue(_http_status_is_transient(500))
+        # Drive the gate itself, not the predicate: HTTPError subclasses
+        # URLError subclasses OSError, so reordering the two except clauses
+        # silently restores the #215 hole -- a 404 on a declared version is
+        # swallowed as "offline" and the gate reports success. 429 is the
+        # precedence trap: a 4xx that must still skip.
+        def _raise(code):
+            def _urlopen(*_args, **_kwargs):
+                raise urllib.error.HTTPError(
+                    "https://dl.k8s.io/", code, "synthetic", {}, None
+                )
+
+            return _urlopen
+
+        with mock.patch.object(urllib.request, "urlopen", _raise(404)):
+            try:
+                self.test_kubectl_multiarch_refs_match_upstream()
+            except self.failureException:
+                pass
+            except unittest.SkipTest:
+                self.fail("HTTP 404 on the declared version was swallowed as a skip")
+            else:
+                self.fail("HTTP 404 on the declared version did not fail the gate")
+
+        for transient in (429, 503):
+            with mock.patch.object(urllib.request, "urlopen", _raise(transient)):
+                with self.assertRaises(unittest.SkipTest):
+                    self.test_kubectl_multiarch_refs_match_upstream()
 
 
 if __name__ == "__main__":
