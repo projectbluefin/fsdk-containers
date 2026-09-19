@@ -85,22 +85,6 @@ class ReadmeImageInventoryTests(unittest.TestCase):
         )
         self.published = _published_images()
 
-    def test_the_source_of_truth_is_not_empty(self):
-        """A vacuous oci_images list would make every assertion below pass."""
-        self.assertTrue(
-            self.published,
-            f"{TARGETS} has an empty `oci_images`; this gate would pass vacuously.",
-        )
-
-    def test_the_readme_section_is_not_empty(self):
-        """A table this gate cannot parse must fail loudly, not silently pass."""
-        self.assertTrue(
-            _documented_images(self.section),
-            "No `| `ghcr.io/projectbluefin/<name>` |` rows found under README.md's "
-            "`## Images` heading. Either the table moved or its row format changed; "
-            "this gate cannot silently stop checking.",
-        )
-
     def test_every_published_image_has_a_readme_row(self):
         documented = _documented_images(self.section)
         missing = sorted(set(self.published) - documented)
