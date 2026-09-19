@@ -162,17 +162,18 @@ class RecordsDescribeRealityTests(unittest.TestCase):
                     f"compose.exclude_omit with a reason",
                 )
 
-    def test_slim_extra_matches_the_committed_oci_element(self):
-        """Extras are identified STRUCTURALLY, by position, not by substring.
+    def test_slim_commands_match_the_committed_oci_element(self):
+        """Family includes + inline extra are identified STRUCTURALLY, by
+        position, not by substring.
 
         An earlier draft filtered commands with `"build-oci" not in c`, which a
         slim command merely mentioning that string would satisfy -- letting an
         undeclared extra vanish and the assertion pass vacuously. It also
         compared with .strip() on both sides while claiming byte-equality.
 
-        Every oci element has the same shape, verified across all seven:
-            commands[0]   the slim macro
-            commands[1:-2] the image's extra slim commands (usually none)
+        Every oci element has the same shape, verified across all images:
+            commands[0]   the shared slim macro
+            commands[1:-2] family-recipe vars (slim.includes) + slim.extra
             commands[-2]  the /initial_scripts boilerplate
             commands[-1]  the build-oci heredoc
         """
@@ -199,13 +200,24 @@ class RecordsDescribeRealityTests(unittest.TestCase):
                     f"oci/{name}.bst: last command is not the build-oci heredoc",
                 )
 
-                extras = commands[1:-2]
-                declared = record.get("slim", {}).get("extra")
-                expected = [] if declared is None else [declared]
+                # The middle commands are the family recipes (each slim-*.yml
+                # fragment contributes %{<stem>-commands}), then any inline
+                # slim.extra. Order follows the generator: includes first.
+                middle = commands[1:-2]
+                expected = [
+                    f"%{{{stem}-commands}}"
+                    for stem in (
+                        frag[:-len(".yml")]
+                        for frag in record.get("slim", {}).get("includes", [])
+                    )
+                ]
+                extra = record.get("slim", {}).get("extra")
+                if extra is not None:
+                    expected.append(extra)
                 self.assertEqual(
-                    extras, expected,
-                    f"catalog/{name}.yaml slim.extra is not byte-equal to the "
-                    f"extra commands in oci/{name}.bst",
+                    middle, expected,
+                    f"catalog/{name}.yaml slim includes/extra do not match the "
+                    f"family + extra commands in oci/{name}.bst",
                 )
 
 
