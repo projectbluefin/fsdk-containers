@@ -248,6 +248,10 @@ track *ELEMENTS:
 check-refs BASE="HEAD":
     python3 scripts/check_multiarch_refs.py --base "{{BASE}}"
 
+[group('test')]
+renovate-check:
+    python3 -m unittest discover -s tests -p 'test_renovate*.py' -v
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
