@@ -13,9 +13,17 @@ on:
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
       - 'scripts/verify_contract.py'
+      - 'scripts/check_multiarch_refs.py'
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
       - 'tests/test_verify_contract*.py'
+      # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
+      # workflow/action inventory against docs/skills/ci-tooling/references/.
+      # Without these two the drift gate never fires for the exact changes it
+      # guards -- adding or deleting a workflow, or editing the reference doc.
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - 'docs/skills/ci-tooling/**'
   push:
     branches: [main]
     paths:
@@ -24,9 +32,13 @@ on:
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
       - 'scripts/verify_contract.py'
+      - 'scripts/check_multiarch_refs.py'
       - 'tests/test_catalog*.py'
       - 'tests/test_generated*.py'
       - 'tests/test_verify_contract*.py'
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - 'docs/skills/ci-tooling/**'
 
 permissions: {}
 

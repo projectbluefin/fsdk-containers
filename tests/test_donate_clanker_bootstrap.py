@@ -119,6 +119,18 @@ class ValidateTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "invalid bootstrap endpoint"):
                     bootstrap.validate(valid_envelope(hive_endpoint=endpoint))
 
+    def test_accepts_identity_v1_as_a_string(self):
+        bootstrap.validate(valid_envelope(**{"identity.v1": "ghp_contributor_token"}))
+
+    def test_accepts_an_absent_identity_v1(self):
+        bootstrap.validate(valid_envelope())
+
+    def test_rejects_a_non_string_identity_v1(self):
+        for identity in (123, {"token": "ghp_contributor_token"}, ["ghp_contributor_token"]):
+            with self.subTest(identity=identity):
+                with self.assertRaisesRegex(ValueError, "identity.v1 must be a string"):
+                    bootstrap.validate(valid_envelope(**{"identity.v1": identity}))
+
 
 class WorkerEnvironmentTests(unittest.TestCase):
     """The worker reads these names and no others: a typo means no credentials."""
@@ -158,9 +170,29 @@ class WorkerEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["GOOSE_MODEL"], "gpt-5")
         self.assertEqual(env["GITHUB_COPILOT_TOKEN"], "ghu_secret")
 
+    def test_identity_v1_is_omitted_when_absent(self):
+        env = bootstrap.worker_environment(valid_envelope())
+        self.assertNotIn("GH_TOKEN", env)
+
+    def test_identity_v1_is_exported_as_gh_token_when_present(self):
+        env = bootstrap.worker_environment(
+            valid_envelope(**{"identity.v1": "ghp_contributor_token"})
+        )
+        self.assertEqual(env["GH_TOKEN"], "ghp_contributor_token")
+
+    def test_empty_identity_v1_is_treated_as_absent(self):
+        env = bootstrap.worker_environment(
+            valid_envelope(**{"identity.v1": ""})
+        )
+        self.assertNotIn("GH_TOKEN", env)
+
     def test_exports_no_name_the_worker_does_not_read(self):
         env = bootstrap.worker_environment(
-            valid_envelope(goose_model="gpt-5", provider_secret="ghu_secret")
+            valid_envelope(
+                goose_model="gpt-5",
+                provider_secret="ghu_secret",
+                **{"identity.v1": "ghp_contrib"},
+            )
         )
         self.assertEqual(
             set(env),
@@ -173,13 +205,20 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 "GOOSE_PROVIDER",
                 "GOOSE_MODEL",
                 "GITHUB_COPILOT_TOKEN",
+                "GH_TOKEN",
             },
         )
 
     def test_does_not_leak_the_raw_envelope_into_the_environment(self):
-        env = bootstrap.worker_environment(valid_envelope(provider_secret="s3cret"))
+        env = bootstrap.worker_environment(
+            valid_envelope(
+                provider_secret="s3cret",
+                **{"identity.v1": "ghp_contrib"},
+            )
+        )
         self.assertNotIn("provider_secret", env)
         self.assertNotIn("hive_endpoint", env)
+        self.assertNotIn("identity.v1", env)
 
 
 class _ChannelFixture:

@@ -1,4 +1,4 @@
-# DO NOT EDIT. Generated from catalog/python.yaml by
+# DO NOT EDIT. Generated from catalog/review-runtime.yaml by
 # scripts/generate_image_elements.py (oci).
 # Change the record, then run: just catalog-write
 
@@ -9,20 +9,18 @@ build-depends:
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
   - freedesktop-sdk.bst:components/oci-builder.bst
   - base/base-init-script.bst
-  - filename: python/python-runtime.bst
+  - filename: review-runtime/review-runtime-runtime.bst
     config:
       location: /layer
 
 variables:
   (@):
     - include/slim.yml
-    - include/slim-python.yml
     - include/fsdk-version.yml
 
 config:
   commands:
     - "%{slim-distroless-commands}"
-    - "%{slim-python-commands}"
     - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do
@@ -38,12 +36,12 @@ config:
       - os: linux
         architecture: "%{go-arch}"
         layer: /layer
-        comment: "fsdk-containers python image"
+        comment: "fsdk-containers review-runtime image"
         config:
           Entrypoint: ['/usr/bin/python3']
           Labels:
-            'org.opencontainers.image.title': 'python'
-            'org.opencontainers.image.description': 'Distroless Python 3 image built on freedesktop-sdk'
+            'org.opencontainers.image.title': 'review-runtime'
+            'org.opencontainers.image.description': 'Distroless review appliance runtime carved from freedesktop-sdk — python3, node, bash, git, curl'
             'org.opencontainers.image.vendor': 'Project Bluefin'
             'org.opencontainers.image.licenses': 'Apache-2.0'
             'org.opencontainers.image.url': 'https://github.com/projectbluefin/fsdk-containers'
@@ -52,8 +50,8 @@ config:
             'io.artifacthub.package.logo-url': 'https://projectbluefin.io/logo.png'
             'io.artifacthub.package.license': 'Apache-2.0'
             'io.artifacthub.package.maintainers': '[{"name":"Project Bluefin","email":"maintainers@projectbluefin.io"}]'
-            'io.artifacthub.package.keywords': 'distroless,freedesktop-sdk,bluefin,python'
+            'io.artifacthub.package.keywords': 'distroless,freedesktop-sdk,bluefin,review'
             'io.artifacthub.package.category': 'integration-delivery'
         index-annotations:
-          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/python:%{fsdk-version}'
+          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/review-runtime:%{fsdk-version}'
       EOF

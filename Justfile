@@ -232,6 +232,22 @@ skill-catalog-check:
     python3 scripts/generate_skill_index.py --check
     python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
 
+# Track source references across all supported architectures (x86_64 and aarch64).
+# Usage: just track elements/lab-runner/kubectl.bst
+[group('dev')]
+track *ELEMENTS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for arch in x86_64 aarch64; do
+        just bst -o arch "${arch}" source track {{ELEMENTS}}
+    done
+
+# Check that multi-arch element source refs were updated symmetrically.
+# Usage: just check-refs [BASE]
+[group('test')]
+check-refs BASE="HEAD":
+    python3 scripts/check_multiarch_refs.py --base "{{BASE}}"
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
@@ -240,7 +256,9 @@ validate:
     while IFS= read -r img; do
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
-    just bst show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+    for arch in x86_64 aarch64; do
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+    done
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.

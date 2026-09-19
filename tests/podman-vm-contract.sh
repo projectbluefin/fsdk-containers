@@ -16,5 +16,6 @@ grep -Fq 'donate-clanker/image/config/local-agent-policy.md' "${config}"
 grep -Fq 's/root=UUID=[0-9A-Fa-f-]+/root=UUID=${uuid_root}/g' "${efi}"
 grep -Fq 'os.fdopen(fd, "r+b", buffering=0)' "${bootstrap}"
 grep -Fq 'channel.write(' "${bootstrap}"
+grep -Fq '"identity.v1"' "${bootstrap}"
 
 printf '%s\n' 'podman-vm guest contract checks passed'

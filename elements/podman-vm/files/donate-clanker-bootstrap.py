@@ -16,8 +16,20 @@ Worker side. `/usr/libexec/donate-clanker-worker` (donate-clanker's
 `cmd/contributor`) reads its Hive credentials from the environment first and
 only then from a mounted `contributor.env`. The names it reads are
 `HIVE_WS_URL`/`HIVE_HUB`, `HIVE_REGISTRATION_TOKEN`, `AGENT_BACKEND`,
-`GOOSE_PROVIDER`, `GOOSE_MODEL` and `GITHUB_COPILOT_TOKEN`. Exporting anything
-else leaves the worker with no credentials at all.
+`GOOSE_PROVIDER`, `GOOSE_MODEL`, `GITHUB_COPILOT_TOKEN` and `GH_TOKEN`.
+Exporting anything else leaves the worker with no credentials at all.
+
+The optional `identity.v1` envelope field carries a contributor's GitHub
+personal-access token. When present, it is mapped to `GH_TOKEN` so the worker
+can fork, push, and open pull requests. The versioned field name lets the
+host and guest evolve independently: a future `identity.v2` can change the
+schema without breaking guests that only understand v1. The field is
+validated as a string, not just presence-checked, so a future object-shaped
+`identity.v2` can't silently pass through as v1. The name itself (`identity`
+carrying a credential, not an identity) is left unchanged here: it is part of
+the envelope contract this docstring says is implemented on the host side by
+donate-clanker's `just/61-donate-clanker.just`, so renaming it is a
+cross-repo decision, not something to do unilaterally from the guest side.
 
 Progress is written to stderr for the journal, and mirrored to /dev/kmsg so it
 reaches the serial console. That mirror is not decoration: this guest has no
@@ -102,6 +114,9 @@ def validate(envelope):
         raise ValueError(f"incomplete bootstrap envelope: missing {', '.join(missing)}")
     if not envelope["hive_endpoint"].startswith(("https://", "wss://")):
         raise ValueError("invalid bootstrap endpoint")
+    identity = envelope.get("identity.v1")
+    if identity is not None and not isinstance(identity, str):
+        raise ValueError("identity.v1 must be a string")
 
 
 def worker_environment(envelope):
@@ -118,6 +133,8 @@ def worker_environment(envelope):
         env["GOOSE_MODEL"] = envelope["goose_model"]
     if envelope.get("provider_secret"):
         env["GITHUB_COPILOT_TOKEN"] = envelope["provider_secret"]
+    if envelope.get("identity.v1"):
+        env["GH_TOKEN"] = envelope["identity.v1"]
     return env
 
 

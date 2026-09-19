@@ -5,6 +5,7 @@ export_description: Static-tier runner for compiled Go/Rust binaries built on fr
 keywords: distroless,freedesktop-sdk,bluefin,static
 # static has its own init-script element; all other images use base/base-init-script.bst
 init_script: static/static-init-script.bst
+smoke: none
 size_ceiling_mib: 80
 stack:
   depends:
