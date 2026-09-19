@@ -950,6 +950,8 @@ sbom variant="base":
                 --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}" \
                 --spdx-creator "Tool: buildstream-sbom" \
                 --spdx-creator "Organization: projectbluefin" \
+                --spdx-creator "Organization: io.projectbluefin.fsdk.version={{fsdk_version}}" \
+                --spdx-creator "Organization: io.projectbluefin.fsdk.ref={{fsdk_ref}}" \
                 --deps all \
                 --output "/src/${OUTFILE}"
         '
@@ -996,6 +998,8 @@ sboms:
                     --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${img}" \
                     --spdx-creator "Tool: buildstream-sbom" \
                     --spdx-creator "Organization: projectbluefin" \
+                    --spdx-creator "Organization: io.projectbluefin.fsdk.version={{fsdk_version}}" \
+                    --spdx-creator "Organization: io.projectbluefin.fsdk.ref={{fsdk_ref}}" \
                     --deps all \
                     --output "/src/${img}.spdx.json"
             done
