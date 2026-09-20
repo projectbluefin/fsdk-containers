@@ -129,7 +129,9 @@ To prevent this:
 - `.github/workflows/refresh-bst-refs.yml` tracks every supported architecture in sequence
   (`just bst -o arch <arch> source track`) and verifies ref parity before committing.
 - The PR gate runs `scripts/check_multiarch_refs.py` (`just check-refs`) to fail fast if
-  exactly one architecture's ref was updated.
+  exactly one architecture's ref was updated. Its git plumbing and both CI invocation
+  modes are covered by `tests/test_catalog_multiarch_refs_cli.py`, which drives `main()`
+  over throwaway git repositories.
 - For local manual updates, run `just track <element>` to track all architectures together.
 
 ## Adding a new upstream package
