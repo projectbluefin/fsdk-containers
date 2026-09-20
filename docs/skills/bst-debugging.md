@@ -109,7 +109,8 @@ Typical causes:
   binary — plain text, shell scripts, fonts, JSON, prebuilt archives. Set
   `variables: { strip-binaries: "" }` on that element.
 - Forgot `mkdir -p` before an install or symlink target
-- An overlap conflict → see the overlap section of [buildstream/SKILL.md](buildstream/SKILL.md)
+- An overlap conflict → see the "Overlaps" section of
+  [buildstream/references/overlaps-and-sandbox.md](buildstream/references/overlaps-and-sandbox.md)
 - Files landing outside `/usr`
 
 ### 5) Image composition failures

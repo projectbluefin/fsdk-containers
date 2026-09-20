@@ -7,7 +7,7 @@
 # payload layer that the split-rule domains leave behind. It is a separate
 # fragment, not a section of slim.yml, so the JVM / Node / Go / C-daemon
 # families get their own equivalents without polluting the shared OS recipe
-# (see docs/skills/slim-an-image/SKILL.md — "Per-family recipes").
+# (see docs/skills/slim-an-image/references/runtime-family-recipes.md).
 #
 # Scope boundary (projectbluefin/fsdk-containers#130): remove only what cannot
 # be used at runtime. Keep the interpreter, the stdlib the app links, and tzdata
