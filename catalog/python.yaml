@@ -24,5 +24,5 @@ slim:
   # Python-family bloat stripping lives in include/slim-python.yml (a shared
   # recipe, not an inline block) so any future Python image inherits it. The
   # generator emits `- include/slim-python.yml` and `-%{slim-python-commands}`
-  # for this record. See docs/skills/slim-an-image.md — Per-family recipes.
+  # for this record. See docs/skills/slim-an-image/SKILL.md — Per-family recipes.
   includes: [slim-python.yml]
