@@ -494,7 +494,7 @@ verify:
 
         # Presence in the rootfs listing does not prove a working binary: a
         # missing shared library or interpreter shows up only on execution.
-        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
+        if ! {{sudo_cmd}} podman run --rm "$REF" -c "which which >/dev/null && echo x | xargs echo >/dev/null && find /usr/bin -maxdepth 0 >/dev/null && awk 'BEGIN{exit 0}' && ps --version >/dev/null && tar --version >/dev/null && diff --version >/dev/null && cmp --version >/dev/null && diff3 --version >/dev/null && patch --version >/dev/null && less --version >/dev/null && file --version >/dev/null && gzip --version >/dev/null && bwrap --version >/dev/null" >/dev/null; then
             echo "FAIL: lab-runner standard userland failed to execute"; exit 1
         fi
         echo "OK: standard userland executes successfully"
