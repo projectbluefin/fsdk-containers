@@ -120,7 +120,11 @@ def get_changed_files(base_rev: str, head_rev: str | None) -> list[str]:
     cmd.extend(["--", "elements/*.bst", "elements/**/*.bst"])
 
     try:
-        output = subprocess.check_output(cmd, text=True)
+        # The triple-dot form fails when the two revisions share no merge base;
+        # that is an expected, handled case, so keep git's complaint off fd 2.
+        # The two-dot fallback below runs with stderr intact, so a genuine
+        # failure still surfaces its diagnostic.
+        output = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
         return [line.strip() for line in output.splitlines() if line.strip()]
     except subprocess.CalledProcessError:
         cmd_direct = ["git", "diff", "--name-only", "--diff-filter=ACMR", base_rev]
