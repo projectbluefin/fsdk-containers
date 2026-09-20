@@ -39,8 +39,8 @@
         "pin",
         "pinDigest"
       ],
-      "automerge": true,
-      "automergeType": "pr"
+      "description": "Never automerge GitHub Actions bumps: digest pinning blunts tag-rewriting but not a compromised release under a new SHA. Workflows here handle mergeraptor tokens, cosign signing, and packages:write, so every action update gets human review (mirrors the custom.regex gate below).",
+      "automerge": false
     },
     {
       "matchManagers": [

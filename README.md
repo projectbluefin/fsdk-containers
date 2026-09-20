@@ -21,6 +21,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/review-runtime` | — | Review-appliance runtime: python3, node, git, curl plus the POSIX text tools (diff, find, gawk, gzip, less, sed, tar). **Not yet published** — its build is blocked on `node/node.bst` ([#289](https://github.com/projectbluefin/fsdk-containers/issues/289)). Multi-arch: linux/amd64, linux/arm64. |
 
 <a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
 shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
@@ -82,7 +83,14 @@ FSDK release. We track upstream FSDK releases and active development/beta branch
 so users can test upcoming FSDK features early. Tags are derived automatically from
 the pinned junction ref in `elements/freedesktop-sdk.bst`:
 
-- `:25.08` or `:26.08` -- FSDK minor line (the most rolling tag published)
+- `:26.08` -- FSDK minor line (the most rolling tag published). **Only the
+  currently pinned line moves.** `just tags` derives the whole tag set from the
+  pinned junction ref, so when the pin crosses to a new minor line the old line
+  stops being republished -- permanently, code-only changes included. `:25.08`
+  froze this way on 2026-08-09 and is inert, not merely stale. Before reporting a
+  merged change as missing from an image, check that you are probing the current
+  line or a digest built after the change; see
+  [`docs/skills/bump-fsdk-version.md`](docs/skills/bump-fsdk-version.md).
 - `:25.08.14` -- FSDK point release (immutable: once published, CI never overwrites a point-release tag)
 - `:26.08beta.1` / `:26.08rc.1` -- pre-release/beta tags (published for every upstream dev/beta branch)
 

@@ -12,17 +12,17 @@ variables:
   # Keep it disabled and strip this upstream binary explicitly below.
   strip-binaries: ""
   # renovate: datasource=github-releases depName=argoproj/argo-workflows
-  argo_version: v4.1.2
+  argo_version: v4.1.4
 
 sources:
 - kind: remote
   (?):
   - arch == "x86_64":
       url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-amd64.gz"
-      ref: 1edee3c25de0129e4d358a87591f04b89b522ceccb11975970d45217a3cd9cdd
+      ref: 2c8ef41d53593f2ee64d85fb69b631c89a0fc2c57e6ce011422caa525a97ec58
   - arch == "aarch64":
       url: "https://github.com/argoproj/argo-workflows/releases/download/%{argo_version}/argo-linux-arm64.gz"
-      ref: 04e2e1e0fc6d738034ff356e5bc8b2b819f963bf007331df4606611b3fa967b6
+      ref: f95eb2f6c3b3481724a76f5f90269d09a8be3a4529ee08eb9287adaab3622192
   filename: argo.gz
 
 config:

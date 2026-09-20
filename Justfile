@@ -227,6 +227,27 @@ catalog-check:
     python3 -m unittest discover -s tests -p 'test_generated*.py' -v
     python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
 
+[group('test')]
+skill-catalog-check:
+    python3 scripts/generate_skill_index.py --check
+    python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
+
+# Track source references across all supported architectures (x86_64 and aarch64).
+# Usage: just track elements/lab-runner/kubectl.bst
+[group('dev')]
+track *ELEMENTS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for arch in x86_64 aarch64; do
+        just bst -o arch "${arch}" source track {{ELEMENTS}}
+    done
+
+# Check that multi-arch element source refs were updated symmetrically.
+# Usage: just check-refs [BASE]
+[group('test')]
+check-refs BASE="HEAD":
+    python3 scripts/check_multiarch_refs.py --base "{{BASE}}"
+
 [group('dev')]
 validate:
     #!/usr/bin/env bash
@@ -235,7 +256,9 @@ validate:
     while IFS= read -r img; do
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
-    just bst show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+    for arch in x86_64 aarch64; do
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+    done
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
@@ -520,6 +543,14 @@ verify:
 # docs/skills/vm-podman-guest/SKILL.md). NOT an OCI image: never loaded into
 # Podman, only checked out and published as versioned GitHub Release assets.
 
+# Host-side checks for the guest bootstrap contract: no VM, no BuildStream.
+# Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py and runs the
+# tests/podman-vm-contract.sh pin/shape assertions.
+[group('test')]
+podman-vm-check:
+    python3 -m unittest discover -s tests -p 'test_donate_clanker*.py' -v
+    tests/podman-vm-contract.sh
+
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
 [group('vm')]
 build-podman-vm:
@@ -749,7 +780,7 @@ publish-podman-vm:
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "6.0.18"
+brew_version := "6.0.22"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]
