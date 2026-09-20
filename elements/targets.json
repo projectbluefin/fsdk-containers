@@ -23,7 +23,7 @@
     "review-runtime": ["elements/oci/review-runtime.bst", "elements/review-runtime/", "catalog/review-runtime.yaml"]
   },
 
-  "$comment_shared_paths": "Changes here can affect every target (the FSDK junction, the shared slim recipe, project-wide options, the build tooling itself, the catalog schema and its generation/verification scripts). Building all seven images times two architectures on every such pull request is not viable, so these select the canary image below instead: a real end-to-end build and `just verify` of the image every other image is carved from.",
+  "$comment_shared_paths": "Changes here can affect every target (the FSDK junction, the shared slim recipe, project-wide options, the build tooling itself, the catalog schema and its generation/verification scripts). Building every image in `oci_images` times two architectures on every such pull request is not viable, so these select the canary image below instead: a real end-to-end build and `just verify` of the image every other image is carved from.",
   "shared_paths": [
     "project.conf",
     "Justfile",
@@ -41,10 +41,11 @@
   ],
   "canary_image": "base",
 
-  "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest/SKILL.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload.",
+  "$comment_vm_guest_paths": "The podman-vm guest disk (docs/skills/vm-podman-guest/SKILL.md) is not an OCI image and has its own build/boot-test/publish pipeline, so it gets its own path set. Its pull-request gate is a real build plus the QEMU boot test -- never a release upload. The set also owns the guest's own test assets, because `pr-guest-contract` is the ONLY job that runs tests/test_donate_clanker_bootstrap.py: without its path here a pull request editing just that module leaves vm_guest false, the job is skipped, and the module gates nothing. tests/test_catalog_gate_coverage.py's test_vm_guest_paths_select_every_module_its_job_runs enforces the linkage.",
   "vm_guest_paths": [
     "elements/podman-vm/",
     "tests/vm-boot.sh",
+    "tests/test_donate_clanker_bootstrap.py",
     ".github/actions/vm-boot-test/"
   ]
 }
