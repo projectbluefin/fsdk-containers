@@ -30,7 +30,7 @@ jobs:
   # in worker_environment() (or a stale pin) fails in seconds instead of
   # after a full QEMU boot-test on a matrix runner.
   guest-contract:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -175,7 +175,7 @@ jobs:
   verify-release:
     needs: build
     if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read

@@ -40,7 +40,7 @@ permissions:
 jobs:
   validate:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -66,7 +66,7 @@ jobs:
   # path builds the canary image instead of the world.
   changed-targets:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -154,7 +154,7 @@ jobs:
   pr-guest-contract:
     needs: changed-targets
     if: github.event_name == 'pull_request' && needs.changed-targets.outputs.vm_guest == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -221,7 +221,7 @@ jobs:
   # manifest, not an edit to any workflow.
   matrix:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -284,7 +284,7 @@ jobs:
   summary:
     needs: [oci-images, vm-guest]
     if: always() && github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read

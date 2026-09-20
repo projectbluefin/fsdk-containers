@@ -81,7 +81,7 @@ jobs:
     # repository_dispatch is verification-only for an unmerged FSDK bump;
     # never publish branch content to production tags.
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !cancelled()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
