@@ -97,7 +97,7 @@ podman run --rm ghcr.io/projectbluefin/<name>:build /usr/bin/env
   bash binary (`/usr/bin/bash`, `/usr/bin/sh -> bash`) lives in the FSDK `runtime`
   domain. The SLIM recipe `rm`s it explicitly (`include/slim.yml`); see hard rule 4 in
   [`../../../AGENTS.md`](../../../AGENTS.md) and the NOTE in
-  `elements/base/base-runtime.bst`.
+  `elements/nginx/nginx-runtime.bst`.
 - **Deleting terminfo as "bloat".** It is deliberately kept in every `base-stack`
   image since #101 and asserted by the `lab-runner` gate. The slim gate explicitly
   does not treat it as bloat.
