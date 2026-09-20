@@ -26,7 +26,9 @@ To produce authoritative, high-integrity SBOMs, we generate them directly from B
 
 FSDK provenance (`io.projectbluefin.fsdk.version` / `io.projectbluefin.fsdk.ref`) is encoded into the SBOM's `creationInfo.creators` at generation time (`just sbom`/`just sboms` in the Justfile), so the signed SBOM evidences which FSDK release and junction ref it was carved from -- matching the image labels without relying on mutable OCI labels alone (#128).
 
-Do not revert these `--spdx-creator` lines back to graph-only output. Note that no CI gate currently asserts they survive: `oci-images.yml` verifies only that an `application/vnd.spdx+json` referrer exists, never its `creationInfo.creators`, and `just sbom` is unreachable from pull-request jobs -- so a change that silently drops them publishes provenance-free SBOMs with every check green.
+The FSDK version/ref travel into the bst2 container as `-e FSDK_VERSION` / `-e FSDK_REF` environment variables, never as Just `{{...}}` interpolation inside the single-quoted `bash -c` script of that `--privileged` run: the values come from the junction `ref:` line of `elements/freedesktop-sdk.bst`, which update automation rewrites.
+
+Do not revert these `--spdx-creator` lines back to graph-only output. `oci-images.yml` verifies only that an `application/vnd.spdx+json` referrer exists, never its `creationInfo.creators`, and `just sbom` is unreachable from pull-request jobs -- so two gates cover the drop instead: each recipe `jq -e`-asserts its own output before the signing job can publish it, and `tests/test_catalog_sbom_provenance.py` ratchets the flags, the assertion, and the env-var passing at pull-request time.
 
 ---
 
