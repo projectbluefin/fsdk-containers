@@ -81,6 +81,31 @@ class SchemaTests(unittest.TestCase):
         record = valid_record(kind="shell-enabled", smoke={"args": [], "shell_probe": "true"})
         self.assertEqual(catalog.validate(record)["kind"], "shell-enabled")
 
+    def test_distroless_record_may_not_require_a_shell_binary(self):
+        """slim-distroless-commands deletes bash, so requiring it is unsatisfiable.
+
+        review-runtime shipped this contradiction: the no-shell forbid gate and
+        `require_binaries: [bash]` assert opposite things about the same path, so
+        verification failed on an image that had built correctly.
+        """
+        for shell in ("bash", "sh"):
+            with self.subTest(shell=shell):
+                record = valid_record(gates={"require_binaries": [shell, "python3"]})
+                with self.assertRaises(catalog.CatalogError) as ctx:
+                    catalog.validate(record)
+                self.assertIn(shell, str(ctx.exception))
+
+    def test_shell_enabled_record_may_require_bash(self):
+        """lab-runner legitimately requires bash; the guard must not catch it."""
+        record = valid_record(
+            kind="shell-enabled", gates={"require_binaries": ["bash", "just"]}
+        )
+        self.assertEqual(catalog.validate(record)["kind"], "shell-enabled")
+
+    def test_distroless_record_may_require_a_non_shell_binary(self):
+        record = valid_record(gates={"require_binaries": ["python3", "git"]})
+        self.assertEqual(catalog.validate(record)["name"], "probe")
+
     def test_a_record_may_omit_entrypoint(self):
         """base and static have none today; the schema must not force one."""
         record = valid_record()

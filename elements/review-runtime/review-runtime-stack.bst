@@ -4,7 +4,7 @@
 
 kind: stack
 description: "Distroless review appliance runtime carved from freedesktop-sdk \u2014\
-  \ python3, node, bash, git, curl"
+  \ python3, node, git, curl"
 
 depends:
   - base/base-stack.bst
