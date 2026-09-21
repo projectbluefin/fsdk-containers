@@ -25,6 +25,7 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 | A build is failing, or content is missing from an image | [`skills/bst-debugging.md`](skills/bst-debugging.md) |
 | Bump a junction ref, touch `patches/`, or diagnose cache misses | [`skills/bst-junctions.md`](skills/bst-junctions.md) |
 | Build an upstream Go/Rust tool FSDK does not ship | [`skills/bst-packaging.md`](skills/bst-packaging.md) |
+| Build a Go application from source (go_module plugin) | [`skills/go-module-source.md`](skills/go-module-source.md) |
 
 ### Images and workflow
 
