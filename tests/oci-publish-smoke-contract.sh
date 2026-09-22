@@ -4,6 +4,14 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 workflow="${repo_root}/.github/workflows/oci-images.yml"
 
+# Keep staging digest handoff pinned from the build job artifacts to the manifest job.
+grep -Fq 'name: staging-digest-${{ inputs.image }}-${{ matrix.arch }}' "${workflow}"
+grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' "${workflow}"
+grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' "${workflow}"
+grep -Fq 'pattern: staging-digest-${{ inputs.image }}-*' "${workflow}"
+grep -Fq 'merge-multiple: true' "${workflow}"
+grep -Fq 'path: /tmp/staging-digests' "${workflow}"
+
 # Keep this smoke gate downstream of the manifest job and make its two
 # architecture legs use the same digest produced by that job.
 grep -Fq 'publish-smoke:' "${workflow}"
