@@ -44,13 +44,84 @@ jobs:
       # Derived from the canonical manifest, so a new image is covered the day
       # it is added instead of whenever someone remembers this file exists.
       - id: packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] | join(",")' elements/targets.json)"
-          echo "==> packages: ${LIST}"
-          echo "list=${LIST}" >> "$GITHUB_OUTPUT"
+          echo "==> candidate packages: ${LIST}"
+
+          # Probe the token's package-list permission ONCE, before the
+          # per-package loop. This is the only way to tell two 404s apart:
+          #
+          #   - "this package was never published"  -> a benign 404 that must
+          #     be skipped, so an in-manifest-but-unpublished image does not
+          #     404 the whole run.
+          #   - "this package is not visible to this token" -> a scope or
+          #     credential regression, ALSO a 404, which must NOT be silently
+          #     skipped: every lookup 404s, EXISTING empties, the prune step
+          #     no-ops on its list guard, and untagged images accumulate with
+          #     no alarm (projectbluefin/fsdk-containers#306).
+          #
+          # Listing the org's container packages succeeds or fails on scope
+          # alone, independent of whether any particular package exists.
+          # `gh api` returns 403 when the token lacks read:packages, so any
+          # non-zero probe means the token cannot classify anything at all:
+          # fail hard and prune nothing. `errexit` is on, so suspend it across
+          # this one expected failure and keep the status in PRC.
+          set +e
+          PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=container" 2>&1)"
+          PRC=$?
+          set -e
+          if [[ "${PRC}" -ne 0 ]]; then
+            echo "::error::cannot enumerate org container packages (exit ${PRC}): token lacks package-list permission, refusing to prune"
+            echo "${PROBE}" >&2
+            exit 1
+          fi
+
+          # A target in the manifest that GHCR has not published yet (a
+          # brand-new image before its first fsdk-updated publish) makes the
+          # cleanup action's package lookup return HTTP 404 and fail the whole
+          # run. Only hand the action packages that actually exist, so an
+          # in-manifest-but-unpublished image is skipped instead of breaking a
+          # scheduled cleanup.
+          #
+          # The probe above proved the token has read:packages, so a
+          # per-package 404 now genuinely means "absent" rather than "not
+          # visible", and skipping it is correct. Gate on BOTH a non-zero exit
+          # status and the "not found" body: a bare assignment inherits its
+          # command substitution's exit status under `errexit`, so suspend it
+          # across that one expected failure and keep the status in RC. Gating
+          # on RC as well as the message means a successful response that
+          # merely mentions "not found" can never drop a live package, and any
+          # other failure (a 5xx, a rate limit) keeps the package, so cleanup
+          # never silently disables itself.
+          EXISTING=()
+          IFS=',' read -ra PKGS <<< "${LIST}"
+          for pkg in "${PKGS[@]}"; do
+            set +e
+            RESP="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/${pkg}/versions" 2>&1)"
+            RC=$?
+            set -e
+            if [[ "${RC}" -ne 0 ]] && printf '%s' "${RESP}" | grep -qi 'not found'; then
+              echo "== skipping unpublished package: ${pkg}"
+            else
+              EXISTING+=("${pkg}")
+            fi
+          done
+          FILTERED="$(printf '%s\n' "${EXISTING[@]}" | paste -sd, -)"
+          echo "==> cleaning: ${FILTERED}"
+          echo "list=${FILTERED}" >> "$GITHUB_OUTPUT"
 
       - name: Prune untagged images
+        # Skip the whole action when no candidate package exists on GHCR yet
+        # (e.g. the only unpublished target), so a run against a fresh manifest
+        # is a clean no-op instead of a 404 failure. Zero visible packages is
+        # NOT an error on its own: a brand-new, all-unpublished manifest
+        # legitimately resolves to zero (docs/skills/ci-tooling/references/
+        # workflow-structure.md). The token-permission probe above is what
+        # makes a credential regression audible, not this guard.
+        if: steps.packages.outputs.list != ''
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
         with:
           packages: ${{ steps.packages.outputs.list }}

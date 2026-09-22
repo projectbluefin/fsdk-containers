@@ -53,13 +53,25 @@ class GateDerivationTests(unittest.TestCase):
                 self.assertIn("etc/pki/tls/certs/ca-bundle.crt", any_paths)
                 self.assertIn("etc/ssl/certs/ca-certificates.crt", any_paths)
 
+    def test_distroless_images_forbid_debug_symbols(self):
+        """The `debug` split domain leaks separated DWARF into every
+        base-derived image (include/slim.yml now removes it). Every
+        distroless image must carry the no-debug-symbols gate."""
+        for record in catalog.load_all():
+            if record["kind"] != "distroless":
+                continue
+            with self.subTest(image=record["name"]):
+                self.assertIn("no-debug-symbols", vc.gates_for(record)["forbid"])
+
     def test_lab_runner_has_no_distroless_only_gates(self):
-        """Finding 1: lab-runner must not have no-sanitizers or no-locale-archive.
-        The old recipe ran neither in its lab-runner branch."""
+        """Finding 1: lab-runner must not have no-sanitizers, no-locale-archive,
+        or no-debug-symbols. The old recipe ran none of these in its
+        lab-runner branch, and adding any would be a new gate."""
         record = catalog.load_record(ROOT / "catalog" / "lab-runner.yaml")
         gates = vc.gates_for(record)
         self.assertNotIn("no-sanitizers", gates["forbid"])
         self.assertNotIn("no-locale-archive", gates["forbid"])
+        self.assertNotIn("no-debug-symbols", gates["forbid"])
 
     def test_lab_runner_has_no_ca_any_paths(self):
         """Finding 2: the old recipe applied no CA gate to lab-runner."""

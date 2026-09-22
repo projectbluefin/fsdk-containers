@@ -78,8 +78,8 @@ build-depends:
 
 variables:
   strip-binaries: ""
-  volcano-version: "v1.15.1"
-  volcano-git-sha: "0a56ed331897f5455916a44d3075671376d731d6"
+  volcano-version: "v1.15.2"
+  volcano-git-sha: "1462fb7b4835970708717456e3aed85e697ec2eb"
 
 environment:
   GOROOT: "%{libdir}/go"
@@ -92,8 +92,8 @@ sources:
   - kind: git_repo
     url: github:volcano-sh/volcano.git
     # renovate: datasource=github-tags depName=volcano-sh/volcano
-    track: v1.15.1
-    ref: v1.15.1-0-g0a56ed331897f5455916a44d3075671376d731d6
+    track: v1.15.2
+    ref: v1.15.2-0-g1462fb7b4835970708717456e3aed85e697ec2eb
   # Authoritative vendor manifest from `go mod vendor` at the pinned tag
   # (handles the 37 replace directives the go_module plugin cannot
   # record). Regenerate when bumping: clone tag, `go mod vendor`, copy
@@ -101,7 +101,7 @@ sources:
   - kind: local
     path: elements/volcano/files/modules.txt
   # --- go_module sources: one per vendored module ---------------------
-  # Generated from vendor/modules.txt at v1.15.1 (module set == what
+  # Generated from vendor/modules.txt at v1.15.2 (module set == what
   # `go mod vendor` stages; go.sum-only entries like test-only hashes
   # are deliberately absent). URLs resolved via ?go-get=1 meta tags,
   # same as the plugin's own get_module_subdirectory().

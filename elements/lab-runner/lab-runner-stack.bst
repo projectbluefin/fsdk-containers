@@ -8,6 +8,13 @@ description: "Shell-enabled CI utility container carved from freedesktop-sdk \u2
 
 # gzip is not optional alongside tar: GNU tar execs gzip as a child process for
 # .tar.gz streams, so tar being present is not sufficient (#159).
+#
+# find, cmp, and diff3 ride in with the findutils/diffutils components already
+# depended on above; they were undeclared in the gate even though xargs/diff
+# from those same two components were (#74). projectbluefin/review vendored
+# Python shims for exactly find and cmp because of that gap — declaring and
+# gating all five commands (find, xargs, cmp, diff, diff3) plus the canonical
+# tmux-256color terminfo record closes it without adding a new component.
 
 depends:
   - base/base-stack.bst
