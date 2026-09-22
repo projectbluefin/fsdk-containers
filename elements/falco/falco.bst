@@ -82,7 +82,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=falcosecurity/falco
-  falco_version: 0.44.1
+  falco_version: 0.45.0
 
 sources:
   - kind: remote
