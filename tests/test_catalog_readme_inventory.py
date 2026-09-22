@@ -10,9 +10,9 @@ and its path ownership in ``image_paths``.
 and nothing compared the two. It drifted: ``review-runtime`` was registered in
 ``oci_images``, and so in the build matrix and every gate driven by it, while the
 only consumer-facing list of what this repository ships had no row for it at all.
-(That image is still not published: its build is blocked on ``node/node.bst``,
-issue #289. Membership in ``oci_images`` is what this gate tracks, not the
-registry.)
+(That image is not in the registry yet: its ``node/node.bst`` build-root failure
+was fixed in #289, so it publishes from the next successful ``main`` build.
+Membership in ``oci_images`` is what this gate tracks, not the registry.)
 
 That is the same fail-open shape ``tests/test_catalog_ci_inventory.py`` closed
 for the workflow inventory and ``tests/test_catalog_gate_coverage.py`` closed for
