@@ -24,6 +24,18 @@
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s+[^\\n]*?[:=]\\s*\"?(?<currentValue>[\\w][\\w.+-]*)\"?"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    {
+      "description": "Pinned Python dependencies for the catalog / verify workflows (.github/requirements/verify.txt). Matches `dep==version` lines (hashes follow on the same line) so pinned PyPI packages stay current under the human-review gate below.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.github/requirements/.*\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?<depName>[A-Za-z0-9][A-Za-z0-9._-]*)==(?<currentValue>[0-9][A-Za-z0-9.+_-]*)"
+      ],
+      "datasourceTemplate": "pypi",
+      "versioningTemplate": "pep440"
     }
   ],
   "packageRules": [
@@ -56,10 +68,28 @@
       "matchManagers": [
         "custom.regex"
       ],
+      "matchFileNames": [
+        "**/*.bst",
+        "Justfile"
+      ],
       "automerge": false,
       "labels": [
         "dependencies",
         "buildstream"
+      ]
+    },
+    {
+      "description": "Pinned PyPI packages in .github/requirements/*.txt. Never automerge: this manager rewrites only the `==` version, so the committed sha256 hashes go stale and `pip install --require-hashes --only-binary=:all:` rejects the bump. Regenerate the hashes before merging -- see docs/skills/ci-tooling/SKILL.md, 'Regenerating .github/requirements hashes'. `bst source track` is NOT involved.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "python"
       ]
     },
     {

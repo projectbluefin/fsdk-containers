@@ -288,10 +288,12 @@ skipped entirely when no tags are pushed.
 
 The `podman-vm` release assets follow the same immutability shape one level
 up: there is no rolling equivalent at all (GitHub Release assets
-are inherently tied to their tag), and `just publish-podman-vm` guards
-re-uploads with a `gh release view --json assets` existence check, skipping
-an asset name that's already published on that tag instead of overwriting
-it. See [vm-podman-guest](../../vm-podman-guest/SKILL.md).
+are inherently tied to their tag), and `just publish-podman-vm` publishes
+an architecture's asset set as an all-or-nothing transaction with preflight
+size checks, cleanup of partial/orphaned sets, immutability skipping for complete
+sets, rollback on failure, and post-verification. An aggregate `verify-release`
+job enforces that both architectures publish their complete asset sets.
+See [vm-podman-guest](../../vm-podman-guest/SKILL.md).
 
 Set `fail-fast: false` on image and architecture matrices to prevent a single
 container build failure from canceling unrelated container builds.
