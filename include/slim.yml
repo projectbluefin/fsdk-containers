@@ -15,6 +15,14 @@ slim-distroless-commands: |
         "$L"/usr/lib/*/liblsan.so* "$L"/usr/lib/*/libubsan.so* \
         "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
 
+  # Separated DWARF leaks the `debug` split domain too (same trap as bash
+  # escaping `shells`): base-runtime.bst and static-runtime.bst list `debug`
+  # under compose exclude:, but ~905 KB still ships in every base-derived
+  # image. Nothing at runtime reads separated DWARF, so this is a safe
+  # unconditional removal. Verify against the built rootfs; never trust
+  # compose exclude: on its own (docs/skills/slim-an-image.md).
+  rm -rf "$L"/usr/lib/debug
+
   # Keep common character sets; remove the gconv long tail.
   for g in "$L"/usr/lib/*/gconv; do
     [ -d "$g" ] || continue
@@ -70,6 +78,9 @@ slim-shell-enabled-commands: |
   rm -f "$L"/usr/lib/*/libasan.so* "$L"/usr/lib/*/libtsan.so* \
         "$L"/usr/lib/*/liblsan.so* "$L"/usr/lib/*/libubsan.so* \
         "$L"/usr/lib/*/libhwasan.so* "$L"/usr/lib/*/libgfortran.so*
+  # Separated DWARF: same `debug` split-domain leak as the distroless recipe.
+  # Safe to remove in the shell-enabled image too.
+  rm -rf "$L"/usr/lib/debug
   for g in "$L"/usr/lib/*/gconv; do
     [ -d "$g" ] || continue
     for f in "$g"/*; do
