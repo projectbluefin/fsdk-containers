@@ -231,52 +231,65 @@ publish pipeline attached with `oras discover --format json` (`.referrers[]`,
 not `.manifests[]`), pulls it, and scans that. It reports; it never gates — a
 CVE in an FSDK component is fixed by bumping FSDK, not by failing this repo.
 
-### Distinguishing "absent" from "not visible" in ghcr-cleanup
+### In-manifest but not yet published
 
-`ghcr-cleanup.yml` filters the candidate list down to packages GHCR actually has
-before handing it to `dataaxiom/ghcr-cleanup-action`, whose package lookup 404s
-the whole run otherwise. A package is skipped only when the lookup BOTH fails
-and the body says `not found`, so an in-manifest-but-unpublished image (today:
-`review-runtime`) is skipped instead of breaking a scheduled cleanup, and the
-`if: steps.packages.outputs.list != ''` guard makes an all-unpublished manifest
-a clean no-op.
+A target belongs in `elements/targets.json` from the day its catalog record and
+elements land, not from its first publish — that is what makes the PR gate and
+`just changed-targets` see it at all. So there is always a window in which a
+target is canonical but GHCR has nothing under its name, and the two scheduled
+workflows must absorb it rather than fail:
 
-But GitHub returns **404 for both** "this package does not exist" and "this
-package exists but is not visible to this token" (projectbluefin/fsdk-containers
-#306). A token-scope or credential regression is therefore indistinguishable
-from a fresh manifest: every lookup 404s, the list empties, the prune step
-no-ops on its guard, and untagged images accumulate silently under a green run.
-Failing on "a non-empty manifest resolves to zero visible packages" is wrong
-too -- a repository whose manifest contains only brand-new, not-yet-published
-images legitimately resolves to zero, and that no-op is documented above as
-clean.
+- `ghcr-cleanup.yml` filters the candidate list to packages GHCR actually has
+  before handing it to `dataaxiom/ghcr-cleanup-action`, whose lookup 404s the
+  whole run otherwise. To distinguish a brand-new unpublished package from a
+  token scope/visibility regression (both return HTTP 404), it probes the
+  token's package-list permission once before the loop (projectbluefin/fsdk-containers#306).
+  An all-unpublished manifest yields an empty list, and the
+  `if: steps.packages.outputs.list != ''` guard makes that a clean no-op.
+- `vulnerability-scan.yml` treats skopeo's `manifest unknown` exactly like "no
+  SBOM referrer": warn, set `found=false`, and skip the downstream steps.
 
-The fix probes the token's **package-list permission once, before the
-per-package loop** -- a call that succeeds or fails on scope alone, independent
-of whether any particular package exists, e.g. listing the org's container
-packages:
+Both skips are **narrow on purpose, and the narrowness is the hard part.**
+Absorbing "not published yet" must never widen into absorbing "could not
+tell". A blanket `2>/dev/null … || true`, or a classifier that matches only on
+message text, converts an expired credential, a registry 5xx, a rate limit or a
+scoped-token 403 into a green job that pruned nothing and scanned nothing —
+week after week, under a warning that names the wrong cause. Require **both**
+a non-zero exit status *and* the specific diagnostic string, and fail the step
+on every other error:
 
 ```bash
+ERR="$(mktemp)"
 set +e
-PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=container" 2>&1)"
-PRC=$?
+INSPECT="$(skopeo inspect --no-tags "docker://${REF}" 2>"${ERR}")"
+RC=$?
 set -e
-if [[ "${PRC}" -ne 0 ]]; then
-  echo "::error::cannot enumerate org container packages: token lacks package-list permission, refusing to prune"
+if [[ "${RC}" -ne 0 ]]; then
+  if grep -qi 'manifest unknown' "${ERR}"; then
+    echo "::warning::image ${REF} is not published yet (manifest unknown) -- nothing to scan"
+    echo "found=false" >> "$GITHUB_OUTPUT"
+    exit 0
+  fi
+  echo "::error::skopeo inspect failed for ${REF}: $(cat "${ERR}")"
   exit 1
 fi
 ```
 
-`gh api` returns 403 when the token lacks `read:packages`, so a non-zero probe
-means the token cannot classify anything at all: fail hard and prune nothing.
-Once the probe succeeds, a per-package 404 genuinely means *absent*, and the
-skip-above is correct -- including the all-unpublished no-op. The probe makes a
-credential regression audible; the list guard keeps the documented fresh-manifest
-case green. Prove the classifier the way the repo does for these steps: extract
-the `run:` block, and run it against stub `gh`/`jq` on `PATH` that reproduce the
-benign skip, the all-unpublished no-op, a must-not-absorb error (a 5xx on a live
-package is kept, so the action fails loudly), and the scope-regression probe
-that must hard-error.
+Load-bearing details:
+
+- **`jq -r '.Digest'` prints the literal string `null`** when the key is
+  absent, which `[[ -z … ]]` does not catch; `${REGISTRY}/${IMAGE}@null` then
+  reaches `oras discover`. Always use `.Digest // empty`.
+- **`gh api` needs a credential in scope.** `actions/checkout` runs with
+  `persist-credentials: false`, and a token on a later `uses:` step is not in
+  the environment of a `run:` step, so the step needs its own
+  `env: GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`.
+
+`bash -n` cannot catch any of this: it is a parser, not an evaluator, and no
+`set -e` interaction is visible to it. Prove a classifier by extracting the
+step's `run:` block from the YAML and executing it against stub binaries on
+`PATH` that reproduce each failure mode — the benign one, and at least one
+that must *not* be absorbed.
 
 ### Repository settings that make the gate real (admin, not in git)
 
