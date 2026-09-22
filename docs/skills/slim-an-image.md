@@ -56,19 +56,25 @@ instances** — enough to treat as a rule rather than a quirk:
 | You exclude | You expect gone | Actually still shipped |
 | --- | --- | --- |
 | `shells` | bash | bash — it lives in the `runtime` domain (documented in AGENTS.md) |
-| `debug` | debug symbols | **~905 KB of separated DWARF, in every image** |
+| `debug` | debug symbols | **~905 KB of separated DWARF, was in every image — now stripped (see below)** |
 
-The second one is live today. Both `elements/base/base-runtime.bst` and
-`elements/static/static-runtime.bst` list `debug` under `compose exclude:`, and these survive
-it:
+The `shells`→bash leak is still live. The `debug` leak **was** live: both
+`elements/base/base-runtime.bst` and `elements/static/static-runtime.bst` list
+`debug` under `compose exclude:`, and these survived it:
 
 ```
 487551  usr/lib/debug/dwz/bootstrap/glibc.bst/x86_64-unknown-linux-gnu
 417560  usr/lib/debug/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2.debug
 ```
 
-Every base-derived image carries it (~2.3% of a ~45 MB
-rootfs; `static` is not carved from `base`). Nothing at runtime reads separated DWARF, so it is a safe unconditional `rm`.
+Every base-derived image carried it (~2.3% of a ~45 MB rootfs; `static` is not
+carved from `base`). Nothing at runtime reads separated DWARF, so it is a safe
+unconditional `rm`. It is now removed by `include/slim.yml` (`rm -rf "$L"/usr/lib/debug`
+in both the distroless and shell-enabled recipes) and enforced by the
+`no-debug-symbols` `just verify` gate on every distroless image — the ready-to-enable
+gate in `scripts/verify_contract.py`'s `FORBIDDEN` is flipped on, so a regression
+fails the merge contract rather than shipping silently. The recipe change and the
+gate landed together: the gate is only honest now that the recipe satisfies it.
 
 **The rule: never trust `compose exclude:` on its own — verify against the built rootfs.**
 
