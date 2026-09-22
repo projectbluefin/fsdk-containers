@@ -120,12 +120,15 @@ permissions:
     echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
 ```
 
-### 3. Signing the Manifest List (Index) Digest (Blocking Gotcha)
+### 3. Signing the Manifest List (Index) Digest & Staging Digest Handoff (Blocking Gotchas)
 Always resolve and sign the manifest list/index digest, not just the mutable tag. Tag signing is vulnerable to TOCTOU race conditions. Resolve the canonical digest using `skopeo inspect`:
 ```bash
 DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" | jq -r '.Digest')
 cosign sign -y "${REPO}@${DIGEST}"
 ```
+
+**Staging Digest Handoff (Sign-what-you-verify):**
+Per-architecture staging images pushed by the `build` matrix job must not be consumed by mutable tag (`${REPO}-${arch}:${POINT_TAG}`) in the `manifest` job without verification. The `build` job uploads `staging-digest-${{ inputs.image }}-${{ matrix.arch }}` artifacts recorded at publish time, and `manifest` downloads both artifacts (`pattern: staging-digest-${{ inputs.image }}-*`, `merge-multiple: true`) and verifies actual registry digests against these expected values before assembling the multi-arch manifest using digest references (`${REPO}-${arch}@${EXPECTED_DIGEST[$arch]}`). Carrying digests as artifacts rather than matrix job outputs avoids matrix output merge collisions ("last leg to complete wins"). This closes the window for a compromised token to retag staging packages and launder unverified bytes into signed production images.
 
 ### 4. Pip Wheel Cache
 Always cache the pip wheel for `buildstream-sbom` in CI, pinned to the exact commit hash:
