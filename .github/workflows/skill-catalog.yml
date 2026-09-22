@@ -10,12 +10,16 @@ on:
       - 'docs/skills/**'
       - 'scripts/generate_skill_index.py'
       - 'tests/test_skill_index.py'
+      - '.github/requirements/**'
+      - '.github/workflows/skill-catalog.yml'
   push:
     branches: [main]
     paths:
       - 'docs/skills/**'
       - 'scripts/generate_skill_index.py'
       - 'tests/test_skill_index.py'
+      - '.github/requirements/**'
+      - '.github/workflows/skill-catalog.yml'
 
 permissions: {}
 
@@ -33,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Install python dependencies
-        run: python3 -m pip install --user pyyaml jsonschema
+        run: 'python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt'
 
       # Exercises the generator's guard rails: missing front matter, missing
       # required keys, an entry_point that disagrees with its own path, the
