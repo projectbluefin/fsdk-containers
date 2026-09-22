@@ -47,9 +47,20 @@ Only load the docs relevant to your task.
 BuildStream runs inside the FSDK `bst2` container via the `just bst` wrapper —
 nothing to install but `podman` + [`just`](https://github.com/casey/just).
 `just build` / `just verify` additionally read the image catalog via Python:
-`pyyaml` + `jsonschema` must be importable by `python3`
-(`python3 -m pip install --user pyyaml jsonschema`; the GHA ubuntu runners
-ship both preinstalled, and the workflows install them explicitly).
+`pyyaml` + `jsonschema` must be importable by `python3`. Install the pinned
+set the workflows use, not a floating one, so a local run cannot skew from CI:
+
+```
+python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt
+```
+
+That is the exact line all four CI install steps run, and the file carries the
+full transitive closure with wheel hashes. A Renovate bump rewrites the `==`
+version but never the hashes, so the install fails closed until they are
+regenerated — the procedure is in
+[docs/skills/ci-tooling/SKILL.md](docs/skills/ci-tooling/SKILL.md)
+("Regenerating `.github/requirements` hashes").
+
 Local/agent builds are submitted to the ghost cluster's BuildBarn
 remote-execution grid by default (never built on the local machine);
 `BST_LOCAL=1` is the explicit opt-out. See
