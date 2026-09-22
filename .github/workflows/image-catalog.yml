@@ -25,6 +25,10 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
+      # test_catalog_readme_inventory.py ratchets the README image table against
+      # elements/targets.json. Without this the gate never fires for a
+      # README-only edit -- deleting or renaming a published image's row.
+      - 'README.md'
   push:
     branches: [main]
     paths:
@@ -41,6 +45,7 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
+      - 'README.md'
 
 permissions: {}
 
