@@ -265,6 +265,27 @@
       "doc_type": "procedure"
     },
     {
+      "id": "offline-python-packaging",
+      "name": "offline-python-packaging",
+      "one_line_purpose": "Build Python distributions offline with the pyproject element \u2014 no pip, deps declared by hand.",
+      "entry_point": "docs/skills/offline-python-packaging.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "python",
+        "pyproject",
+        "cargo2",
+        "pypi",
+        "offline",
+        "source-plugin",
+        "catalog"
+      ],
+      "description": "Recipe for the buildstream-plugins-community pyproject element: element shape, sha256 refs from PyPI, the FSDK-first dependency rule, the build-args-local trap, wheel-only upstreams via the core remote source, and Rust extensions via cargo2.",
+      "version": "1.0",
+      "last_updated": "2026-09-20",
+      "doc_type": "procedure"
+    },
+    {
       "id": "remote-execution",
       "name": "remote-execution",
       "one_line_purpose": "Run BuildStream builds on the ghost cluster BuildBarn remote-execution grid.",
