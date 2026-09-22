@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-21",
+  "generated_at": "2026-09-22",
   "schema_version": "1.0",
   "skills": [
     {
@@ -262,6 +262,27 @@
       "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.",
       "version": "1.0",
       "last_updated": "2026-08-20",
+      "doc_type": "procedure"
+    },
+    {
+      "id": "offline-python-packaging",
+      "name": "offline-python-packaging",
+      "one_line_purpose": "Build Python distributions offline with the pyproject element \u2014 no pip, deps declared by hand.",
+      "entry_point": "docs/skills/offline-python-packaging.md",
+      "category": "ci-ops",
+      "status": "active",
+      "tags": [
+        "python",
+        "pyproject",
+        "cargo2",
+        "pypi",
+        "offline",
+        "source-plugin",
+        "catalog"
+      ],
+      "description": "Recipe for the buildstream-plugins-community pyproject element: element shape, sha256 refs from PyPI, the FSDK-first dependency rule, the build-args-local trap, wheel-only upstreams via the core remote source, and Rust extensions via cargo2.",
+      "version": "1.0",
+      "last_updated": "2026-09-20",
       "doc_type": "procedure"
     },
     {
