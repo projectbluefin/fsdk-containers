@@ -1,7 +1,7 @@
 ---
 name: vm-podman-guest
-version: "1.0"
-last_updated: 2026-08-20
+version: "1.1"
+last_updated: 2026-09-18
 id: vm-podman-guest
 one_line_purpose: Build, boot-test and publish the podman VM guest image.
 entry_point: docs/skills/vm-podman-guest/SKILL.md
@@ -54,7 +54,8 @@ disk therefore cannot be an asset: the API rejects it with
 `HTTP 422 ... size must be less than 2147483648`. `just compress-podman-vm`
 compresses both disks with zstd (`--keep`, so the real disks stay available
 for the boot test, the checksum gate, and the attestations), and the
-published set per architecture is exactly:
+published set per architecture is exactly 7 assets (14 total across both
+architectures `x86_64` and `aarch64` for a given point-release tag `v<fsdk-version>`):
 
 ```text
 donate-clanker-vm-<fsdk-version>-<arch>.raw.zst          <- the download
@@ -69,9 +70,61 @@ podman-vm-<arch>.spdx.json
 
 The URL is predictable from the version and the architecture:
 `https://github.com/projectbluefin/fsdk-containers/releases/download/v<fsdk-version>/donate-clanker-vm-<fsdk-version>-<arch>.raw.zst`.
-This is the shape `projectbluefin/donate-clanker` already fetches: download
-`.raw.zst`, decompress, then `sha256sum -c` the `.raw.sha256` sidecar. Do not
-rename these assets without changing the launcher.
+This is the shape downstream consumers (`projectbluefin/donate-clanker`,
+and planned consumer `projectbluefin/review`) fetch: download `.raw.zst`, decompress, then
+`sha256sum -c` the `.raw.sha256` sidecar. Do not rename these assets without
+changing the launcher.
+
+#### Authenticity vs. Integrity Verification
+
+Downstream consumers must distinguish download integrity from authenticity:
+- **Integrity:** Verified via the accompanying `.sha256` sidecars (`sha256sum -c`).
+  This proves the downloaded archive or decompressed image has not suffered
+  transport corruption, but provides **zero authenticity** on its own (a compromised
+  release could replace both asset and checksum).
+- **Authenticity & Provenance:** Provided by GitHub Artifact Attestations
+  (`actions/attest`). Because disk images have no OCI registry, attestations are stored
+  in GitHub's attestation authority (`push-to-registry: false`). Consumers verify
+  downloaded artifacts using the GitHub CLI:
+
+```bash
+gh attestation verify donate-clanker-vm-<fsdk-version>-<arch>.raw.zst \
+  -R projectbluefin/fsdk-containers \
+  --signer-repo projectbluefin/fsdk-containers
+```
+
+Note: `actions/attest` attests the local raw and QCOW2 disks as well as their
+compressed `.zst` equivalents, but only the `.zst` files, checksum manifests,
+and SPDX SBOMs are uploaded as release assets due to GitHub's per-asset size limit.
+
+### Transaction semantics (`publish-podman-vm`)
+
+`just publish-podman-vm` uploads one architecture's asset set as an all-or-nothing
+transaction with explicit safety guarantees:
+
+- **Preflight:** Validates that every file in the architecture's set exists in `dist-vm/`
+  and is strictly under GitHub's 2 GiB per-asset limit (`LIMIT=2147483648`) before
+  any network upload begins. An oversized asset fails immediately rather than mid-upload.
+- **Repair:** Inspects existing release assets for tag `v<fsdk-version>`. If a release
+  carries only PART of this architecture's set (debris of an earlier interrupted or
+  failed publish run), the orphan assets are deleted before republishing the complete set.
+- **Immutability:** If all expected assets for this architecture already exist on the
+  release tag, the publish step exits with status 0 without re-uploading (`complete
+  point-release asset set already published, immutable`). Complete sets are never
+  overwritten.
+- **Rollback:** Maintains an `uploaded=()` list and an ERR trap (`rollback()`). If any
+  upload or verification step fails, all assets uploaded during that invocation are
+  deleted from the release so a failed run never leaves orphan checksums or disks.
+  A cancelled run (SIGINT/SIGTERM) does not fire the ERR trap; the Repair step above
+  is what clears that debris on the next publish.
+- **Post-verify:** Re-reads the release asset inventory after upload and asserts that
+  every expected asset is present with its expected byte size. Any mismatch triggers
+  rollback and exits non-zero.
+- **Aggregate Verification (`verify-release`):** In CI (`.github/workflows/vm-guest.yml`),
+  each architecture publishes independently so one architecture's build or test never
+  strands the other. A downstream `verify-release` job runs after both architecture legs
+  complete, failing if the point-release tag is missing any of the 14 assets across
+  both `x86_64` and `aarch64`.
 
 The FSDK EFI tree is built separately from this element's root filesystem.
 `podman-vm-efi.bst` therefore rewrites the baked `root=UUID=` value from the
