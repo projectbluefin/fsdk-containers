@@ -77,7 +77,7 @@ sources:
   each already pulling the `python3-build` + `python3-installer` the plugin invokes.
 - `strip-binaries: ""` is not cargo-culting — FSDK's own `python3-*.bst` set
   it, and the OCI layer prune keeps the image slim instead
-  ([`slim-an-image.md`](slim-an-image.md)).
+  ([`slim-an-image/SKILL.md`](slim-an-image/SKILL.md)).
 
 ## Refs are PyPI sha256 sums, filled by hand
 
@@ -198,5 +198,5 @@ sources:
 
 `just verify` gates **uncompressed local** podman size; upstream comparison
 tables are **compressed registry** size. The two are not interchangeable (see
-[`verify-distroless.md`](verify-distroless.md)) — state the basis with every
+[`verify-distroless/SKILL.md`](verify-distroless/SKILL.md)) — state the basis with every
 number, and benchmark against upstream `-slim` variants, never `:latest`.

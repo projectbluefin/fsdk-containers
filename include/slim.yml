@@ -20,7 +20,7 @@ slim-distroless-commands: |
   # under compose exclude:, but ~905 KB still ships in every base-derived
   # image. Nothing at runtime reads separated DWARF, so this is a safe
   # unconditional removal. Verify against the built rootfs; never trust
-  # compose exclude: on its own (docs/skills/slim-an-image.md).
+  # compose exclude: on its own (docs/skills/slim-an-image/SKILL.md).
   rm -rf "$L"/usr/lib/debug
 
   # Keep common character sets; remove the gconv long tail.
