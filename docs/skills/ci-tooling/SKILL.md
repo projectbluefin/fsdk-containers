@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.3"
-last_updated: 2026-08-20
+version: "1.4"
+last_updated: 2026-09-18
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -93,6 +93,67 @@ write the matching commit `ref:` — neither tool does both halves alone. See
 Archive and remote binary sources pin a sha256 `ref:` refreshed by the same
 workflow. Do not restore the old generic regex manager: a release version
 alone cannot identify or verify the exact archive artifact.
+
+### Regenerating `.github/requirements` hashes
+
+Four steps install `.github/requirements/verify.txt`, always the same way:
+
+```yaml
+run: python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt
+```
+
+`--only-binary=:all:` is not decoration. If a requirement lists only its sdist
+hash, pip picks the sdist — the one link whose hash is allowed — and builds it,
+and build isolation then downloads ~11 unpinned, unhashed build backends
+(hatchling, setuptools-scm, trove-classifiers, ...) that execute arbitrary code
+inside `oci-images.yml`'s verify job, which holds `packages: write`,
+`attestations: write` and `id-token: write`. So every requirement carries its
+**wheel** hash, and the flag makes an sdist fallback impossible even if a wheel
+hash is ever dropped.
+
+The `custom.regex` manager in `renovate.json` rewrites only the `==` version,
+never the hashes, so **every Renovate bump of this file arrives with stale
+hashes and a red install step**. That is pip failing closed, not a bug — but it
+means the reviewer regenerates before merging:
+
+1. Re-resolve the transitive closure in a throwaway venv. A bump can add or
+   drop a dependency and `--require-hashes` needs the *whole* closure:
+
+   ```console
+   $ python3 -m venv /tmp/reqgen
+   $ /tmp/reqgen/bin/pip install -q "pyyaml==<new>" "jsonschema==<new>"
+   $ /tmp/reqgen/bin/pip freeze
+   ```
+
+2. Emit one line per requirement from the PyPI JSON API. The committed
+   selection is `py3-none-any` wheels + `manylinux` wheels + the sdist: the
+   runners are `ubuntu-24.04` / `ubuntu-24.04-arm` (glibc), so musllinux,
+   macOS and Windows wheels are deliberately excluded.
+
+   ```console
+   $ python3 - <<'EOF'
+   import json, urllib.request
+   PINS = [("pyyaml", "6.0.3"), ("jsonschema", "4.26.0")]  # from pip freeze
+   for pkg, ver in PINS:
+       urls = json.load(urllib.request.urlopen(
+           f"https://pypi.org/pypi/{pkg}/{ver}/json"))["urls"]
+       hashes = [u["digests"]["sha256"] for u in urls
+                 if u["filename"].endswith(("-none-any.whl", ".tar.gz"))
+                 or "manylinux" in u["filename"]]
+       print(f"{pkg}=={ver} " + " ".join(f"--hash=sha256:{h}" for h in hashes))
+   EOF
+   ```
+
+3. Prove the result resolves to wheels only:
+
+   ```console
+   $ /tmp/reqgen/bin/pip download --no-deps --require-hashes --only-binary=:all: \
+       -r .github/requirements/verify.txt -d /tmp/reqcheck
+   $ ls /tmp/reqcheck   # every entry must be a .whl, never a .tar.gz
+   ```
+
+Do not hand-patch one hash out of the Renovate diff. Regenerate the whole line:
+a version bump changes every per-platform wheel hash, not just one.
 
 ### Triggering Workflows (Pushes vs. Repository Dispatch)
 Pushes made with the default `GITHUB_TOKEN` do **not** trigger other GitHub Actions workflows. To trigger downstream workflows or standard build runs from an automated update:
@@ -188,6 +249,7 @@ FAIL: guest did not reach its ready point within 300s
 | "GITHUB_TOKEN is fine for the bot's push." | It cannot trigger workflows, so the resulting PR carries no checks — and Renovate was set to auto-merge those. |
 | "Mergeraptor needs new permissions for that." | It is an org-level app; the permissions and secrets already exist. Reuse them. |
 | "The logs are empty, so there is nothing to diagnose." | Check `gh run download`. Artifacts are not in the logs, and #110 stalled 12 hours on exactly this. |
+| "`--require-hashes` already locks the install down." | Only against the artifacts you hashed. An sdist-only hash makes pip *build* the package, pulling ~11 unpinned build backends into a `packages: write` job. Hash the wheel and pass `--only-binary=:all:`. |
 
 ## Red Flags
 
@@ -203,6 +265,9 @@ FAIL: guest did not reach its ready point within 300s
 - A documented `gh attestation verify` command with no `--signer-workflow`/`--signer-repo`
 - `actions/checkout` without `persist-credentials: false` in a job that does not push
 - A rootfs vulnerability scanner pointed at a distroless image ref
+- A `pip install` of `.github/requirements/*.txt` without `--require-hashes --only-binary=:all:`
+- A requirement in `.github/requirements/*.txt` whose only hash is its `.tar.gz`
+- A CI-input path (`.github/requirements/**`, the workflow file itself) missing from a workflow's `paths:` filter — the PR that changes it runs nothing
 
 ## Verification
 
@@ -212,6 +277,7 @@ FAIL: guest did not reach its ready point within 300s
 - [ ] `just changed-targets <base> HEAD` selects the targets you expect
 - [ ] No new mutable action refs introduced
 - [ ] No new secret name: automation writes go through Mergeraptor
+- [ ] `pip download --no-deps --require-hashes --only-binary=:all: -r .github/requirements/verify.txt -d <tmp>` yields only `.whl` files
 
 ### GitHub artifact attestations
 

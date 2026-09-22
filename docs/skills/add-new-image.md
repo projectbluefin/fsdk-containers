@@ -1,7 +1,7 @@
 ---
 name: add-new-image
-version: "1.0"
-last_updated: 2026-08-21
+version: "1.1"
+last_updated: 2026-09-18
 id: add-new-image
 one_line_purpose: Add a distroless OCI image by declaring one catalog record.
 entry_point: docs/skills/add-new-image.md
@@ -68,6 +68,34 @@ gets it for free — do not work around it with a bespoke element.
   `scripts/verify_contract.py` emits them newline-delimited and the `verify`
   recipe reads them with `mapfile` into bash arrays, so every argument reaches
   `podman run` as exactly one argument.
+
+## Element reachability and the spike registry
+
+Every `.bst` file under `elements/` must be reachable from a published target,
+or be declared inert. `tests/test_catalog_element_reachability.py` walks
+`depends:`/`build-depends:` from the publication roots — the `oci_images` in
+`elements/targets.json`, the nspawn machine image, the podman VM guest, and the
+`project.conf` junctions — and fails on anything it cannot reach.
+
+Inert elements are registered in that module's `SPIKE_ELEMENTS` dict, keyed by
+path relative to `elements/`, valued with the issue that tracks the spike. The
+registry is asserted in both directions: an unregistered orphan fails, and so
+does a registry entry whose file is gone or has since become reachable.
+
+**The contract: a spike graduating must leave the registry in the same PR that
+wires it into a published target.** Adding `<name>` to `oci_images`, or
+depending on a spike element from an existing image's stack, makes those files
+reachable; leave them in `SPIKE_ELEMENTS` and the gate goes red.
+
+Graduation is per *file*, not per directory. A spike directory can graduate
+partway: `review-runtime` depends on `node/node-stack.bst`, so that file and
+`node/node.bst` left the registry, while `node/node-runtime.bst` — the
+distroless chisel for a standalone `oci/node.bst` that does not exist yet — is
+still inert and still registered. Remove exactly the files your change wired in.
+
+If you add a publication lane that is not an OCI image in `targets.json`, add
+its root element to the hardcoded root set in that module's `setUpClass`.
+Otherwise every element reachable only from it reads as a false orphan.
 
 ## Prerequisites
 

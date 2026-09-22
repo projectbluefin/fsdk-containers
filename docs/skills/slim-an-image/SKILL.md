@@ -74,8 +74,8 @@ cut that must stay gone, so it fails the build if it creeps back.
   version bump; put the check in `just verify`.
 - “Excluding `shells` removes bash.” Bash is in FSDK's runtime domain and must
   be explicitly removed for distroless images.
-- “Excluding `debug` removes the debug symbols.” It does not — ~905 KB of separated
-  DWARF survives it in every image today. Verify the rootfs, not the element.
+- “Excluding `debug` removes the debug symbols.” It did not — ~905 KB of separated
+  DWARF survived it until #316 stripped it in `include/slim.yml` and gated it. Verify the rootfs, not the element.
 - “The `compose exclude:` list says it is gone, so it is gone.” Two domains have now
   been caught leaking. Confirm with `podman export | tar -tvf`.
 - “The build dependency is harmless.” Confirm it is build-only and absent from

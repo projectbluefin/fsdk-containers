@@ -25,14 +25,17 @@ FORBIDDEN = {
         r"|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$"
         r"|libpcre2-(16|32|posix)\.so"
     ),
-    # NOT YET ENABLED -- these fail against today's images and belong to the
-    # Phase 3 pruning plan, which is what makes them satisfiable:
-    #   "no-debug-symbols": r"^usr/lib/debug/",
+    # Separated DWARF leaks the `debug` split domain too (same trap as bash
+    # escaping `shells`): base-runtime.bst and static-runtime.bst list `debug`
+    # under compose exclude:, yet ~905 KB still shipped in every base-derived
+    # image. include/slim.yml now `rm`s it, so nothing at runtime reads
+    # separated DWARF and the gate is satisfiable. Enforced on distroless
+    # images only (DISTROLESS_ONLY_GATES) -- lab-runner never had this gate,
+    # and adding one for it would be a new behaviour that plan forbids.
+    "no-debug-symbols": r"^usr/lib/debug/",
+    # NOT YET ENABLED -- belongs to the Phase 3 pruning plan, which is what
+    # makes it satisfiable:
     #   "no-element-names": r"\.bst($|/)",
-    #
-    # base genuinely ships usr/lib/debug/dwz/bootstrap/glibc.bst/... because
-    # the FSDK debug split hasn't been applied yet. Enabling these gates before
-    # Phase 3 would break the merge contract.
 }
 
 # Required of every DISTROLESS image regardless of record contents, because
@@ -64,7 +67,11 @@ BASELINE_ANY_PATHS_DISTROLESS = [
 # Gates that the old recipe applied ONLY in its non-lab-runner branch. A
 # shell-enabled image never had them, so applying them would be a new gate --
 # a behaviour change, which this plan forbids.
-DISTROLESS_ONLY_GATES = ("no-sanitizers", "no-locale-archive")
+DISTROLESS_ONLY_GATES = (
+    "no-sanitizers",
+    "no-locale-archive",
+    "no-debug-symbols",
+)
 
 
 def gates_for(record: dict) -> dict:
