@@ -70,7 +70,7 @@ jobs:
           # fail hard and prune nothing. `errexit` is on, so suspend it across
           # this one expected failure and keep the status in PRC.
           set +e
-          PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=container" 2>&1)"
+          PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/base/versions" 2>&1)"
           PRC=$?
           set -e
           if [[ "${PRC}" -ne 0 ]]; then
