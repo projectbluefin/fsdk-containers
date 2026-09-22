@@ -29,6 +29,10 @@ on:
       # elements/targets.json. Without this the gate never fires for a
       # README-only edit -- deleting or renaming a published image's row.
       - 'README.md'
+      # test_catalog_sbom_provenance.py ratchets the --spdx-creator lines in the
+      # sbom/sboms recipes. Without this a Justfile-only edit that drops them
+      # never runs the gate.
+      - 'Justfile'
   push:
     branches: [main]
     paths:
@@ -46,6 +50,7 @@ on:
       - '.github/actions/**'
       - 'docs/skills/ci-tooling/**'
       - 'README.md'
+      - 'Justfile'
 
 permissions: {}
 
