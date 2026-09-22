@@ -231,6 +231,53 @@ publish pipeline attached with `oras discover --format json` (`.referrers[]`,
 not `.manifests[]`), pulls it, and scans that. It reports; it never gates — a
 CVE in an FSDK component is fixed by bumping FSDK, not by failing this repo.
 
+### Distinguishing "absent" from "not visible" in ghcr-cleanup
+
+`ghcr-cleanup.yml` filters the candidate list down to packages GHCR actually has
+before handing it to `dataaxiom/ghcr-cleanup-action`, whose package lookup 404s
+the whole run otherwise. A package is skipped only when the lookup BOTH fails
+and the body says `not found`, so an in-manifest-but-unpublished image (today:
+`review-runtime`) is skipped instead of breaking a scheduled cleanup, and the
+`if: steps.packages.outputs.list != ''` guard makes an all-unpublished manifest
+a clean no-op.
+
+But GitHub returns **404 for both** "this package does not exist" and "this
+package exists but is not visible to this token" (projectbluefin/fsdk-containers
+#306). A token-scope or credential regression is therefore indistinguishable
+from a fresh manifest: every lookup 404s, the list empties, the prune step
+no-ops on its guard, and untagged images accumulate silently under a green run.
+Failing on "a non-empty manifest resolves to zero visible packages" is wrong
+too -- a repository whose manifest contains only brand-new, not-yet-published
+images legitimately resolves to zero, and that no-op is documented above as
+clean.
+
+The fix probes the token's **package-list permission once, before the
+per-package loop** -- a call that succeeds or fails on scope alone, independent
+of whether any particular package exists, e.g. listing the org's container
+packages:
+
+```bash
+set +e
+PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=container" 2>&1)"
+PRC=$?
+set -e
+if [[ "${PRC}" -ne 0 ]]; then
+  echo "::error::cannot enumerate org container packages: token lacks package-list permission, refusing to prune"
+  exit 1
+fi
+```
+
+`gh api` returns 403 when the token lacks `read:packages`, so a non-zero probe
+means the token cannot classify anything at all: fail hard and prune nothing.
+Once the probe succeeds, a per-package 404 genuinely means *absent*, and the
+skip-above is correct -- including the all-unpublished no-op. The probe makes a
+credential regression audible; the list guard keeps the documented fresh-manifest
+case green. Prove the classifier the way the repo does for these steps: extract
+the `run:` block, and run it against stub `gh`/`jq` on `PATH` that reproduce the
+benign skip, the all-unpublished no-op, a must-not-absorb error (a 5xx on a live
+package is kept, so the action fails loudly), and the scope-regression probe
+that must hard-error.
+
 ### Repository settings that make the gate real (admin, not in git)
 
 Branch protection on `main` (verify: `gh api
