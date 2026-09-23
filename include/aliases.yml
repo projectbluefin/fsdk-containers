@@ -1,6 +1,11 @@
 # Source aliases — only those referenced by elements in this repo.
 aliases:
   pypi: https://files.pythonhosted.org/packages/
+  # cargo2 appends `<crate>/<crate>-<version>.crate` to its `url`, so elements
+  # set `url: "crates:crates/"`. Same alias value and same element-side shape
+  # as FSDK's include/_private/{aliases,cargo2}.yml, so a crate mirror
+  # configured for FSDK works here unchanged.
+  crates: https://static.crates.io/
 
   github: https://github.com/
   gitlab: https://gitlab.com/

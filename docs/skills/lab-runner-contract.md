@@ -1,7 +1,7 @@
 ---
 name: lab-runner-contract
 version: "1.0"
-last_updated: 2026-08-20
+last_updated: 2026-09-20
 id: lab-runner-contract
 one_line_purpose: Define the lab-runner tool contract that just verify enforces.
 entry_point: docs/skills/lab-runner-contract.md
@@ -32,9 +32,9 @@ Sourced from `elements/lab-runner/lab-runner-stack.bst`:
 
 | Tool | Source | Gated in `just verify` |
 |------|--------|------------------------|
-| bash, coreutils, terminfo db | base-stack | bash present; terminfo entries incl. `x/xterm-ghostty` |
+| bash, coreutils, terminfo db | base-stack | bash present; terminfo entries incl. `x/xterm-256color`, `t/tmux-256color`, `s/screen-256color`, `x/xterm-ghostty` |
 | curl, git, jq, python3 (+pyyaml), openssh | FSDK components | — |
-| diffutils, file, findutils, gawk, gzip, less, patch, procps, tar, which | FSDK components | standard-userland gate (all ten); gzip additionally via a real `.tar.gz` round trip |
+| diffutils (`diff`, `cmp`, `diff3`), file, findutils (`find`, `xargs`), gawk, gzip, less, patch, procps, tar, which | FSDK components | standard-userland gate (all named commands); gzip additionally via a real `.tar.gz` round trip (#74) |
 | shellcheck, hadolint, actionlint | `lab-runner/*.bst` | linter-suite gate (all three execute) |
 | argo, just, kubectl | `lab-runner/*.bst` | CLI-contract gate (`--entrypoint` execution) |
 | yq | `lab-runner/yq.bst` | — |

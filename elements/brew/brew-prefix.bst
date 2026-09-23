@@ -10,8 +10,8 @@ sources:
 - kind: git_repo
   url: github:Homebrew/brew.git
     # renovate: datasource=github-tags depName=Homebrew/brew
-  track: 7.0.1
-  ref: 7.0.1-0-gb3625f73d3e3574c5789ee32eb7b06627b788ec4
+  track: 7.0.6
+  ref: 7.0.6-0-g570982948a8a194f0f42f43f4a5bce2d1c9f64cb
 
 depends:
   # coreutils + bash to run the install-commands. FSDK 26.08 removed both from

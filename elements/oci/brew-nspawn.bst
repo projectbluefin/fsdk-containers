@@ -23,7 +23,7 @@ variables:
   # Keep in lockstep with brew/brew-prefix.bst's track: — the Justfile's
   # brew_version and verify-brew expect homebrew-env-<that version>.tar.zst.
   # renovate: datasource=github-tags depName=Homebrew/brew
-  brew-version: "7.0.1"
+  brew-version: "7.0.6"
 
 config:
   commands:

@@ -1,12 +1,28 @@
 """Unit and regression tests for multi-arch source ref parity."""
 
 from pathlib import Path
+import re
 import unittest
+import urllib.error
+import urllib.request
+from unittest import mock
 
 import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
 from check_multiarch_refs import check_parity, extract_arch_refs
+
+
+def _http_status_is_transient(code: int) -> bool:
+    """Is an upstream HTTP status transport weather rather than a finding?
+
+    ``dl.k8s.io`` is a CDN redirector, so a 5xx or a 429 says nothing about
+    this repository and must not fail CI on an unrelated ``elements/**`` edit.
+    Every other 4xx -- a 404 above all -- means the version declared in
+    ``kubectl.bst`` has no such artifact upstream, which is precisely the
+    drift this gate exists to catch.
+    """
+    return code == 429 or code >= 500
 
 
 SAMPLE_BST_BEFORE = """kind: manual
@@ -206,6 +222,81 @@ sources:
         self.assertIn("x86_64 changed=True", err)
         self.assertIn("aarch64 changed=False", err)
         self.assertIn("ppc64le changed=False", err)
+
+    def test_kubectl_multiarch_refs_match_upstream(self):
+        # Issue #215 / PR #213 regression test: ensure kubectl element has matching multi-arch refs
+        # and version-agnostic alignment with upstream release checksums when online.
+        root = Path(__file__).parents[1]
+        kubectl_bst = root / "elements" / "lab-runner" / "kubectl.bst"
+        content = kubectl_bst.read_text(encoding="utf-8")
+        refs = extract_arch_refs(content)
+        self.assertIn("x86_64", refs)
+        self.assertIn("aarch64", refs)
+
+        match = re.search(r"^\s*kubectl_version:\s*(\S+)\s*$", content, re.MULTILINE)
+        self.assertIsNotNone(match, "kubectl_version variable not found in kubectl.bst")
+        version = match.group(1).strip()
+
+        arch_map = {"x86_64": "amd64", "aarch64": "arm64"}
+        verified_count = 0
+        for arch, k8s_arch in arch_map.items():
+            url = f"https://dl.k8s.io/release/{version}/bin/linux/{k8s_arch}/kubectl.sha256"
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "fsdk-test"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    expected_hash = resp.read().decode("utf-8").strip()
+                    self.assertEqual(
+                        refs[arch],
+                        expected_hash,
+                        f"kubectl ref for {arch} ({refs[arch]}) does not match upstream {version} {k8s_arch} hash ({expected_hash})",
+                    )
+                    verified_count += 1
+            except urllib.error.HTTPError as exc:
+                if _http_status_is_transient(exc.code):
+                    self.skipTest(
+                        f"upstream returned HTTP {exc.code} for {url}: {exc}"
+                    )
+                self.fail(
+                    f"Upstream release checksum fetch failed with HTTP {exc.code} "
+                    f"for {version} ({url}): {exc}"
+                )
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                self.skipTest(f"upstream unreachable for {url}: {exc}")
+
+        self.assertEqual(
+            verified_count,
+            len(arch_map),
+            f"Expected {len(arch_map)} verified architectures, verified {verified_count}",
+        )
+
+    def test_upstream_404_fails_while_throttling_and_5xx_skip(self):
+        # Drive the gate itself, not the predicate: HTTPError subclasses
+        # URLError subclasses OSError, so reordering the two except clauses
+        # silently restores the #215 hole -- a 404 on a declared version is
+        # swallowed as "offline" and the gate reports success. 429 is the
+        # precedence trap: a 4xx that must still skip.
+        def _raise(code):
+            def _urlopen(*_args, **_kwargs):
+                raise urllib.error.HTTPError(
+                    "https://dl.k8s.io/", code, "synthetic", {}, None
+                )
+
+            return _urlopen
+
+        with mock.patch.object(urllib.request, "urlopen", _raise(404)):
+            try:
+                self.test_kubectl_multiarch_refs_match_upstream()
+            except self.failureException:
+                pass
+            except unittest.SkipTest:
+                self.fail("HTTP 404 on the declared version was swallowed as a skip")
+            else:
+                self.fail("HTTP 404 on the declared version did not fail the gate")
+
+        for transient in (429, 503):
+            with mock.patch.object(urllib.request, "urlopen", _raise(transient)):
+                with self.assertRaises(unittest.SkipTest):
+                    self.test_kubectl_multiarch_refs_match_upstream()
 
 
 if __name__ == "__main__":
