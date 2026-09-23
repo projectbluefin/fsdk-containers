@@ -72,50 +72,50 @@ build-depends:
   # FSDK 26.08 removed the shell from runtime-minimal; these commands are
   # shell scripts, so declare the interpreter explicitly (kubectl.bst
   # precedent).
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
-  - freedesktop-sdk.bst:components/tar.bst
-  - freedesktop-sdk.bst:components/gzip.bst
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+- freedesktop-sdk.bst:components/tar.bst
+- freedesktop-sdk.bst:components/gzip.bst
   # the smoke test below greps falco --version output
-  - freedesktop-sdk.bst:components/grep.bst
-  - freedesktop-sdk.bst:bootstrap/coreutils.bst
+- freedesktop-sdk.bst:components/grep.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
 
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=falcosecurity/falco
-  falco_version: 0.44.1
+  falco_version: 0.45.0
 
 sources:
-  - kind: remote
-    (?):
-      - arch == "x86_64":
-          url: "https://download.falco.org/packages/bin/x86_64/falco-%{falco_version}-x86_64.tar.gz"
-          ref: bc5b7a3bdf26fc91e520fc20b3461613c6e725148437121697a8d20243132127
-      - arch == "aarch64":
-          url: "https://download.falco.org/packages/bin/aarch64/falco-%{falco_version}-aarch64.tar.gz"
-          ref: 17ff67764cb84374ca0fcc98a733316f973a90f3457495df35a24bd839b4ce87
-    filename: falco.tar.gz
+- kind: remote
+  (?):
+  - arch == "x86_64":
+      url: "https://download.falco.org/packages/bin/x86_64/falco-%{falco_version}-x86_64.tar.gz"
+      ref: 6c8c591089db4ccf815c1761be28109b46f2c14d462a8414abcdd282249aeefe
+  - arch == "aarch64":
+      url: "https://download.falco.org/packages/bin/aarch64/falco-%{falco_version}-aarch64.tar.gz"
+      ref: 7a3fae3fb6bdda62b14454fe6bb39f9bf42a30e38168c3e2ef8cf46aa763b1d6
+  filename: falco.tar.gz
 
 config:
   install-commands:
     # --no-same-owner: the release tarball records the build-machine uid/gid,
     # which the sandbox cannot restore (docs/skills/add-fsdk-component
     # SKILL.md failure-modes table).
-    - tar --no-same-owner -xzf falco.tar.gz
+  - tar --no-same-owner -xzf falco.tar.gz
     # Ship exactly what upstream's own distroless image ships
     # (docker/falco/Dockerfile @0.44.1): falco + /etc/falco + the container
     # plugin. NOT shipped, same as upstream: /usr/src driver sources,
     # falcoctl, /etc/falcoctl.
-    - |
-      for src in falco-*/; do
-        mkdir -p "%{install-root}/usr/bin" "%{install-root}/usr/share" "%{install-root}/etc"
-        cp -a "${src}usr/bin/falco" "%{install-root}/usr/bin/falco"
-        chmod 755 "%{install-root}/usr/bin/falco"
-        cp -a "${src}usr/share/falco" "%{install-root}/usr/share/falco"
-        cp -a "${src}etc/falco" "%{install-root}/etc/falco"
-      done
-    # Smoke-test in the sandbox: the binary's only NEEDED libraries are
+  - |
+    for src in falco-*/; do
+      mkdir -p "%{install-root}/usr/bin" "%{install-root}/usr/share" "%{install-root}/etc"
+      cp -a "${src}usr/bin/falco" "%{install-root}/usr/bin/falco"
+      chmod 755 "%{install-root}/usr/bin/falco"
+      cp -a "${src}usr/share/falco" "%{install-root}/usr/share/falco"
+      cp -a "${src}etc/falco" "%{install-root}/etc/falco"
+    done
+   # Smoke-test in the sandbox: the binary's only NEEDED libraries are
     # glibc, staged here via runtime-gnu, so this must run and report the
     # pinned version. Catches a corrupt/incompatible artifact at build time
     # instead of at container start.
-    - |
-      "%{install-root}/usr/bin/falco" --version | grep -q "Falco version: %{falco_version}"
+  - |
+    "%{install-root}/usr/bin/falco" --version | grep -q "Falco version: %{falco_version}"

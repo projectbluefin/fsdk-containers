@@ -130,6 +130,36 @@ directives, no `// indirect` requires, and (to be safe) a pre-1.14 go
 directive. `elements/go-md2man/go-md2man.bst` is the in-repo example of
 that minimal case. Default to shipping modules.txt.
 
+### Bumping a version is a three-part change, not a `track:` rewrite
+
+For any element that ships its own `modules.txt` **and** stamps a version
+into the binary, moving the `git_repo` `track:` tag is only step one.
+`bst source track` (and Renovate's regex manager) will not do steps 2 and
+3 — they must be hand-edited in the same commit, or the build either ships
+the wrong code or dies on go's vendor consistency check:
+
+1. **`ref:`** — BuildStream builds from `ref:`, never `track:`. A stale
+   `ref:` still fetches cleanly, so CI goes green while building the old
+   release. Resolve the tag to its **commit** (annotated tags need a second
+   dereference: `gh api repos/<o>/<r>/git/ref/tags/<tag>` then
+   `git/tags/<sha>`) and write it as `<tag>-0-g<40hex>`.
+2. **`files/modules.txt`** — every `# <module> <version>` line that moved
+   upstream must move here too, or `-mod=vendor` fails with
+   `inconsistent vendoring`. Diff upstream's `go.mod` between the two tags
+   (`gh api repos/<o>/<r>/compare/<old>...<new>`) to find exactly which
+   lines changed. Locally-replaced modules (`=> ./staging/...`) have no
+   `go_module` source of their own, but they **do** carry a version on
+   their `modules.txt` header line.
+3. **ldflags version stamps** — element `variables:` like
+   `volcano-version` / `volcano-git-sha` are baked in via `-X` and are
+   invisible to both Renovate and `bst source track`; a correctly
+   re-tracked build will still self-report the previous version.
+
+`elements/volcano/volcano.bst` is the reference case. Note also that
+`bst source track` does not scale to its 235 `go_module` sources —
+`refresh-bst-refs.yml`'s 30-minute timeout kills the refresh job — so a
+volcano-class bump is edited by hand from upstream API data.
+
 ## RE-grid Go environment (mandatory)
 
 Builds on the ghost BuildBarn grid have **no network** — everything comes
