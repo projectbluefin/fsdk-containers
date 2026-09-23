@@ -129,6 +129,12 @@ argue about compose.
   `cat > <target> <<'EOF'`. See [buildstream/SKILL.md](buildstream/SKILL.md).
 - **Go builds need explicit `GOROOT: "%{libdir}/go"`** or actions fail with
   `go: cannot find GOROOT directory` even though `go` is present.
+- **`%{build-root}` directory deletion fails with `EROFS`.** In the build sandbox,
+  `%{build-root}` contents are writable (the build compiles there), but its parent
+  is mounted read-only. Attempting to unlink the directory itself (`rm -rf "%{build-root}"`)
+  fails with `Read-only file system` even when running as root (`runCommandsAs: {userId: 0}`).
+  To empty the tree and avoid capturing build artifacts, delete directory contents only:
+  `rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*`.
 
 ## Cache traps
 
