@@ -80,7 +80,7 @@ build-depends:
 variables:
   version: '1.2.3'
   # REQUIRED: dependent elements do not inherit the toolchain's GOROOT_BOOTSTRAP.
-  # Without this, remote BuildBarn actions fail with "go: cannot find GOROOT
+  # Without this, actions fail with "go: cannot find GOROOT
   # directory" even though the go binary is present in the sandbox.
   GOROOT: "%{libdir}/go"
 

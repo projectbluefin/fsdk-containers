@@ -160,9 +160,9 @@ the wrong code or dies on go's vendor consistency check:
 `refresh-bst-refs.yml`'s 30-minute timeout kills the refresh job — so a
 volcano-class bump is edited by hand from upstream API data.
 
-## RE-grid Go environment (mandatory)
+## Go build environment (mandatory)
 
-Builds on the ghost BuildBarn grid have **no network** — everything comes
+BuildStream sandboxes have **no network** — everything comes
 from staged sources. This env block is proven (volcano, go-md2man):
 
 ```yaml

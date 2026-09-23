@@ -124,6 +124,17 @@ class ValidateTests(LoadRecordTestCase):
 
         self.assertIn("shell_probe requires kind: shell-enabled", str(raised.exception))
 
+    def test_distroless_image_cannot_require_shell_binaries(self):
+        record = dict(self.record)
+        record["kind"] = "distroless"
+        record["gates"] = {"require_binaries": ["bash", "python3"]}
+
+        with self.assertRaises(catalog.CatalogError) as raised:
+            catalog.validate(record)
+
+        self.assertIn("gates.require_binaries names bash", str(raised.exception))
+        self.assertIn("kind: distroless strips the shell", str(raised.exception))
+
     def test_validate_returns_the_record_it_accepted(self):
         self.assertIs(catalog.validate(self.record), self.record)
 
