@@ -35,6 +35,13 @@ CANONICAL_EXCLUDE = [
 
 class CatalogError(Exception):
     """A record is missing, malformed, or contradicts its filename."""
+# include/slim.yml's slim-distroless-commands unconditionally deletes these from
+# the shipped layer of every kind: distroless image. A distroless record that
+# also names one in gates.require_binaries can never pass verification: the
+# no-shell forbid gate and the require-binary gate assert opposite things about
+# the same path, so the image is red no matter what it builds.
+SHELL_BINARIES = ("bash", "sh")
+
 
 
 def _validator() -> Draft202012Validator:
@@ -56,6 +63,15 @@ def validate(record: dict) -> dict:
         raise CatalogError(
             f"{record['name']}: smoke.shell_probe requires kind: shell-enabled"
         )
+    if record["kind"] != "shell-enabled":
+        required = record.get("gates", {}).get("require_binaries", []) or []
+        conflicting = [b for b in required if b in SHELL_BINARIES]
+        if conflicting:
+            raise CatalogError(
+                f"{record['name']}: gates.require_binaries names "
+                f"{', '.join(conflicting)}, but kind: distroless strips the "
+                f"shell; these gates contradict each other"
+            )
     return record
 
 

@@ -104,7 +104,7 @@ curl -sL <url> | sha256sum
 
 # Option B: on a checkout of the renovate branch (rewrites the file in
 # BuildStream's canonical YAML style — expect whole-file reflow):
-BST_LOCAL=1 just track <element>
+just track <element>
 ```
 
 Then `just validate` and, to prove the fetch end-to-end, `just bst source fetch <element>`.

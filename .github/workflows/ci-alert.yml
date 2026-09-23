@@ -46,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           ISSUE_NUM=$(gh issue list \
+            --repo "${{ github.repository }}" \
             --state all \
             --limit 30 \
             --json number,title \

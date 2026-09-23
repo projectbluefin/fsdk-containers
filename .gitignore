@@ -12,6 +12,5 @@ dist-vm/
 tests/artifacts/
 .build-out
 .worktrees/
-.bst-re.conf
 include/fsdk-version.yml
 .superpowers/

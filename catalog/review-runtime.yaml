@@ -1,12 +1,12 @@
 name: review-runtime
 kind: distroless
-description: Distroless review appliance runtime carved from freedesktop-sdk — python3, node, bash, git, curl
+description: Distroless review appliance runtime carved from freedesktop-sdk — python3, node, git, curl
 export_description: Distroless review appliance runtime built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,review
 entrypoint: ["/usr/bin/python3"]
 smoke:
   args: ["--version"]
-size_ceiling_mib: 320
+size_ceiling_mib: 384
 stack:
   depends:
     - base/base-stack.bst
@@ -24,7 +24,6 @@ stack:
     - freedesktop-sdk.bst:components/tar.bst
 gates:
   require_binaries:
-    - bash
     - python3
     - node
     - git

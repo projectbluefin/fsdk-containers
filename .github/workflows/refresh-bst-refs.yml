@@ -85,7 +85,6 @@ jobs:
       - name: Track sources
         if: steps.changed.outputs.elements != ''
         env:
-          BST_LOCAL: '1'
           # Via env, not ${{ }} interpolation: PR-derived filenames are a
           # template-injection sink in a `run:` shell.
           ELEMENTS: ${{ steps.changed.outputs.elements }}
@@ -97,8 +96,6 @@ jobs:
 
       - name: Validate element graph
         if: steps.changed.outputs.elements != ''
-        env:
-          BST_LOCAL: '1'
         run: just validate
 
       - name: Check for refreshed refs

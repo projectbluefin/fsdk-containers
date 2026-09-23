@@ -23,10 +23,9 @@ phase. Then assert the result on the composed image, because a silent flip is
 otherwise invisible. This shipped as a real regression in dakota (zram config
 whitelisted but overwritten by the junction, dakota#1131).
 
-## Remote-sandbox constraints
+## Sandbox constraints
 
-Builds run on BuildBarn workers, not on your machine. Two patterns that work
-locally and fail remotely:
+Two sandbox patterns to know:
 
 - **Never use `/dev/stdin` redirection.** `install -Dm644 /dev/stdin ... <<'EOF'`
   fails in sandboxes that do not mount `/proc`. Write inline files in two steps:

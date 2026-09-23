@@ -29,7 +29,7 @@ them as measured.
 
 ## The constraint that shapes everything
 
-The build phase has no network ([`remote-execution.md`](remote-execution.md)),
+The build phase has no network,
 so `pip install` is unavailable and **there is no dependency resolver at all**.
 You declare the transitive closure yourself, one element per distribution —
 the per-image cost issue #113 exists to drive down, not overhead you can skip.

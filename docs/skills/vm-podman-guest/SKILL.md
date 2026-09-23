@@ -139,7 +139,7 @@ against the ext4 root UUID.
 
 ## Verification
 
-- `BST_LOCAL=1 just bst show --deps all podman-vm/podman-vm-efi.bst`
+- `just bst show --deps all podman-vm/podman-vm-efi.bst`
 - `just export-podman-vm` checks out the raw disk and checksum manifest.
 - `just export-podman-vm-qcow2` (requires `qemu-img`/`qemu-utils`) additionally
   produces the QCOW2 conversion and its own checksum manifest.

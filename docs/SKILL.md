@@ -43,7 +43,6 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 | Supply chain security (signing and SBOM) | [`skills/signing-and-sbom.md`](skills/signing-and-sbom.md) |
 | Add donate-clanker VM artifacts | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
 | Write or debug a CI workflow | [`skills/ci-tooling/SKILL.md`](skills/ci-tooling/SKILL.md) |
-| Run local/agent builds on the ghost cluster (remote execution) | [`skills/remote-execution.md`](skills/remote-execution.md) |
 | Set up custom builds and configure GHA/BuildStream caching | [`skills/custom-builds-and-caching.md`](skills/custom-builds-and-caching.md) |
 | Automate ArtifactHub submissions | [`skills/artifacthub-automation.md`](skills/artifacthub-automation.md) |
 | Verify the brew nspawn machine image | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
@@ -64,9 +63,7 @@ agent's session folder.
 - BuildStream runs in the FSDK `bst2` container via `just bst`. Nothing to install
   but `podman` + `just`; `just build`/`just verify` also need `pyyaml` +
   `jsonschema` importable by `python3` for the image catalog.
-- Local/agent builds execute on the ghost cluster's BuildBarn grid by default
-  (`just bst` injects remote-execution config); `BST_LOCAL=1` is the explicit
-  opt-out. CI runners build locally per-arch.
+- BuildStream runs inside the container wrapper locally and natively per-arch in CI.
 - Compose from FSDK `components/*`, never `platform.bst`.
 - Slim by default; keep tzdata + common charsets + CA certs.
 - `just verify` is the merge contract: a per-image size ceiling, 5 distroless

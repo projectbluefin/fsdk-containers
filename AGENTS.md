@@ -61,10 +61,7 @@ regenerated — the procedure is in
 [docs/skills/ci-tooling/SKILL.md](docs/skills/ci-tooling/SKILL.md)
 ("Regenerating `.github/requirements` hashes").
 
-Local/agent builds are submitted to the ghost cluster's BuildBarn
-remote-execution grid by default (never built on the local machine);
-`BST_LOCAL=1` is the explicit opt-out. See
-[docs/skills/remote-execution.md](docs/skills/remote-execution.md).
+All builds run in GitHub Actions or locally in the container wrapper via podman.
 
 ```
 just validate   # resolve the element graph (no build)

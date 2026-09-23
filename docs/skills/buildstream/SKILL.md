@@ -63,7 +63,7 @@ and `x86_64_v3` — both are banned by [AGENTS.md](../../../AGENTS.md).
 | --- | --- |
 | [`references/element-and-source-kinds.md`](references/element-and-source-kinds.md) | Every element kind and what it is used for here (including the `stack` vs `compose` trap), and every source kind with the no-variable-expansion rule for source URLs. |
 | [`references/variables-and-directives.md`](references/variables-and-directives.md) | The standard variable table (`%{install-root}`, `%{bindir}`, `%{go-arch}`, `strip-binaries`) and the `(@)` / `(?)` / `(>)` / `(<)` directive syntax, including option-name rules. |
-| [`references/overlaps-and-sandbox.md`](references/overlaps-and-sandbox.md) | Overlap whitelists and why they are not precedence, plus the remote-sandbox constraints (`/dev/stdin`, Go `GOROOT`) that pass locally and fail on BuildBarn. |
+| [`references/overlaps-and-sandbox.md`](references/overlaps-and-sandbox.md) | Overlap whitelists and why they are not precedence, plus the sandbox constraints (`/dev/stdin`, Go `GOROOT`). |
 
 ## Project facts (this repo)
 
@@ -87,9 +87,7 @@ Verified against `project.conf`, `Justfile`, and `include/`:
 
 ## Quick Recipes
 
-BuildStream runs inside the FSDK `bst2` container via the `just bst` wrapper. Local and
-agent builds are submitted to the ghost cluster's BuildBarn grid by default; `BST_LOCAL=1`
-is the explicit opt-out. See [remote-execution.md](../remote-execution.md).
+BuildStream runs inside the FSDK `bst2` container via the `just bst` wrapper.
 
 | Goal | Command |
 |---|---|

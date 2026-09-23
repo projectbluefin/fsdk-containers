@@ -42,7 +42,6 @@ remote-execution topology are this repo's.
 - Writing a new element from scratch → [add-new-image.md](add-new-image.md) or
   [buildstream/SKILL.md](buildstream/SKILL.md)
 - Junction refs / patch queue / cache-key questions → [bst-junctions/SKILL.md](bst-junctions/SKILL.md)
-- The grid itself is unreachable → [remote-execution.md](remote-execution.md)
 - The image builds but fails a gate → [verify-distroless](verify-distroless/SKILL.md)
 
 ## Core Process
@@ -65,7 +64,6 @@ remote-execution topology are this repo's.
 | Read the build log | `just bst artifact log <element>` |
 | List built files | `just bst artifact list-contents <element>` |
 | Delete a cached failure | `just bst artifact delete <element>` |
-| Force local execution | `BST_LOCAL=1 just build` |
 | Full build after the fix | `just build` then `just verify` |
 
 ## Failure Classes
@@ -125,23 +123,12 @@ cache did not invalidate.
 `just bst artifact list-contents <element>` settles "did it build the file?" before you
 argue about compose.
 
-## Remote-execution failures
+## Sandbox constraints
 
-Local and agent builds run on the ghost cluster's BuildBarn grid by default. That adds
-failure modes that do not exist locally.
-
-- **Distinguish an input-root staging error from a compile error.** A message like
-  `Failed to obtain input directory ".": Object not found` is a grid/staging failure,
-  not a broken compiler. Diagnose the grid; do not "fix" the element.
-- **`/dev/stdin` redirection fails on the grid but passes locally.** Bubblewrap mounts
-  `/proc`, a bare chroot runner does not. Use `install -Dm644 /dev/null <target>` then
+- **`/dev/stdin` redirection fails in bare chroot sandboxes.** Use `install -Dm644 /dev/null <target>` then
   `cat > <target> <<'EOF'`. See [buildstream/SKILL.md](buildstream/SKILL.md).
-- **Go builds need explicit `GOROOT: "%{libdir}/go"`** or remote actions fail with
+- **Go builds need explicit `GOROOT: "%{libdir}/go"`** or actions fail with
   `go: cannot find GOROOT directory` even though `go` is present.
-- **`BST_LOCAL=1` is a diagnostic, not an operating model.** Use it to isolate whether a
-  failure is the element or the grid, then restore remote execution. `just bst` fails
-  closed when the cluster is unreachable, deliberately — do not add a silent local
-  fallback. See [remote-execution.md](remote-execution.md).
 
 ## Cache traps
 
@@ -165,7 +152,6 @@ failure modes that do not exist locally.
 | "CI failed, so this is a CI problem." | Most CI failures are element failures surfacing remotely. Classify first. |
 | "It's missing from the image, so the build failed." | It may have built cleanly and never been wired into the stack or compose. |
 | "My fix did nothing — same error." | You are hitting a cached failed artifact. Delete it. |
-| "Remote execution is flaky, I'll just build locally." | `BST_LOCAL=1` is a diagnostic. A permanent local fallback violates the build model. |
 | "I'll skip to a full image build." | The slowest feedback loop available. |
 
 ## Red Flags
@@ -173,7 +159,6 @@ failure modes that do not exist locally.
 - opening the sandbox before reading the log
 - debugging compile flags while the graph does not parse
 - rerunning full image builds to chase a single-element syntax error
-- adding `BST_LOCAL=1` to a workflow or committing it as a default
 - extending a timeout instead of diagnosing why an action is slow
 
 ## Verification

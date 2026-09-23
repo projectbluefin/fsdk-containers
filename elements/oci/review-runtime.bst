@@ -41,7 +41,7 @@ config:
           Entrypoint: ['/usr/bin/python3']
           Labels:
             'org.opencontainers.image.title': 'review-runtime'
-            'org.opencontainers.image.description': 'Distroless review appliance runtime carved from freedesktop-sdk — python3, node, bash, git, curl'
+            'org.opencontainers.image.description': 'Distroless review appliance runtime carved from freedesktop-sdk — python3, node, git, curl'
             'org.opencontainers.image.vendor': 'Project Bluefin'
             'org.opencontainers.image.licenses': 'Apache-2.0'
             'org.opencontainers.image.url': 'https://github.com/projectbluefin/fsdk-containers'
