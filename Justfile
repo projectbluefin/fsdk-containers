@@ -12,8 +12,11 @@ export image_registry := env("BUILD_IMAGE_REGISTRY", "ghcr.io/projectbluefin")
 # released one.
 local_tag := "build"
 
-# Same bst2 container image FSDK/dakota CI uses -- pinned by SHA.
-export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d")
+# Same bst2 container image FSDK/dakota CI uses. The tag names the source
+# commit for readability, but a tag is mutable on the registry -- the digest
+# is the immutable pin podman actually pulls by. When bumping the tag,
+# refresh the digest too: skopeo inspect --format '{{.Digest}}' docker://<image>:<tag>
+export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d@sha256:2ca3b449b594e9284bd60f436a4efad1365116b7d3d7129fd08b7a4f459d3561")
 
 # OCI metadata (dynamic labels), injected at export time.
 export OCI_IMAGE_CREATED := env("OCI_IMAGE_CREATED", "")
