@@ -10,7 +10,7 @@ sources:
 - kind: git_repo
   url: github:Homebrew/brew.git
     # renovate: datasource=github-tags depName=Homebrew/brew
-  track: 7.0.1
+  track: 7.0.6
   ref: 7.0.1-0-gb3625f73d3e3574c5789ee32eb7b06627b788ec4
 
 depends:
