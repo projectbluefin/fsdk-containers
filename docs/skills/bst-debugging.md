@@ -10,7 +10,7 @@ mcp_compliance_level: partial
 optimization_status: draft
 status: active
 dependencies: []
-tags: [buildstream, debugging, builds, cache, remote-execution]
+tags: [buildstream, debugging, builds, cache]
 description: "Debug BuildStream build failures. Use when `just build` fails, `bst show` errors, source fetch breaks, or an element builds but its content is missing from the final image."
 metadata:
   type: procedure
@@ -26,8 +26,7 @@ metadata:
 problem — not when GitHub Actions plumbing is the problem.
 
 Adapted from `projectbluefin/dakota`'s `docs/skills/debugging.md`. The classification
-model and the cheapest-command-first discipline are shared; the element paths and the
-remote-execution topology are this repo's.
+model and the cheapest-command-first discipline are shared.
 
 ## When to Use
 

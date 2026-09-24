@@ -28,8 +28,7 @@ description: |
      (The grid needed a control-plane restart mid-session — wedged
      scheduler/frontend/storage silently parked every client's
      "Uploading input root"; rollout restart of scheduler, frontend and
-     storage unblocked all six concurrent Wave 0 builds. Recorded in
-     docs/skills/remote-execution.md.)
+     storage unblocked all six concurrent Wave 0 builds.)
   4. Upstream: MariaDB 11.8.8. 11.8 is an LTS line but not the newest:
      12.3 is upstream's current Stable/LTS series (EOL 2029-06-12). The
      11.8 pin was the version verified at #147 spike time; renovate owns

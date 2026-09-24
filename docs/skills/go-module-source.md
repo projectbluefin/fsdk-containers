@@ -9,7 +9,7 @@ category: ci-ops
 mcp_compliance_level: partial
 optimization_status: draft
 status: active
-dependencies: [remote-execution, track-upstream-versions]
+dependencies: [track-upstream-versions]
 tags: [go, go_module, vendoring, source-plugin, provenance, catalog]
 description: "The proven recipe for the buildstream-plugins-community go_module source plugin: YAML shape, bst source track workflow, the modules.txt/replace trap, RE-grid env (GOROOT triplet), and vanity-import workarounds. Use when adding any Go-based catalog element."
 metadata:

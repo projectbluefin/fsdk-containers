@@ -9,7 +9,7 @@ category: ci-ops
 mcp_compliance_level: partial
 optimization_status: draft
 status: active
-dependencies: [remote-execution, add-new-image, verify-distroless]
+dependencies: [add-new-image, verify-distroless]
 tags: [python, pyproject, cargo2, pypi, offline, source-plugin, catalog]
 description: "Recipe for the buildstream-plugins-community pyproject element: element shape, sha256 refs from PyPI, the FSDK-first dependency rule, the build-args-local trap, wheel-only upstreams via the core remote source, and Rust extensions via cargo2."
 metadata:
