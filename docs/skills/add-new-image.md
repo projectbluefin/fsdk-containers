@@ -1,7 +1,7 @@
 ---
 name: add-new-image
-version: "1.1"
-last_updated: 2026-09-18
+version: "1.2"
+last_updated: 2026-09-24
 id: add-new-image
 one_line_purpose: Add a distroless OCI image by declaring one catalog record.
 entry_point: docs/skills/add-new-image.md
@@ -32,6 +32,8 @@ Use when adding a new runtime/tool image carved from FSDK.
 2. Add `<name>` to `oci_images` and `image_paths` in `elements/targets.json`
    (the `image_paths` entry owns `elements/oci/<name>.bst`, `elements/<name>/`,
    and `catalog/<name>.yaml`, so a record-only change still gates a build).
+   Then add every in-repo component directory the record builds from — see
+   [Own the directories your image builds from](#own-the-directories-your-image-builds-from).
 3. Run `just catalog-write` to generate the three BuildStream elements.
 4. Run `BUILD_IMAGE_NAME=<name> just build && BUILD_IMAGE_NAME=<name> just verify`.
 5. Commit the record, the targets.json entry, and the generated elements together.
@@ -48,6 +50,38 @@ record.
 If the image needs something the record cannot express, that is a gap in
 `catalog/schema.json`. Extend the schema and the generator so the next image
 gets it for free — do not work around it with a bespoke element.
+
+## Own the directories your image builds from
+
+The three generated paths are not the whole ownership story. `image_paths` is
+what `just changed-targets` matches a pull request's diff against, so it must
+also list every **in-repo component directory** the image builds from — any
+`stack.depends` entry that is a local element path rather than a
+`freedesktop-sdk.bst:` junction reference, plus anything that element depends
+on in turn.
+
+Walk `stack.depends` in the record, and for each entry without a
+`<junction>.bst:` prefix, add `elements/<dir>/` to the image's `image_paths`
+list. `review-runtime` is the worked example: it depends on
+`node/node-stack.bst`, which depends on `node/node.bst`, so its entry carries a
+fourth path, `elements/node/`:
+
+```json
+"review-runtime": ["elements/oci/review-runtime.bst", "elements/review-runtime/",
+                   "catalog/review-runtime.yaml", "elements/node/"]
+```
+
+Omitting it fails *open*, silently: a change under `elements/node/` matches no
+image, `changed-targets` returns an empty matrix, `pr-build-oci` skips, and the
+pull request goes green having built nothing. That is exactly how a broken
+`node.bst` reached `main` unnoticed. Junction references need no entry — the
+junction itself is covered by `shared_paths`, which selects the canary image.
+
+A directory shared by two images belongs in both lists; `image_paths` prefixes
+overlapping is only forbidden between *published* images' own paths, which
+`tests/test_catalog_conformance.py::test_no_image_owns_another_images_paths`
+checks. A component directory that is not in `oci_images` is not an image's own
+path, so listing it more than once is fine.
 
 ## Catalog conventions
 
