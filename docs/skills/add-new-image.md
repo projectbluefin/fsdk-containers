@@ -53,9 +53,11 @@ gets it for free — do not work around it with a bespoke element.
 `stack.depends`, including transitive dependencies. For example, `review-runtime`
 depends on `node/node-stack.bst`, which depends on `node/node.bst`, so its paths
 include `elements/node/`; otherwise a node change selects no `review-runtime`
-build in `just changed-targets`. Exclude directories owned by another published
-image, such as `elements/base/`: changes there select the `base` canary via its
-own entry. Junction changes are covered by `shared_paths`.
+build in `just changed-targets`. The one exemption is `elements/base/`: every image
+depends on it, and changes there select the `base` canary. Any other published
+image's stack you depend on (e.g. `lab-runner` → `skopeo/skopeo-stack.bst`) needs
+its directory listed too; otherwise a change there builds only the owning image.
+Junction changes are covered by `shared_paths`.
 
 ## Catalog conventions
 
