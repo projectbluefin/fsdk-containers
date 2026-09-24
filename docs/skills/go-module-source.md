@@ -11,7 +11,7 @@ optimization_status: draft
 status: active
 dependencies: [track-upstream-versions]
 tags: [go, go_module, vendoring, source-plugin, provenance, catalog]
-description: "The proven recipe for the buildstream-plugins-community go_module source plugin: YAML shape, bst source track workflow, the modules.txt/replace trap, RE-grid env (GOROOT triplet), and vanity-import workarounds. Use when adding any Go-based catalog element."
+description: "The proven recipe for the buildstream-plugins-community go_module source plugin: YAML shape, bst source track workflow, the modules.txt/replace trap, sandboxed Go environment, and vanity-import workarounds. Use when adding any Go-based catalog element."
 metadata:
   type: procedure
   context7-sources:
@@ -24,9 +24,9 @@ Use when adding a Go-based element that must build from source (the catalog
 provenance rule — never import prebuilt binaries).
 
 Proven end-to-end 2026-08-09 (issue #113, Wave 1): plugin enabled in
-`project.conf`, tracked and built on the ghost BuildBarn grid with
-`elements/go-md2man/go-md2man.bst` (1 module) and stress-tested with
-`elements/volcano/volcano.bst` (235 modules, 37 replace directives).
+`project.conf`, tracked and built with `elements/go-md2man/go-md2man.bst`
+(1 module), and stress-tested with `elements/volcano/volcano.bst` (235 modules,
+37 replace directives).
 
 ## Plugin registration (already done)
 
@@ -228,15 +228,3 @@ Note `subdirectory` in the ref: the plugin stages `<repo>/<subdirectory>`
 into `vendor/<module>/`. For `v2+` modules without a subdirectory, staging
 also auto-detects a major-version subdir (`v2/`) if one exists.
 
-## Grid flakiness: CAS shard errors
-
-If a build fails AFTER the remote build succeeded with
-`Failed to obtain input file "...": Shard N: Object not found`, that is the
-ghost bb-storage buildtree-caching bug, not your element. Retry with:
-
-```
-BST_FLAGS="--cache-buildtrees never" just bst build <element>
-```
-
-(Not seen on 2026-08-09 after the storage pods were restarted; both the
-go-md2man and volcano builds passed without the flag.)

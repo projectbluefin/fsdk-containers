@@ -174,7 +174,7 @@ source URLs do not expand arbitrary variables — the host part must be an alias
 - [ ] Rust: the `cargo2` block is generated, not hand-edited
 - [ ] Binaries install to `%{bindir}`, prefixed with `%{install-root}`
 - [ ] `strip-binaries: ""` set if and only if the payload is non-ELF or pre-stripped
-- [ ] No `/dev/stdin` heredoc redirection (fails on the grid)
+- [ ] No `/dev/stdin` heredoc redirection (fails in bare BuildStream sandboxes)
 - [ ] `just validate` resolves; `just verify` passes for the consuming image
 
 ## Common Rationalizations
@@ -185,7 +185,7 @@ source URLs do not expand arbitrary variables — the host part must be an alias
 | "It's Go, it can just download its modules." | Not in a network-isolated sandbox. |
 | "One vendoring strategy fits all Go projects." | Pick the smaller maintenance burden. `go_module` refs update in place; tarballs do not. |
 | "I'll hand-tweak one line of the cargo2 block." | It is generated. Regenerate it. |
-| "It built locally, so the sandbox is fine." | Local builds are not the grid. Check `GOROOT` and `/dev/stdin`. |
+| "It runs on the host, so the sandbox is fine." | The host is not the BuildStream sandbox. Check `GOROOT` and `/dev/stdin`. |
 
 ## Red Flags
 
