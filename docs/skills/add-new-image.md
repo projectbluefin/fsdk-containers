@@ -49,6 +49,14 @@ If the image needs something the record cannot express, that is a gap in
 `catalog/schema.json`. Extend the schema and the generator so the next image
 gets it for free — do not work around it with a bespoke element.
 
+`image_paths` must also cover local elements reachable through the new image's
+`stack.depends`, including transitive dependencies. For example, `review-runtime`
+depends on `node/node-stack.bst`, which depends on `node/node.bst`, so its paths
+include `elements/node/`; otherwise a node change selects no `review-runtime`
+build in `just changed-targets`. Exclude directories owned by another published
+image, such as `elements/base/`: changes there select the `base` canary via its
+own entry. Junction changes are covered by `shared_paths`.
+
 ## Catalog conventions
 
 - `stack.depends` is an ordered list. Its order is load-bearing because it
