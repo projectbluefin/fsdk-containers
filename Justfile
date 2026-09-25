@@ -206,7 +206,7 @@ validate:
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
     for arch in x86_64 aarch64; do
-        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst printing/foomatic-db.bst
     done
 
 # ── Build ─────────────────────────────────────────────────────────────
@@ -726,10 +726,10 @@ publish-podman-vm:
     echo "==> published the complete ${arch} asset set to release ${TAG}"
 
 # -- Printing base CAS bundle ------------------------------------------------
-# printing/base.bst's artifact closure, published as ghcr.io/<owner>/
-# printing-base-devel for the printer applications to seed their BuildStream
-# cache from (docs/skills/printing-base.md). Build-time only: a cache
-# fragment, never a runnable image and never a base layer.
+# The printing/base.bst artifacts no configured remote serves, published as
+# ghcr.io/<owner>/printing-base-devel so the printer applications can seed
+# their BuildStream cache with them (docs/skills/printing-base.md). This is
+# build-time only: a cache fragment, never a runnable image, never a base layer.
 
 # Print the full cache key of printing/base.bst for the host architecture
 # (the `bst` wrapper forces --colors, so strip the escape codes).
@@ -737,9 +737,10 @@ publish-podman-vm:
 printing-base-key:
     @just bst show --deps none --format '%{full-key}' printing/base.bst 2>/dev/null | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g'
 
-# Build printing/base.bst in a clean local cache and load that cache's
-# artifact closure as the single-layer image TAG. BST_CACHE_DIR may name the
-# (still artifact-free) cache to use; otherwise a temporary one is created.
+# Build printing/base.bst and printing/foomatic-db.bst in a clean local cache,
+# then load the artifacts that the build had to build as the single-layer image
+# TAG. BST_CACHE_DIR can name the cache to use (it must hold no artifacts yet);
+# without it, a temporary cache is created.
 [group('printing')]
 printing-base-bundle TAG:
     #!/usr/bin/env bash
@@ -751,21 +752,35 @@ printing-base-bundle TAG:
         echo "ERROR: ${BST_CACHE_DIR} already holds artifacts; the bundle must start from a clean cache" >&2
         exit 1
     fi
-    # Pull everything the remotes have, build-only dependencies included, so
-    # a consumer building against the base never needs a remote; then build
-    # what no remote has yet (the patched printing elements).
-    just bst artifact pull --deps all printing/base.bst
-    just bst --network-retries 5 build printing/base.bst
+    # In a clean cache `bst build` pulls whatever a configured remote serves
+    # and builds only what no remote has: the patched printing stack, pappl,
+    # pappl-retrofit, base, and FSDK elements outside base whose keys the
+    # patch moved (foomatic-db). Only those built artifacts are bundled.
+    # Consumers pull the rest from the same remotes, so no `--deps all` pull is
+    # needed. Sources come from cache.projectbluefin.io or upstream, because
+    # the FSDK source cache stalls.
+    targets=(printing/base.bst printing/foomatic-db.bst)
+    just bst --network-retries 5 build \
+        --ignore-project-source-remotes \
+        --source-remote url=https://cache.projectbluefin.io:11001,push=false \
+        "${targets[@]}"
     key="$(just printing-base-key)"
-    # An artifact is cached once its proto (artifacts/refs) and the CAS
-    # objects that proto names (cas/objects) are local. Sources, source protos
-    # and build trees are not needed to consume it.
     mkdir -p "${work}/ctx"
-    {{sudo_cmd}} tar -C "${BST_CACHE_DIR}" -cf "${work}/ctx/bundle.tar" artifacts/refs cas/objects
+    just bst show --deps all --format '%{name}@@%{full-key}' "${targets[@]}" 2>/dev/null \
+        | sed 's/\x1b\[[0-9;]*m//g' > "${work}/closure.txt"
+    # The artifact refs of the elements built in this cache, plus the CAS
+    # objects BuildStream needs to call them cached (scripts/printing_base_bundle.py).
+    {{sudo_cmd}} podman run --rm \
+        -v "{{justfile_directory()}}:/src:ro" \
+        -v "${BST_CACHE_DIR}:/cache:ro" \
+        -v "${work}:/work:ro" \
+        "{{bst2_image}}" \
+        python3 /src/scripts/printing_base_bundle.py /cache /work/closure.txt > "${work}/files.txt"
+    {{sudo_cmd}} tar -C "${BST_CACHE_DIR}" -cf "${work}/ctx/bundle.tar" -T "${work}/files.txt"
     printf 'FROM scratch\nADD bundle.tar /\n' > "${work}/ctx/Containerfile"
     {{sudo_cmd}} podman build \
         --label "org.opencontainers.image.title=printing-base-devel" \
-        --label "org.opencontainers.image.description=BuildStream artifact bundle of fsdk-containers printing/base.bst (build-time only, not runnable)" \
+        --label "org.opencontainers.image.description=BuildStream artifacts of fsdk-containers printing/base.bst and printing/foomatic-db.bst that no remote serves (build-time only, not runnable)" \
         --label "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" \
         --label "io.projectbluefin.printing-base.key=${key}" \
         --label "io.projectbluefin.fsdk.version=${fsdk_version}" \

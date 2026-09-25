@@ -47,3 +47,12 @@ config:
   - make -j2
   install-commands:
   - make DESTDIR="%{install-root}" install
+
+public:
+  bst:
+    split-rules:
+      devel:
+        (>):
+        # The default devel rule only matches the .pc files, so the empty
+        # directory would survive a runtime-only compose.
+        - '%{libdir}/pkgconfig'

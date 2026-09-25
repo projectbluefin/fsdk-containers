@@ -69,12 +69,39 @@ install `avahi-daemon`.
 
 `.github/workflows/printing-base.yml` runs on push to `main`, nightly, and
 `workflow_dispatch`. It never runs on pull requests, where `just validate` only
-`bst show`s the element. For each arch, `just printing-base-bundle` starts
-from a clean cache, runs `bst artifact pull --deps all` and then
-`bst build printing/base.bst`, and tars `artifacts/refs` and `cas/objects`.
-That is the artifact proto plus the CAS objects it names, which is what makes
-an artifact "cached". The tar becomes the single layer of a `FROM scratch`
-image.
+`bst show`s the elements. For each arch, `just printing-base-bundle` runs
+`bst build printing/base.bst printing/foomatic-db.bst` in a clean cache. That pulls whatever a
+configured remote serves and builds the rest. Only the artifacts that were
+built go into the bundle: an element is bundled when the cache holds a build
+log for its key. `scripts/printing_base_bundle.py` walks each bundled
+artifact's proto and lists its refs (strong and weak key) plus the CAS
+objects `Artifact.query_cache()` needs: the `files` tree, the metadata, the
+public data and the logs. That list is tarred as the single layer of a
+`FROM scratch` image.
+
+`printing/foomatic-db.bst` goes in the same bundle. It is a stack of FSDK's
+`components/foomatic-db.bst`, which build-depends on the patched CUPS, so
+its key moved and no remote serves it. It is deliberately not part of
+`base.bst`: only the applications that ship PPDs (ghostscript, ps) depend on
+it. Of the 51 FSDK elements the four printer applications reference, the
+patch moves exactly cups, cups-daemon-only, cups-filters, libcupsfilters,
+libppd, ghostscript (all in `base.bst`) and foomatic-db (checked 2026-09-25
+by diffing `bst show --deps none --format '%{full-key}'` with and without
+the patch, on both arches). A consumer that starts using another FSDK element
+whose closure includes the patched stack needs a `printing/` stack for it
+here, added to the bundle's targets in `just printing-base-bundle`.
+Consumers depend on `fsdk-containers.bst:printing/foomatic-db.bst`. The tag
+carries only `base.bst`'s key. foomatic-db's key depends on the same junction
+and patch, so it moves with it, but an edit to `printing/foomatic-db.bst`
+alone does not change the tag.
+
+The bundle build ignores project source caches and fetches sources from
+`cache.projectbluefin.io` (or upstream), because the FSDK source cache
+stalls.
+
+Everything else in the closure stays on the remotes (gbm.gnome.org,
+cache.freedesktop-sdk.io, cache.projectbluefin.io), and consumers pull it
+from there as usual.
 
 - `ghcr.io/projectbluefin/printing-base-devel:<arch>-<full-key>` and
   `<arch>-latest`, from `main` only. Any other ref pushes
@@ -106,25 +133,28 @@ has no catalog record.
 
    ```bash
    REPO=ghcr.io/projectbluefin/printing-base-devel
-   podman pull "${REPO}:${ARCH}-${KEY}"
-   DIGEST="$(podman image inspect --format '{{.Digest}}' "${REPO}:${ARCH}-${KEY}")"
+   DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${REPO}:${ARCH}-${KEY}")"
    if cosign verify \
         --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
         --certificate-oidc-issuer https://token.actions.githubusercontent.com \
         "${REPO}@${DIGEST}" >/dev/null; then
-     ctr="$(podman create "${REPO}@${DIGEST}" /none)"
-     podman export "${ctr}" | tar -C ~/.cache/buildstream -xf - artifacts cas
-     podman rm "${ctr}"
-   fi   # else: fall through to a normal local build
+     skopeo copy "docker://${REPO}@${DIGEST}" dir:/tmp/bundle
+     layer="$(jq -r '.layers[0].digest' /tmp/bundle/manifest.json | cut -d: -f2)"
+     tar -C ~/.cache/buildstream -xf "/tmp/bundle/${layer}"   # tar detects the gzip
+     rm -rf /tmp/bundle
+   fi   # else: fall through to a normal local build; never fail the job here
    ```
 
+   This never touches podman storage. `skopeo copy` by digest checks every
+   blob against the signed manifest.
    BuildStream trusts `artifacts/refs` as given, so the signature is the
    trust boundary.
-5. Add a no-devel-content check to `just verify`:
+5. Add a no-devel-content check to `just verify`. License texts under
+   `/usr/share/licenses` are pruned from the check and never deleted:
 
    ```bash
    root="$(mktemp -d)"; podman export "$(podman create "${IMAGE}" /none)" | tar -C "${root}" -xf -
-   bad="$(cd "${root}" && find . \( -path ./usr/include -o -name '*.a' -o -name '*.la' \
-         -o -type d -name pkgconfig -o -type d -name cmake \) -print -quit)"
+   bad="$(cd "${root}" && find . -path ./usr/share/licenses -prune -o \( -path ./usr/include \
+         -o -name '*.a' -o -name '*.la' -o -type d -name pkgconfig -o -type d -name cmake \) -print -quit)"
    [ -z "${bad}" ] || { echo "devel content in ${IMAGE}: ${bad}" >&2; exit 1; }
    ```

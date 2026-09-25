@@ -132,6 +132,7 @@ class ElementReachabilityTests(unittest.TestCase):
         # The printing-base-devel CAS bundle (.github/workflows/printing-base.yml,
         # docs/skills/printing-base.md): a build-time artifact lane, not an image.
         roots.add("printing/base.bst")
+        roots.add("printing/foomatic-db.bst")
         project_conf = (ROOT / "project.conf").read_text(encoding="utf-8")
         roots |= set(JUNCTION_RE.findall(project_conf))
         cls.reachable = dependency_closure(roots)
