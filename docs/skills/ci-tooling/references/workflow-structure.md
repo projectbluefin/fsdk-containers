@@ -190,6 +190,15 @@ granted, so this is a reuse of the existing `MERGERAPTOR_APP_ID` /
 permissions for this.** Workflows that write only through that token drop their
 own `permissions:` to `contents: read`.
 
+That token mint is **repo-scoped and fork-hostile**: with no `owner:` input the
+action calls `GET /repos/{owner}/{repo}/installation`, which 404s on a fork
+(`Not Found - get-a-repository-installation-for-the-authenticated-app`) even
+when the app is installed org-wide and already writing to that same repo. The
+fix in a fork is `owner: ${{ github.repository_owner }}` **alone** — adding
+`repositories:` alongside it puts the action back on the per-repository
+endpoint. See [../SKILL.md](../SKILL.md)
+("Forked repositories — pass `owner:` or the mint 404s") and #331.
+
 Push with the token explicitly, because `persist-credentials: false` is now the
 default for every checkout. Authenticate with an
 `http.https://github.com/.extraheader` — the same mechanism `actions/checkout`

@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.4"
-last_updated: 2026-09-18
+version: "1.5"
+last_updated: 2026-09-25
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -79,6 +79,51 @@ Personal Access Tokens (PATs) are strictly banned in this organization. To perfo
     app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
     private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
 ```
+
+Use the bare form above in this repo and in every non-fork repo: the action
+resolves the installation through `GET /repos/{owner}/{repo}/installation`, so
+the token is scoped to the calling repository alone.
+
+#### Forked repositories — pass `owner:` or the mint 404s
+
+In a **fork**, that same resolution returns
+`Not Found - get-a-repository-installation-for-the-authenticated-app` and the
+step dies — `actions/create-github-app-token` retries only 5xx and network
+errors, so a 404 fails on the first attempt.
+
+The **app is not missing**: `mergeraptor[bot]` is already opening Renovate PRs
+in those repos, and `projectbluefin/renovate-config` mints successfully against
+them because it passes `owner:`. What fails is the per-repository lookup —
+GitHub resolves it through the fork's upstream network (`OpenPrinting/*`, where
+this app is not installed), which the owner-level lookup never consults. It
+took down `update-base.yml` in all four projectbluefin printer-app forks
+(hplip, gutenprint, ghostscript, ps) — #331. **Check for a fork before
+escalating to an org admin**; there is usually nothing for them to fix.
+
+Pass `owner:` **instead of** `repositories:`:
+
+```yaml
+- name: Mint mergeraptor token
+  id: app-token
+  uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+  with:
+    app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+    private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+    owner: ${{ github.repository_owner }}
+    # `owner:` widens the token to every repo in the installation, so take
+    # back with permission-* what the job does not need.
+    permission-contents: write
+    permission-pull-requests: write
+```
+
+`owner:` alone switches the action to
+`GET /users/{username}/installation` (works for orgs), which is the only path
+that resolves in a fork. **`owner:` + `repositories:` does not help**: with
+both set the action is back on the per-repository endpoint, so it 404s the
+same way. `owner:` alone returns a token for the whole installation —
+`permission-*` inputs are what keep it from being a blank cheque.
+`projectbluefin/renovate-config` uses this form and writes into the forks
+successfully.
 
 ### Atomic BuildStream source updates
 
@@ -248,6 +293,7 @@ FAIL: guest did not reach its ready point within 300s
 | "The publish step is skipped on PRs anyway." | An `if:` is one careless edit from being wrong. PR jobs have no publish code path at all. |
 | "GITHUB_TOKEN is fine for the bot's push." | It cannot trigger workflows, so the resulting PR carries no checks — and Renovate was set to auto-merge those. |
 | "Mergeraptor needs new permissions for that." | It is an org-level app; the permissions and secrets already exist. Reuse them. |
+| "The mint 404s, so an org admin must grant the app access to this repo." | Check whether the repo is a fork first. In a fork the app already has access and `mergeraptor[bot]` is probably already opening PRs there — the failing thing is the per-repository *lookup*. Pass `owner:` (above) before escalating to an admin. |
 | "The logs are empty, so there is nothing to diagnose." | Check `gh run download`. Artifacts are not in the logs, and #110 stalled 12 hours on exactly this. |
 | "`--require-hashes` already locks the install down." | Only against the artifacts you hashed. An sdist-only hash makes pip *build* the package, pulling ~11 unpinned build backends into a `packages: write` job. Hash the wheel and pass `--only-binary=:all:`. |
 
@@ -258,6 +304,7 @@ FAIL: guest did not reach its ready point within 300s
 - A new action not present in any sibling repo — check upstream first
 - A publish, sign, or release step reachable from a `pull_request` event
 - An automated push, PR, or dispatch using `secrets.GITHUB_TOKEN` instead of a Mergeraptor token
+- A `create-github-app-token` step in a **forked** repo with no `owner:` — the mint 404s on the per-repository installation lookup, and 404 is not retried
 - A new image added to `oci_images` without a matching `image_paths` entry — its PRs would build nothing
 - A change that multiplies jobs per image — check it against the 60-job org-wide budget first
 - A loop over images that runs under `set -e` — the first failure masks every image after it

@@ -1,6 +1,6 @@
 ---
 name: printing-base
-version: "1.0"
+version: "1.1"
 last_updated: 2026-09-25
 id: printing-base
 one_line_purpose: Build, publish, and consume the shared printing base (printing/base.bst) for the printer applications.
@@ -158,3 +158,36 @@ has no catalog record.
          -o -name '*.a' -o -name '*.la' -o -type d -name pkgconfig -o -type d -name cmake \) -print -quit)"
    [ -z "${bad}" ] || { echo "devel content in ${IMAGE}: ${bad}" >&2; exit 1; }
    ```
+
+## Consumer CI wiring — the junction tracker
+
+Each consumer carries one `update-base.yml`: it runs
+`just bst source track fsdk-containers.bst`, rewrites the junction `ref:`, and
+opens or refreshes the bump PR. It writes with a Mergeraptor installation
+token, never `GITHUB_TOKEN` — a PR opened with the latter runs no checks at all.
+
+All four printer apps are **forks** of `OpenPrinting/*`, and that is what breaks
+the mint there. With only `app-id`/`private-key`, `create-github-app-token`
+resolves the installation through `GET /repos/{owner}/{repo}/installation`,
+which 404s on a fork (`Not Found -
+get-a-repository-installation-for-the-authenticated-app`) even though the app is
+installed org-wide and `mergeraptor[bot]` is already opening Renovate PRs in
+that same repo. Pass `owner:` — and *only* `owner:`:
+
+```yaml
+- name: Mint Mergeraptor token
+  id: app-token
+  uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+  with:
+    app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
+    private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+    owner: ${{ github.repository_owner }}
+    permission-contents: write
+    permission-pull-requests: write
+```
+
+`owner:` + `repositories:` does not fix it: as soon as `repositories:` is set
+the action is back on the per-repository endpoint and 404s the same way.
+`owner:` alone mints for the whole installation, so the `permission-*` inputs
+are what keep the token narrow. No org-admin change is needed. Symptom,
+evidence and the four affected repos: #331.
