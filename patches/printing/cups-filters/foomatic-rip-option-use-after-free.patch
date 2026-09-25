@@ -1,0 +1,27 @@
+--- a/filter/foomatic-rip/options.c
++++ b/filter/foomatic-rip/options.c
+@@ -1205,6 +1205,10 @@ option_set_value(option_t *opt,
+   if (!newvalue)
+     return (0);
+ 
++  choice = NULL;
++  if (option_is_composite(opt))
++    choice = option_find_choice(opt, newvalue);
++
+   free(val->value);
+   val->value = NULL;
+ 
+@@ -1221,10 +1225,9 @@ option_set_value(option_t *opt,
+   else
+     val->value = newvalue;
+ 
+-  if (option_is_composite(opt))
++  if (choice)
+   {
+     // set dependent values
+-    choice = option_find_choice(opt, value);
+-    if (choice && !isempty(choice->command))
++    if (!isempty(choice->command))
+       composite_set_values(opt, optionset, choice->command);
+   }
+   return (1);

@@ -57,7 +57,7 @@ Consequences, widest blast radius first:
 | Change | Invalidates |
 |---|---|
 | Junction `ref:` bump | every element that junction provides |
-| Junction `patch_queue` change | same — the queue is part of the junction's source hash |
+| Junction `patch_queue` change | the elements whose files the patches change, plus their reverse deps. Measured 2026-09-25: adding `0002-printing-*` and three `local` sources to the FSDK junction left all 514 existing keys unchanged on both arches ([printing-base.md](../printing-base.md)). A patch to a file many elements include, or to FSDK's `project.conf` options/variables, is project-wide |
 | `project.conf` options or variables | project-wide |
 | A leaf element ref bump | that element and its reverse deps only |
 | Workflow / Justfile / docs changes | nothing |

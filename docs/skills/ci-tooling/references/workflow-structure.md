@@ -13,6 +13,7 @@ other in the Actions UI:
 | `build.yml` | GitHub triggers | `validate` + the pull-request build gate (`changed-targets`, `pr-guest-contract`, `pr-build-oci`, `pr-build-vm-guest`), `matrix` (resolves the OCI image list once), fans out one `oci-images.yml` call per image, calls `vm-guest.yml`, then a `summary` job |
 | `oci-images.yml` | `build.yml` via `workflow_call`, `image` input | `build` + `manifest` jobs for exactly one OCI distroless image |
 | `vm-guest.yml` | `build.yml` via `workflow_call` | `guest-contract` job gating a `build` job (matrix arch) for the podman-vm guest disk lane |
+| `printing-base.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `printing/base.bst` per arch from a clean cache and publishes its artifact closure as the signed `printing-base-devel` CAS bundle ([printing-base.md](../../printing-base.md)) |
 | `.github/actions/vm-boot-test` | `vm-guest.yml` and `build.yml` | composite action: install QEMU + UEFI firmware for one arch and run `tests/vm-boot.sh`, so the PR gate cannot drift from the release check |
 
 Supporting workflows, none of which touch publication:
@@ -23,7 +24,7 @@ Supporting workflows, none of which touch publication:
 | `validate-renovate.yml` | PR/push touching `renovate.json` | thin caller into `projectbluefin/actions` |
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
-| `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only |
+| `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, and keeps the newest 5 tagged `printing-base-devel` bundles per arch |
 | `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |

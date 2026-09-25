@@ -37,7 +37,10 @@ export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | 
 bst *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p "${HOME}/.cache/buildstream"
+    # BST_CACHE_DIR selects another local cache, e.g. the clean cache
+    # `printing-base-bundle` builds its bundle from.
+    cache_dir="${BST_CACHE_DIR:-${HOME}/.cache/buildstream}"
+    mkdir -p "${cache_dir}"
     # Regenerated on every invocation from {{fsdk_version}} (this Justfile's
     # own single source of truth, parsed from elements/freedesktop-sdk.bst's
     # pinned ref) so BuildStream elements can consume the exact point
@@ -54,7 +57,7 @@ bst *ARGS:
         --device /dev/fuse \
         --network=host \
         -v "{{justfile_directory()}}:/src:rw" \
-        -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
+        -v "${cache_dir}:/root/.cache/buildstream:rw" \
         -w /src \
         "{{bst2_image}}" \
         bash -c 'bst --colors "$@"' -- --no-interactive ${BST_FLAGS:-} {{ARGS}}
@@ -203,7 +206,7 @@ validate:
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
     for arch in x86_64 aarch64; do
-        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst
     done
 
 # ── Build ─────────────────────────────────────────────────────────────
@@ -721,6 +724,55 @@ publish-podman-vm:
     done
     trap - ERR
     echo "==> published the complete ${arch} asset set to release ${TAG}"
+
+# -- Printing base CAS bundle ------------------------------------------------
+# printing/base.bst's artifact closure, published as ghcr.io/<owner>/
+# printing-base-devel for the printer applications to seed their BuildStream
+# cache from (docs/skills/printing-base.md). Build-time only: a cache
+# fragment, never a runnable image and never a base layer.
+
+# Print the full cache key of printing/base.bst for the host architecture
+# (the `bst` wrapper forces --colors, so strip the escape codes).
+[group('printing')]
+printing-base-key:
+    @just bst show --deps none --format '%{full-key}' printing/base.bst 2>/dev/null | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g'
+
+# Build printing/base.bst in a clean local cache and load that cache's
+# artifact closure as the single-layer image TAG. BST_CACHE_DIR may name the
+# (still artifact-free) cache to use; otherwise a temporary one is created.
+[group('printing')]
+printing-base-bundle TAG:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d "${TMPDIR:-/var/tmp}/printing-base.XXXXXX")"
+    trap '{{sudo_cmd}} rm -rf "${work}"' EXIT
+    export BST_CACHE_DIR="${BST_CACHE_DIR:-${work}/cache}"
+    if [ -n "$(find "${BST_CACHE_DIR}/artifacts" -type f -print -quit 2>/dev/null)" ]; then
+        echo "ERROR: ${BST_CACHE_DIR} already holds artifacts; the bundle must start from a clean cache" >&2
+        exit 1
+    fi
+    # Pull everything the remotes have, build-only dependencies included, so
+    # a consumer building against the base never needs a remote; then build
+    # what no remote has yet (the patched printing elements).
+    just bst artifact pull --deps all printing/base.bst
+    just bst --network-retries 5 build printing/base.bst
+    key="$(just printing-base-key)"
+    # An artifact is cached once its proto (artifacts/refs) and the CAS
+    # objects that proto names (cas/objects) are local. Sources, source protos
+    # and build trees are not needed to consume it.
+    mkdir -p "${work}/ctx"
+    {{sudo_cmd}} tar -C "${BST_CACHE_DIR}" -cf "${work}/ctx/bundle.tar" artifacts/refs cas/objects
+    printf 'FROM scratch\nADD bundle.tar /\n' > "${work}/ctx/Containerfile"
+    {{sudo_cmd}} podman build \
+        --label "org.opencontainers.image.title=printing-base-devel" \
+        --label "org.opencontainers.image.description=BuildStream artifact bundle of fsdk-containers printing/base.bst (build-time only, not runnable)" \
+        --label "org.opencontainers.image.source=https://github.com/projectbluefin/fsdk-containers" \
+        --label "io.projectbluefin.printing-base.key=${key}" \
+        --label "io.projectbluefin.fsdk.version=${fsdk_version}" \
+        --label "io.projectbluefin.fsdk.ref=${fsdk_ref}" \
+        -t "{{TAG}}" "${work}/ctx"
+    echo "key=${key}"
+    echo "bundle_bytes=$(stat -c %s "${work}/ctx/bundle.tar")"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /

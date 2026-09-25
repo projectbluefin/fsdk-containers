@@ -1,0 +1,193 @@
+From 8da3847da47b00073ea9c29617e81554ad9fd0a3 Mon Sep 17 00:00:00 2001
+From: castrojo <castrojo@users.noreply.github.com>
+Date: Fri, 25 Sep 2026 10:42:51 -0400
+Subject: [PATCH] feat(printing): customize the printing stack for printer
+ applications
+
+Downstream patch carried by fsdk-containers for the shared printing base
+(elements/printing/base.bst) consumed by the projectbluefin printer
+applications. Taken from ghostscript-printer-app's
+0001-customize-cups-for-printer-application.patch at the same FSDK pin,
+with two differences:
+
+- The nested source patch queues live under
+  patches/fsdk-containers/printing/ (staged into the junction by
+  elements/freedesktop-sdk.bst as local sources).
+- avahi is not patched in place. _private/avahi-base.bst feeds
+  avahi-libs -> ostree -> skopeo, so changing it would move the cache key
+  of fsdk-containers' skopeo and lab-runner images. The nonroot
+  avahi-daemon is added as new elements instead
+  (_private/avahi-printing-base.bst, avahi-printing.bst).
+
+cups-base/cups/cups-daemon-only switch TLS to gnutls and enable libusb,
+libcupsfilters and cups-filters gain the printer-app source patches, and
+ghostscript builds its bundled zlib. None of these elements are in the
+graph of any other fsdk-containers target.
+
+Upstream-Status: Inappropriate [downstream appliance configuration]
+Exit condition: Permanent while the printer applications consume
+fsdk-containers' printing base; re-check every hunk on a junction bump.
+---
+ .../_private/avahi-printing-base.bst          | 32 +++++++++++++++++++
+ elements/components/_private/cups-base.bst    |  8 +++--
+ elements/components/avahi-printing.bst        | 13 ++++++++
+ elements/components/cups-daemon-only.bst      |  1 +
+ elements/components/cups-filters.bst          |  2 ++
+ elements/components/cups.bst                  |  2 +-
+ elements/components/ghostscript.bst           |  2 +-
+ elements/components/libcupsfilters.bst        |  2 ++
+ 8 files changed, 58 insertions(+), 4 deletions(-)
+ create mode 100644 elements/components/_private/avahi-printing-base.bst
+ create mode 100644 elements/components/avahi-printing.bst
+
+diff --git a/elements/components/_private/avahi-printing-base.bst b/elements/components/_private/avahi-printing-base.bst
+new file mode 100644
+index 0000000..d76e9c1
+--- /dev/null
++++ b/elements/components/_private/avahi-printing-base.bst
+@@ -0,0 +1,32 @@
++# SPDX-FileCopyrightText: Freedesktop-SDK Developers
++# SPDX-License-Identifier: MIT
++
++# fsdk-containers printing stack: avahi-daemon for printer applications.
++#
++# The printer application images run as the distroless `nonroot` user
++# (65532:65532) and start `avahi-daemon --no-drop-root --no-chroot`.
++# avahi-daemon still resolves its compiled-in user when it creates
++# /run/avahi-daemon, so the default `avahi` user must be `nonroot` here.
++#
++# This is a separate element on purpose: `_private/avahi-base.bst` stays
++# byte-identical to upstream, so avahi-libs, ostree and every image built on
++# them keep their upstream cache keys. Everything except conf-local comes from
++# the upstream element through the include; re-check conf-local against
++# avahi-base.bst when bumping the junction.
++kind: autotools
++
++(@): elements/components/_private/avahi-base.bst
++
++variables:
++  conf-local: >-
++    --with-avahi-user=nonroot
++    --with-avahi-group=nonroot
++    --with-distro=none
++    --disable-libevent
++    --disable-qt3
++    --disable-qt4
++    --disable-qt5
++    --disable-gtk
++    --disable-gtk3
++    --disable-python
++    --disable-mono
+diff --git a/elements/components/_private/cups-base.bst b/elements/components/_private/cups-base.bst
+index d1d0941..8f03703 100644
+--- a/elements/components/_private/cups-base.bst
++++ b/elements/components/_private/cups-base.bst
+@@ -7,7 +7,8 @@ build-depends:
+ - public-stacks/buildsystem-autotools.bst
+ - components/avahi-libs.bst
+ - components/gzip.bst
+-- components/openssl.bst
++- components/gnutls.bst
++- components/libusb.bst
+ - components/systemd.bst
+ 
+ variables:
+@@ -19,7 +20,8 @@ variables:
+     --enable-debug
+     --with-components=all
+     --with-dbusdir=/etc/dbus-1
+-    --with-tls=openssl
++    --with-tls=gnutls
++    --enable-libusb
+     --with-cups-group=lp
+     --with-pkgconfpath="%{libdir}/pkgconfig"
+     --with-system-groups="root wheel"
+@@ -78,6 +80,8 @@ sources:
+   - "*rc*"
+   - "*op*"
+   ref: v2.4.19-0-g6ba0487abb05afc93d639f37676add8fd65d3756
++- kind: patch_queue
++  path: patches/fsdk-containers/printing/cups
+ - kind: local
+   path: files/cups/tmpfiles.conf
+ - kind: local
+diff --git a/elements/components/avahi-printing.bst b/elements/components/avahi-printing.bst
+new file mode 100644
+index 0000000..4b34300
+--- /dev/null
++++ b/elements/components/avahi-printing.bst
+@@ -0,0 +1,13 @@
++# SPDX-FileCopyrightText: Freedesktop-SDK Developers
++# SPDX-License-Identifier: MIT
++
++# fsdk-containers printing stack: components/avahi.bst, filtered from
++# _private/avahi-printing-base.bst instead of _private/avahi-base.bst.
++# Libraries still come from the upstream components/avahi-libs.bst. Do not
++# stage this together with components/avahi.bst: both install avahi-daemon.
++kind: filter
++
++(@): elements/components/avahi.bst
++
++build-depends:
++- components/_private/avahi-printing-base.bst
+diff --git a/elements/components/cups-daemon-only.bst b/elements/components/cups-daemon-only.bst
+index d067947..ca32949 100644
+--- a/elements/components/cups-daemon-only.bst
++++ b/elements/components/cups-daemon-only.bst
+@@ -8,6 +8,7 @@ build-depends:
+ 
+ runtime-depends:
+ - components/cups.bst
++- components/libusb.bst
+ 
+ config:
+   exclude:
+diff --git a/elements/components/cups-filters.bst b/elements/components/cups-filters.bst
+index 27b9744..d427d64 100644
+--- a/elements/components/cups-filters.bst
++++ b/elements/components/cups-filters.bst
+@@ -24,3 +24,5 @@ sources:
+   ref: 2.0.1-0-g5a73330fbd0cde494d984141f9add1565aef8171
+ - kind: patch_queue
+   path: patches/cups-filters
++- kind: patch_queue
++  path: patches/fsdk-containers/printing/cups-filters
+diff --git a/elements/components/cups.bst b/elements/components/cups.bst
+index 8d3b185..0c0d570 100644
+--- a/elements/components/cups.bst
++++ b/elements/components/cups.bst
+@@ -9,7 +9,7 @@ build-depends:
+ runtime-depends:
+ - components/avahi-libs.bst
+ - components/cups-manifest.bst
+-- components/openssl.bst
++- components/gnutls.bst
+ 
+ config:
+   include:
+diff --git a/elements/components/ghostscript.bst b/elements/components/ghostscript.bst
+index ed426a5..b378431 100644
+--- a/elements/components/ghostscript.bst
++++ b/elements/components/ghostscript.bst
+@@ -22,7 +22,7 @@ variables:
+   conf-local: >-
+     --with-drivers=ALL
+     --with-system-libtiff=yes
+-    --with-local-zlib=no
++    --with-local-zlib=yes
+ 
+ config:
+   configure-commands:
+diff --git a/elements/components/libcupsfilters.bst b/elements/components/libcupsfilters.bst
+index 26b6ef5..e60d065 100644
+--- a/elements/components/libcupsfilters.bst
++++ b/elements/components/libcupsfilters.bst
+@@ -34,3 +34,5 @@ sources:
+   exclude:
+   - '*rc*'
+   ref: 2.2.1-0-g2a00cf6aa4234e2e0ac91b9844ab8990d04c7089
++- kind: patch_queue
++  path: patches/fsdk-containers/printing/libcupsfilters
+-- 
+2.55.0
+

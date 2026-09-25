@@ -1,0 +1,52 @@
+diff --git a/Makedefs.in b/Makedefs.in
+index 3470975..9f12b20 100644
+--- a/Makedefs.in
++++ b/Makedefs.in
+@@ -26,7 +26,7 @@ CODE_SIGN	=	@CODE_SIGN@
+ CODESIGN_IDENTITY =	-
+ CPPFLAGS	=	-I.. @CPPFLAGS@
+ CSFLAGS		=	-s "$(CODESIGN_IDENTITY)" @CSFLAGS@ --timestamp
+-DSOFLAGS	=	@DSOFLAGS@ $(CFLAGS)
++DSOFLAGS	=	@DSOFLAGS@ $(LDFLAGS) $(CFLAGS)
+ INSTALL		=	@INSTALL@
+ LDFLAGS		=	@LDFLAGS@ $(OPTIM)
+ LIBS		=	@LIBS@
+diff --git a/pappl/printer.h b/pappl/printer.h
+index c261f5f..860cae0 100644
+--- a/pappl/printer.h
++++ b/pappl/printer.h
+@@ -27,7 +27,7 @@ extern "C" {
+ #  define PAPPL_MAX_SOURCE	16	// Maximum number of sources/rolls
+ #  define PAPPL_MAX_SUPPLY	32	// Maximum number of supplies
+ #  define PAPPL_MAX_TYPE	32	// Maximum number of media types
+-#  define PAPPL_MAX_VENDOR	32	// Maximum number of vendor extension attributes
++#  define PAPPL_MAX_VENDOR	256	// Maximum number of vendor extension attributes
+ 
+ 
+ //
+diff --git a/pappl/system-webif.c b/pappl/system-webif.c
+index 4fc176f..9a7f49f 100644
+--- a/pappl/system-webif.c
++++ b/pappl/system-webif.c
+@@ -451,7 +451,7 @@ _papplSystemWebAddPrinter(
+ 	    else
+ 	    {
+ 	      httpAddrFreeList(list);
+-	      httpAssembleURI(HTTP_URI_CODING_ALL, device_uri, sizeof(device_uri), "socket", NULL, hostname, port, "/");
++	      httpAssembleURI(HTTP_URI_CODING_ALL, device_uri, sizeof(device_uri), "cups:socket", NULL, hostname, port, "/");
+ 	    }
+ 	  }
+ 	}
+diff --git a/pappl/system.c b/pappl/system.c
+index 7bb63b6..af5702a 100644
+--- a/pappl/system.c
++++ b/pappl/system.c
+@@ -192,7 +192,7 @@ papplSystemCreate(
+   system->log_fd            = -1;
+   system->log_file          = logfile ? strdup(logfile) : NULL;
+   system->log_level         = loglevel;
+-  system->log_max_size      = 1024 * 1024;
++  system->log_max_size      = 0;
+   system->next_client       = 1;
+   system->next_printer_id   = 1;
+   system->subtypes          = subtypes ? strdup(subtypes) : NULL;

@@ -1,0 +1,12 @@
+diff --git a/backend/usb-libusb.c b/backend/usb-libusb.c
+--- a/backend/usb-libusb.c
++++ b/backend/usb-libusb.c
+@@ -1271,7 +1271,7 @@ load_quirks(void)
+ 
+   all_quirks = cupsArrayNew((cups_array_func_t)compare_quirks, NULL);
+ 
+-  if ((datadir = getenv("CUPS_DATADIR")) == NULL)
++  if ((datadir = getenv("USB_QUIRK_DIR")) == NULL)
+     datadir = CUPS_DATADIR;
+ 
+   snprintf(filename, sizeof(filename), "%s/usb", datadir);

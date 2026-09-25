@@ -1,0 +1,155 @@
+name: Printing base bundle
+
+# Builds printing/base.bst -- the shared printing base the projectbluefin
+# printer applications build against -- and publishes its BuildStream
+# artifact closure to ghcr as a single-layer "CAS bundle"
+# (ghcr.io/<owner>/printing-base-devel), so consumers can seed their local
+# cache without write access to cache.projectbluefin.io. Build-time only: it
+# is never a runnable image and never a base layer. Pull requests only
+# `bst show` the element (build.yml `validate` -> `just validate`), so this
+# workflow has no pull_request trigger. Consumer contract, tag scheme and
+# verification: docs/skills/printing-base.md.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 2 * * *'
+  # Any ref. Only main publishes the keyed and latest tags; any other ref
+  # publishes `<arch>-test-<run_id>` for measurement.
+  workflow_dispatch:
+
+concurrency:
+  group: printing-base-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  BUNDLE_REPO: ghcr.io/${{ github.repository_owner }}/printing-base-devel
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-26.04
+          - arch: aarch64
+            runner: ubuntu-26.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # Required for Sigstore keyless signing
+    env:
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2
+        with:
+          tool: just
+      - name: Install host requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fuse3 podman skopeo
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Resolve key and tags
+        id: tags
+        env:
+          REF: ${{ github.ref }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # A clean cache for this run, shared by every later step;
+          # `just printing-base-bundle` refuses one that holds artifacts.
+          export BST_CACHE_DIR="${RUNNER_TEMP}/printing-base-cache"
+          echo "BST_CACHE_DIR=${BST_CACHE_DIR}" >> "$GITHUB_ENV"
+          KEY="$(just printing-base-key)"
+          if [[ ! "${KEY}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "ERROR: printing/base.bst full key is not a sha256: '${KEY}'" >&2
+            exit 1
+          fi
+          if [[ "${REF}" == refs/heads/main ]]; then
+            TAGS="${ARCH}-${KEY} ${ARCH}-latest"
+          else
+            TAGS="${ARCH}-test-${RUN_ID}"
+          fi
+          {
+            echo "key=${KEY}"
+            echo "tags=${TAGS}"
+          } >> "$GITHUB_OUTPUT"
+          echo "==> printing/base.bst ${ARCH} full key ${KEY}; tags: ${TAGS}"
+
+      - name: Log in to ghcr
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.docker
+          echo "${GH_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
+          echo "${GH_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin --compat-auth-file ~/.docker/config.json
+
+      - name: Build the bundle
+        id: bundle
+        env:
+          KEY: ${{ steps.tags.outputs.key }}
+        run: |
+          set -euo pipefail
+          just printing-base-bundle printing-base-devel:local | tee bundle.out
+          BUILT_KEY="$(sed -n 's/^key=//p' bundle.out)"
+          if [[ "${BUILT_KEY}" != "${KEY}" ]]; then
+            echo "ERROR: bundle key ${BUILT_KEY} != resolved key ${KEY}" >&2
+            exit 1
+          fi
+          echo "bytes=$(sed -n 's/^bundle_bytes=//p' bundle.out)" >> "$GITHUB_OUTPUT"
+
+      - name: Push and sign
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          set -euo pipefail
+          DIGEST=""
+          for tag in ${TAGS}; do
+            podman push --digestfile digest.txt printing-base-devel:local "${BUNDLE_REPO}:${tag}"
+            d="$(cat digest.txt)"
+            if [[ -n "${DIGEST}" && "${d}" != "${DIGEST}" ]]; then
+              echo "ERROR: ${BUNDLE_REPO}:${tag} pushed as ${d}, expected ${DIGEST}" >&2
+              exit 1
+            fi
+            DIGEST="${d}"
+            echo "==> pushed ${BUNDLE_REPO}:${tag} (${DIGEST})"
+          done
+          # Every tag names the same digest; one keyless signature covers all.
+          cosign sign -y "${BUNDLE_REPO}@${DIGEST}"
+          for tag in ${TAGS}; do
+            cosign verify \
+              --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              "${BUNDLE_REPO}:${tag}" >/dev/null
+            echo "==> verified signature on ${BUNDLE_REPO}:${tag}"
+          done
+          echo "DIGEST=${DIGEST}" >> "$GITHUB_ENV"
+
+      - name: Summary
+        env:
+          KEY: ${{ steps.tags.outputs.key }}
+          TAGS: ${{ steps.tags.outputs.tags }}
+          BYTES: ${{ steps.bundle.outputs.bytes }}
+        run: |
+          {
+            echo "### printing-base-devel (${ARCH})"
+            echo
+            echo "- full key: \`${KEY}\`"
+            echo "- tags: \`${TAGS}\`"
+            echo "- digest: \`${DIGEST}\`"
+            echo "- bundle tar: ${BYTES} bytes ($(numfmt --to=iec "${BYTES}"))"
+          } >> "$GITHUB_STEP_SUMMARY"

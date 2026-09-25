@@ -12,6 +12,11 @@ name: GHCR cleanup
 # why it calls the upstream action directly instead of the shared
 # projectbluefin/actions composite, whose keep-n-tagged default would prune
 # published point releases.
+#
+# The one exception is printing-base-devel (printing-base.yml): a build-time
+# BuildStream cache bundle, not an image anyone pins. Its keyed
+# `<arch>-<full-key>` tags are superseded by every printing/base.bst change,
+# so the last 5 per architecture are kept and older ones pruned below.
 
 on:
   schedule:
@@ -48,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] | join(",")' elements/targets.json)"
+          LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] + ["printing-base-devel"] | join(",")' elements/targets.json)"
           echo "==> candidate packages: ${LIST}"
 
           # Probe the token's package-list permission ONCE, before the
@@ -111,6 +116,9 @@ jobs:
           FILTERED="$(printf '%s\n' "${EXISTING[@]}" | paste -sd, -)"
           echo "==> cleaning: ${FILTERED}"
           echo "list=${FILTERED}" >> "$GITHUB_OUTPUT"
+          if printf '%s\n' "${EXISTING[@]}" | grep -qx printing-base-devel; then
+            echo "printing=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prune untagged images
         # Skip the whole action when no candidate package exists on GHCR yet
@@ -126,5 +134,33 @@ jobs:
           packages: ${{ steps.packages.outputs.list }}
           delete-untagged: true
           older-than: 90 days
+          dry-run: ${{ inputs.dry_run || false }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # printing-base-devel only: keep the newest 5 tagged bundles per
+      # architecture (`<arch>-<key>`, plus `<arch>-test-<run_id>` from branch
+      # dispatches). `<arch>-latest` and the other architecture are excluded,
+      # as are cosign's `sha256-*` signature tags, which delete-orphaned-images
+      # removes once the digest they sign is gone.
+      - name: Keep the last 5 printing-base-devel bundles (x86_64)
+        if: steps.packages.outputs.printing == 'true'
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        with:
+          packages: printing-base-devel
+          keep-n-tagged: 5
+          exclude-tags: 'x86_64-latest,aarch64-*,sha256-*'
+          delete-untagged: true
+          delete-orphaned-images: true
+          dry-run: ${{ inputs.dry_run || false }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Keep the last 5 printing-base-devel bundles (aarch64)
+        if: steps.packages.outputs.printing == 'true'
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        with:
+          packages: printing-base-devel
+          keep-n-tagged: 5
+          exclude-tags: 'aarch64-latest,x86_64-*,sha256-*'
+          delete-untagged: true
+          delete-orphaned-images: true
           dry-run: ${{ inputs.dry_run || false }}
           token: ${{ secrets.GITHUB_TOKEN }}

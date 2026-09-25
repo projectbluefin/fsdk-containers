@@ -5,6 +5,19 @@ sources:
   url: gitlab:freedesktop-sdk/freedesktop-sdk.git
   track: freedesktop-sdk-26.08*
   ref: freedesktop-sdk-26.08.1-0-gb02b59ffe19a49a402f357fd5fcb1d552ebc50d7
+# Source patch queues for the printing stack (elements/printing/). The
+# 0002 patch in patches/freedesktop-sdk wires them into cups-base,
+# libcupsfilters and cups-filters. Only printing elements change key; see
+# docs/skills/printing-base.md.
+- kind: local
+  path: patches/printing/cups
+  directory: patches/fsdk-containers/printing/cups
+- kind: local
+  path: patches/printing/libcupsfilters
+  directory: patches/fsdk-containers/printing/libcupsfilters
+- kind: local
+  path: patches/printing/cups-filters
+  directory: patches/fsdk-containers/printing/cups-filters
 - kind: patch_queue
   path: patches/freedesktop-sdk
 

@@ -129,6 +129,9 @@ class ElementReachabilityTests(unittest.TestCase):
         # element under it reads as a false orphan.
         roots.add("oci/brew-nspawn.bst")
         roots.add("podman-vm/podman-vm-efi.bst")
+        # The printing-base-devel CAS bundle (.github/workflows/printing-base.yml,
+        # docs/skills/printing-base.md): a build-time artifact lane, not an image.
+        roots.add("printing/base.bst")
         project_conf = (ROOT / "project.conf").read_text(encoding="utf-8")
         roots |= set(JUNCTION_RE.findall(project_conf))
         cls.reachable = dependency_closure(roots)

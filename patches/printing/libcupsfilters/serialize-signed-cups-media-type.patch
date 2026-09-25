@@ -1,0 +1,14 @@
+diff --git a/cupsfilters/ghostscript.c b/cupsfilters/ghostscript.c
+--- a/cupsfilters/ghostscript.c
++++ b/cupsfilters/ghostscript.c
+@@ -376,8 +376,8 @@ header_to_gs_args(gs_page_header *h,
+   {
+     if (h->cupsMediaType)
+     {
+-      snprintf(tmpstr, sizeof(tmpstr), "-dcupsMediaType=%u",
+-	       (unsigned)(h->cupsMediaType));
++      snprintf(tmpstr, sizeof(tmpstr), "-dcupsMediaType=%d",
++	       (int)(h->cupsMediaType));
+       cupsArrayAdd(gs_args, strdup(tmpstr));
+     }
+     snprintf(tmpstr, sizeof(tmpstr), "-dcupsBitsPerColor=%d",

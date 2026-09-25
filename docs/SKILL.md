@@ -34,6 +34,7 @@ specific image. Ported from `projectbluefin/dakota` and adapted to this repo's r
 | ------------------ | ---- |
 | Add a new distroless image (one catalog record) | [`skills/add-new-image.md`](skills/add-new-image.md) |
 | Add a component + stack only, no OCI image | [`skills/add-fsdk-component/SKILL.md`](skills/add-fsdk-component/SKILL.md) |
+| Change or consume the shared printing base (`printing/base.bst`, `printing-base-devel`) | [`skills/printing-base.md`](skills/printing-base.md) |
 | Add a non-distroless nspawn machine image (dev env, tarball) | [`skills/nspawn-machine-image.md`](skills/nspawn-machine-image.md) |
 | Add a bootable EFI/raw VM guest image (QEMU disk) | [`skills/vm-podman-guest/SKILL.md`](skills/vm-podman-guest/SKILL.md) |
 | Make an image smaller / apply the SLIM recipe | [`skills/slim-an-image/SKILL.md`](skills/slim-an-image/SKILL.md) |

@@ -1,0 +1,92 @@
+diff --git a/cupsfilters/filter.c b/cupsfilters/filter.c
+--- a/cupsfilters/filter.c
++++ b/cupsfilters/filter.c
+@@ -972,7 +972,7 @@
+ 		 void *parameters)         // I - Filter-specific parameters
+ {
+   cf_filter_external_t *params = (cf_filter_external_t *)parameters;
+-  int           i;
++  int           i, j, pass;
+   int           is_backend = 0;      // Do we call a CUPS backend?
+   int		pid,		     // Process ID of filter
+                 stderrpid,           // Process ID for stderr logging process
+@@ -996,7 +996,8 @@
+   char          job_id_str[16],
+                 copies_str[16],
+                 *options_str = NULL;
+-  cups_option_t *opt;
++  cups_option_t *opt, *source_options;
++  int           num_source_options;
+   int           status = 65536;
+   int           wstatus;
+   cf_logfunc_t  log = data->logfunc;
+@@ -1107,12 +1108,45 @@
+     // value in the filter data has priority
+     //
+ 
+-    for (i = 0, opt = params->options; i < params->num_options; i ++, opt ++)
+-      num_all_options = cupsAddOption(opt->name, opt->value, num_all_options,
+-				      &all_options);
+-    for (i = 0, opt = data->options; i < data->num_options; i ++, opt ++)
+-      num_all_options = cupsAddOption(opt->name, opt->value, num_all_options,
+-				      &all_options);
++    // Do not use cupsAddOption() here. cfFilterExternal() can run in a
++    // cfFilterPOpen() child of a multi-threaded process, where libcups'
++    // inherited global string-pool lock is not safe to acquire. The option
++    // strings outlive this function, so a shallow array is sufficient.
++    all_options = (cups_option_t *)calloc(params->num_options +
++                                           data->num_options,
++                                           sizeof(cups_option_t));
++    if ((params->num_options + data->num_options) > 0 && !all_options)
++    {
++      if (log)
++        log(ld, CF_LOGLEVEL_ERROR,
++            "cfFilterExternal: Memory allocation failed for options");
++      status = 1;
++      goto out;
++    }
++
++    for (pass = 0; pass < 2; pass ++)
++    {
++      source_options = pass ? data->options : params->options;
++      num_source_options = pass ? data->num_options : params->num_options;
++
++      for (i = 0, opt = source_options; i < num_source_options; i ++, opt ++)
++      {
++        if (!opt->name || !opt->name[0] || !opt->value)
++          continue;
++        for (j = 0; j < num_all_options; j ++)
++          if (strcasecmp(all_options[j].name, opt->name) == 0 ||
++              ((strcasecmp(opt->name, "cupsPrintQuality") == 0 ||
++                strcasecmp(opt->name, "print-quality") == 0) &&
++               (strcasecmp(all_options[j].name, "cupsPrintQuality") == 0 ||
++                strcasecmp(all_options[j].name, "print-quality") == 0)))
++          {
++            all_options[j] = *opt;
++            break;
++          }
++        if (j == num_all_options)
++          all_options[num_all_options ++] = *opt;
++      }
++    }
+ 
+     //
+     // Create command line arguments for the CUPS filter
+@@ -1589,11 +1623,14 @@
+  out:
+   if (params->exec_mode < 0)
+     unlink(tmp_name);
+-  cupsFreeOptions(num_all_options, all_options);
++  free(all_options);
+   if (options_str)
+     free(options_str);
+-  free(argv[0]);
+-  free(argv);
++  if (argv)
++  {
++    free(argv[0]);
++    free(argv);
++  }
+   for (i = 0; envp[i]; i ++)
+     free(envp[i]);
+   free(envp);
