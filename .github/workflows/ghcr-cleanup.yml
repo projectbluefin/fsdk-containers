@@ -63,18 +63,17 @@ jobs:
           #     no-ops on its list guard, and untagged images accumulate with
           #     no alarm (projectbluefin/fsdk-containers#306).
           #
-          # Listing the org's container packages succeeds or fails on scope
-          # alone, independent of whether any particular package exists.
-          # `gh api` returns 403 when the token lacks read:packages, so any
-          # non-zero probe means the token cannot classify anything at all:
-          # fail hard and prune nothing. `errexit` is on, so suspend it across
-          # this one expected failure and keep the status in PRC.
+          # Probe the canonical `base` canary before classifying per-package
+          # 404s. A non-zero result means either the token cannot read packages
+          # or the canary has not been published, so fail hard and prune
+          # nothing. `errexit` is on, so suspend it across this one expected
+          # failure and keep the status in PRC.
           set +e
-          PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages?package_type=container" 2>&1)"
+          PROBE="$(gh api "orgs/${GITHUB_REPOSITORY_OWNER}/packages/container/base/versions" 2>&1)"
           PRC=$?
           set -e
           if [[ "${PRC}" -ne 0 ]]; then
-            echo "::error::cannot enumerate org container packages (exit ${PRC}): token lacks package-list permission, refusing to prune"
+            echo "::error::cannot read canary package base (exit ${PRC}): token lacks package visibility or base is unpublished; refusing to prune"
             echo "${PROBE}" >&2
             exit 1
           fi

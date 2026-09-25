@@ -243,7 +243,11 @@ workflows must absorb it rather than fail:
   before handing it to `dataaxiom/ghcr-cleanup-action`, whose lookup 404s the
   whole run otherwise. To distinguish a brand-new unpublished package from a
   token scope/visibility regression (both return HTTP 404), it probes the
-  token's package-list permission once before the loop (projectbluefin/fsdk-containers#306).
+  versions endpoint of one known-published canary package — the one named by
+  `canary_image` in `elements/targets.json` — once before the loop
+  (projectbluefin/fsdk-containers#306). That probe failing means *either* the
+  token cannot read this org's packages *or* the canary itself is unpublished;
+  both are treated the same way, as a hard failure that prunes nothing.
   An all-unpublished manifest yields an empty list, and the
   `if: steps.packages.outputs.list != ''` guard makes that a clean no-op.
 - `vulnerability-scan.yml` treats skopeo's `manifest unknown` exactly like "no
