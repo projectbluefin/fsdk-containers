@@ -1,0 +1,35 @@
+From 1e66af63a81a188b9d4bce688d75f3a9df681165 Mon Sep 17 00:00:00 2001
+From: Marshall Taplits <mtaplits@mailforce.net>
+Date: Mon, 14 Sep 2026 16:58:40 -0400
+Subject: [PATCH] bannertopdf: Close output stream so the generated PDF is not
+ truncated (#249)
+
+Upstream-Status: Backport [https://github.com/OpenPrinting/libcupsfilters/commit/1e66af63a81a188b9d4bce688d75f3a9df681165, https://github.com/OpenPrinting/libcupsfilters/pull/249]
+Exit condition: drop when freedesktop-sdk ships a libcupsfilters release newer than 2.2.1 that contains this commit.
+---
+ cupsfilters/bannertopdf.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/cupsfilters/bannertopdf.c b/cupsfilters/bannertopdf.c
+index 60769e7b..9b2ce9aa 100644
+--- a/cupsfilters/bannertopdf.c
++++ b/cupsfilters/bannertopdf.c
+@@ -1021,6 +1021,14 @@ cfFilterBannerToPDF(int inputfd,         // I - File descriptor input stream
+   unlink(tempfile);
+   if (inputfp)
+     fclose(inputfp);
+-  
++  // The output stream has to be flushed and closed here. When this filter
++  // function is called from cfFilterChain() (as the "universal" filter does),
++  // the parent closes the raw output file descriptor and exits right after
++  // this function returns, so a still buffered tail of the generated PDF
++  // (cross-reference table and "%%EOF") would be lost and the following
++  // filter in the chain would fail to parse the file.
++  if (outputfp)
++    fclose(outputfp);
++
+   return (ret);
+ }
+-- 
+2.55.0
+
