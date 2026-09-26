@@ -12,8 +12,19 @@ export image_registry := env("BUILD_IMAGE_REGISTRY", "ghcr.io/projectbluefin")
 # released one.
 local_tag := "build"
 
-# Same bst2 container image FSDK/dakota CI uses -- pinned by SHA.
-export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d")
+# Same bst2 container image FSDK/dakota CI uses. The tag names the source
+# commit for readability, but a tag is mutable on the registry -- the digest
+# is the immutable pin podman actually pulls by. When bumping the tag,
+# refresh the digest too: skopeo inspect --format '{{.Digest}}' docker://<image>:<tag>
+export bst2_image := env("BST2_IMAGE", "registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:64eb0b4930d57a92710822898fb73af6cc1ae35d@sha256:2ca3b449b594e9284bd60f436a4efad1365116b7d3d7129fd08b7a4f459d3561")
+
+_check-bst2-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! "${bst2_image}" =~ ^[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}$ ]]; then
+        echo "ERROR: bst2_image must use an immutable @sha256 digest" >&2
+        exit 1
+    fi
 
 # OCI metadata (dynamic labels), injected at export time.
 export OCI_IMAGE_CREATED := env("OCI_IMAGE_CREATED", "")
@@ -34,7 +45,7 @@ export fsdk_ref := `grep -E '^\s*ref:' elements/freedesktop-sdk.bst | head -1 | 
 #
 # All builds run in the local bst2 container via podman.
 [group('dev')]
-bst *ARGS:
+bst *ARGS: _check-bst2-image
     #!/usr/bin/env bash
     set -euo pipefail
     # BST_CACHE_DIR selects another local cache, e.g. the clean cache
@@ -59,7 +70,7 @@ bst *ARGS:
         -v "{{justfile_directory()}}:/src:rw" \
         -v "${cache_dir}:/root/.cache/buildstream:rw" \
         -w /src \
-        "{{bst2_image}}" \
+        "${bst2_image}" \
         bash -c 'bst --colors "$@"' -- --no-interactive ${BST_FLAGS:-} {{ARGS}}
 
 # Print the tag set derived from the FSDK release: minor line and point
@@ -919,6 +930,7 @@ uninstall-brew:
 sbom variant="base":
     #!/usr/bin/env bash
     set -euo pipefail
+    just _check-bst2-image
     if [ "{{variant}}" = "podman-vm" ]; then
         ELEMENT="podman-vm/podman-vm-efi.bst"
         SPDX_NAME="podman-vm"
@@ -951,7 +963,7 @@ sbom variant="base":
         -e GIT_SHA="${GIT_SHA}" \
         -e FSDK_VERSION="${fsdk_version}" \
         -e FSDK_REF="${fsdk_ref}" \
-        "{{bst2_image}}" \
+        "${bst2_image}" \
         bash -c '
             for attempt in 1 2 3; do
                 pip install --quiet \
@@ -991,6 +1003,7 @@ sbom variant="base":
 sboms:
     #!/usr/bin/env bash
     set -euo pipefail
+    just _check-bst2-image
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
     # Keep direct buildstream-sbom invocation consistent with `just bst`.
@@ -1013,7 +1026,7 @@ sboms:
         -e IMAGES="${IMAGES}" \
         -e FSDK_VERSION="${fsdk_version}" \
         -e FSDK_REF="${fsdk_ref}" \
-        "{{bst2_image}}" \
+        "${bst2_image}" \
         bash -c '
             for attempt in 1 2 3; do
                 pip install --quiet \

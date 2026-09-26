@@ -17,6 +17,7 @@ metadata:
   context7-sources:
     - /websites/renovatebot
     - /apache/buildstream
+    - /casey/just
 ---
 # Track Upstream Versions
 
@@ -221,7 +222,13 @@ automerged; upstream software is not.
 
 ## Known gap
 
-`bst2_image` in the `Justfile` is pinned to a commit-SHA tag
-(`.../bst2:64eb0b49...`). Renovate cannot order SHA tags, so it is **not** tracked. To
-automate it, the image must first be pinned by digest (`:tag@sha256:...`), after which the
-`docker` datasource can track the digest.
+`bst2_image` in the `Justfile` is pinned by digest (`:tag@sha256:...`); the commit-SHA
+tag (`.../bst2:64eb0b49...`) is kept only for readability. A `BST2_IMAGE` environment
+override is allowed for builder testing, but the Justfile rejects it unless it also
+ends in an immutable `@sha256:<64 lowercase hex>` digest. Renovate cannot order SHA
+tags, so the reference is **not** tracked automatically. When bumping the tag by hand,
+refresh the digest alongside it:
+
+```bash
+skopeo inspect --format '{{.Digest}}' docker://registry.gitlab.com/freedesktop-sdk/infrastructure/freedesktop-sdk-docker-images/bst2:<new-tag>
+```
