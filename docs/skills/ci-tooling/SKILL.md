@@ -315,6 +315,7 @@ FAIL: guest did not reach its ready point within 300s
 - A `pip install` of `.github/requirements/*.txt` without `--require-hashes --only-binary=:all:`
 - A requirement in `.github/requirements/*.txt` whose only hash is its `.tar.gz`
 - A CI-input path (`.github/requirements/**`, the workflow file itself) missing from a workflow's `paths:` filter — the PR that changes it runs nothing
+- A Justfile recipe that splices an `env()`/`--set`-overridable value into shell as `"{{var}}"` — just substitutes text before bash parses it, so a value containing `"` injects commands past any validation. Export the variable and use `"${var}"` (see `_check-bst2-image`)
 
 ## Verification
 

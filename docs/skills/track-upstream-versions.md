@@ -17,6 +17,7 @@ metadata:
   context7-sources:
     - /websites/renovatebot
     - /apache/buildstream
+    - /casey/just
 ---
 # Track Upstream Versions
 
@@ -222,7 +223,9 @@ automerged; upstream software is not.
 ## Known gap
 
 `bst2_image` in the `Justfile` is pinned by digest (`:tag@sha256:...`); the commit-SHA
-tag (`.../bst2:64eb0b49...`) is kept only for readability. Renovate cannot order SHA
+tag (`.../bst2:64eb0b49...`) is kept only for readability. A `BST2_IMAGE` environment
+override is allowed for builder testing, but the Justfile rejects it unless it also
+ends in an immutable `@sha256:<64 lowercase hex>` digest. Renovate cannot order SHA
 tags, so the reference is **not** tracked automatically. When bumping the tag by hand,
 refresh the digest alongside it:
 
