@@ -211,12 +211,17 @@ validate:
 
 # ── Build ─────────────────────────────────────────────────────────────
 # Build one OCI image (controlled by BUILD_IMAGE_NAME) and load into podman.
+# --network-retries 5: gitlab.gnome.org (the gnome-build-meta junction fetch)
+# intermittently hits BuildStream's fixed 30s git-fetch timeout under CI
+# network conditions (see #336). printing-base-bundle already carries this
+# flag for the same reason; apply it here too instead of failing the whole
+# matrix leg on a single transient read timeout.
 [group('build')]
 build:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "==> Building oci/{{image_name}}.bst with BuildStream..."
-    just bst build "oci/{{image_name}}.bst"
+    just bst --network-retries 5 build "oci/{{image_name}}.bst"
     just export
 
 # ── Export ────────────────────────────────────────────────────────────

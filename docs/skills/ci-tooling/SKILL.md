@@ -278,6 +278,27 @@ FAIL: guest did not reach its ready point within 300s
       (serial console uploaded as artifact 'vm-boot-serial-x86_64')
 ```
 
+### Transient `gnome-build-meta` fetch timeouts — pass `--network-retries`
+
+A `just build`/`just verify` matrix leg can fail with:
+
+```
+failed to fetch: HTTPSConnectionPool(host='gitlab.gnome.org', port=443): Read timed out. (read timeout=30.0)
+```
+
+This is BuildStream's fixed 30s git-fetch timeout tripping on a transient
+network blip while fetching the `gnome-build-meta` junction, not a code or
+config bug (#336). `just bst` already forwards flags ahead of the subcommand,
+so pass `--network-retries 5` the same way `printing-base-bundle` does:
+
+```just
+just bst --network-retries 5 build "oci/{{image_name}}.bst"
+```
+
+The `build` recipe carries this flag; if `validate` or `verify` start
+exhibiting the same intermittent failure, apply it there too rather than
+adding a bespoke retry loop.
+
 ## Common Rationalizations
 
 | Rationalization | Reality |
