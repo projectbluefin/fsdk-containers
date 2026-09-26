@@ -297,11 +297,13 @@
         "cups",
         "junctions",
         "cache-keys",
-        "supply-chain"
+        "supply-chain",
+        "github-runners",
+        "apparmor"
       ],
-      "description": "The shared printing base for the printer applications: printing/base.bst contents, cache-key isolation of its FSDK patch, the signed printing-base-devel CAS bundle, and the consumer contract.",
+      "description": "The shared printing base for the printer applications: printing/base.bst contents, cache-key isolation of its FSDK patch, the signed printing-base-devel CAS bundle, the consumer contract, and the ubuntu-24.04 runner pin (26.04 AppArmor gs profile).",
       "version": "1.1",
-      "last_updated": "2026-09-25",
+      "last_updated": "2026-09-26",
       "doc_type": "reference"
     },
     {

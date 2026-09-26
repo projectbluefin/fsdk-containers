@@ -34,6 +34,11 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
+        # ubuntu-26.04 is fine HERE because no printing/base.bst element runs
+        # gs at build time. Consumer repos that do (printer-app runtime-files)
+        # must stay on ubuntu-24.04: 26.04 ships an enforcing AppArmor gs
+        # profile that denies gs access to the bst build root. See
+        # docs/skills/printing-base.md "Consumer CI runners" and #332.
         include:
           - arch: x86_64
             runner: ubuntu-26.04
