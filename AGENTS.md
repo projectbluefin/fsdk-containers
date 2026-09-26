@@ -66,7 +66,7 @@ All builds run in GitHub Actions or locally in the container wrapper via podman.
 ```
 just validate   # resolve the element graph (no build)
 just build      # build + load ghcr.io/projectbluefin/base:build
-just verify     # per-image contract: size ceiling + 5 gates + smoke test
+just verify     # per-image contract: gates + smoke test
 just tags       # show FSDK-derived tags
 ```
 

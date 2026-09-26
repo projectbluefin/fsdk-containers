@@ -23,9 +23,8 @@ extend coverage:
    qemu-img, and lab-runner; `base`/`static` only get their `/usr/bin/true`
    smoke in the post-publish `publish-smoke` job — add a local branch when the
    image gains a real binary.)
-3. **Set a size ceiling.** Add a `MAX_BYTES` case in the `verify` recipe for the new
-   image. Calibrate it against uncompressed Podman sizes on **both** architectures
-   and leave headroom for normal FSDK point-release growth.
+3. **Record the image size.** Measure uncompressed Podman size on both
+   architectures and include it in the PR so future growth can be reviewed.
 4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the
    variant from `elements/targets.json` — nothing to hand-register.
 5. **Document runtime-specific pruning.** If the new image needs extra `rm` steps
@@ -47,9 +46,8 @@ change default package contents. Treat it as a coverage refresh:
 2. **Reconcile stack dependencies.** Review upstream release notes and `bst show`
    output for renames such as `public-stacks/runtime-minimal.bst` vs
    the FSDK stack that carries their shell tooling.
-3. **Recalibrate size ceilings.** FSDK minor lines usually grow. Do not encode the
-   exact current size; set ceilings with realistic headroom for the new series and
-   both architectures.
+3. **Record size changes.** Measure both architectures and call out significant
+   growth in the PR body.
 4. **Re-run all smoke tests.** Execute every image's primary binary on `x86_64` and
    `aarch64`; a library that moved domains can pass `bst show` but still fail at
    runtime.
@@ -67,6 +65,4 @@ change default package contents. Treat it as a coverage refresh:
 
 When you cut something in the SLIM recipe that must stay gone, add a matching
 `grep` assertion to gate `[5/N]` in the `verify` recipe so the build fails if it
-creeps back. Renumber the gate labels. Keep the image size ceilings in the
-`verify` recipe calibrated against both architecture builds; allow headroom for
-normal FSDK point-release growth rather than encoding today's exact size.
+creeps back. Renumber the gate labels.

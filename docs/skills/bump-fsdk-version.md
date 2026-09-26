@@ -108,7 +108,7 @@ Before merging a bump:
       release line, `YY.MM / YY.MMbeta.N` (or rc) while tracking a pre-release
       line (currently `26.08 / 26.08rc.1`) — and contains no `latest`
 - [ ] The CAS-config patch (`0001`, GNOME CAS servers) applied cleanly (no patch failure in `just validate`)
-- [ ] `just build && just verify` — size ceiling, all gates, and the smoke test pass
+- [ ] `just build && just verify` — all gates and the smoke test pass
 - [ ] `io.projectbluefin.fsdk.version` label on the built image matches the new FSDK version
 
 - Bumping across a minor line (e.g. 25.08 → 26.08) may rename/relocate components or restructure runtime stacks:

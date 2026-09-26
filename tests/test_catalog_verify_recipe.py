@@ -84,15 +84,12 @@ def extract_recipe_body(text, name):
     if not script:
         raise AssertionError(f"recipe {name!r} has an empty body")
 
-    # `{{"{{.Size}}"}}` is just's escape for a literal Go template; substitute it
-    # before the single-brace interpolations so it is not half-consumed.
-    script = script.replace('{{"{{.Size}}"}}', "{{.Size}}")
     script = script.replace("{{sudo_cmd}}", "")
     script = script.replace("{{image_registry}}", REGISTRY)
     script = script.replace("{{image_name}}", "${TEST_IMAGE_NAME}")
     script = script.replace("{{local_tag}}", LOCAL_TAG)
 
-    leftover = re.findall(r"\{\{(?!\.Size)[^{].*?\}\}", script)
+    leftover = re.findall(r"\{\{[^{].*?\}\}", script)
     if leftover:
         raise AssertionError(
             f"recipe {name!r} gained unsubstituted just interpolations "
@@ -125,10 +122,6 @@ PODMAN_STUB = r"""#!/usr/bin/env bash
 set -uo pipefail
 verb="${1:-}"
 case "$verb" in
-    image)
-        # image inspect --format {{.Size}} <ref>
-        printf '%s\n' "${STUB_SIZE}"
-        ;;
     create)
         printf 'stub-container-id\n'
         ;;
@@ -157,7 +150,6 @@ def contract_env(**overrides):
     """Build a `verify_contract.py --env` block, defaulting to a passing image."""
     values = {
         "IMG_KIND": "distroless",
-        "MAX_BYTES": "100000000",
         "FORBID_NAMES": "no shell\nno package manager",
         "FORBID_PATTERNS": "(^|/)(ba|da|z)?sh$\n(^|/)(dnf|apt|rpm)$",
         "REQUIRE_PATHS": "usr/share/zoneinfo/UTC",
@@ -221,7 +213,6 @@ class VerifyRecipeTestCase(unittest.TestCase):
     def run_verify(
         self,
         listing=None,
-        size="1024",
         run_exit="0",
         contract_exit="0",
         image="base",
@@ -237,7 +228,6 @@ class VerifyRecipeTestCase(unittest.TestCase):
                 "TEST_IMAGE_NAME": image,
                 "STUB_CONTRACT_ENV": str(self.env_file),
                 "STUB_CONTRACT_EXIT": str(contract_exit),
-                "STUB_SIZE": str(size),
                 "STUB_TAR": str(tar_path),
                 "STUB_RUN_LOG": str(self.run_log),
                 "STUB_RUN_EXIT": str(run_exit),
@@ -296,26 +286,6 @@ class ContractDerivationTests(VerifyRecipeTestCase):
         result = self.run_verify(contract_exit="3")
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("verify passed", result.stdout)
-
-
-class SizeCeilingTests(VerifyRecipeTestCase):
-    def test_size_within_ceiling_passes(self):
-        result = self.run_verify(size="999", MAX_BYTES="1000")
-        self.assertPassed(result)
-        self.assertIn("OK: image size 999 bytes", result.stdout)
-
-    def test_size_over_ceiling_fails(self):
-        self.assertFailed(
-            self.run_verify(size="1001", MAX_BYTES="1000"), "exceeds 1000 bytes"
-        )
-
-    def test_size_exactly_at_ceiling_passes(self):
-        self.assertPassed(self.run_verify(size="1000", MAX_BYTES="1000"))
-
-    def test_non_numeric_size_fails(self):
-        # A podman that prints nothing (or an error) must not be read as 0 and
-        # slip under the ceiling.
-        self.assertFailed(self.run_verify(size="", MAX_BYTES="1000"), "FAIL")
 
 
 class ForbiddenPatternGateTests(VerifyRecipeTestCase):

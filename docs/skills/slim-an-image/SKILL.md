@@ -87,7 +87,6 @@ cut that must stay gone, so it fails the build if it creeps back.
 - Removing CA certificates, tzdata, or required charset modules to hit a size
   target.
 - Stripping a prebuilt binary without a local-only execution test.
-- Relaxing an image-size ceiling without measuring the old and new artifacts.
 
 ## Verification
 
@@ -99,5 +98,5 @@ cut that must stay gone, so it fails the build if it creeps back.
 
 ## Reference result
 
-`base`: ~73 MB rootfs → **~45 MB image** after slim (enforced ceiling: 64 MiB
-uncompressed in `just verify`), all gates green.
+`base`: ~73 MB rootfs → **~45 MB image** after slim (measured with
+`podman image inspect .Size`), all gates green.

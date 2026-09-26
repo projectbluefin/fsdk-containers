@@ -25,7 +25,7 @@ metadata:
 
 - Validating an image locally before opening or merging a PR.
 - Debugging a failed gate: a shell binary found in the rootfs, a missing CA bundle
-  or `zoneinfo/UTC`, reappeared slim bloat, or an image over its size ceiling.
+  or `zoneinfo/UTC`, or reappeared slim bloat.
 - Debugging a red `pr-build-oci (<image>, <arch>)` job — that job runs `just build`
   then `just verify`, so a gate failure surfaces there.
 - Adding a gate after cutting something new in the SLIM recipe.
@@ -51,9 +51,6 @@ distroless images (everything except the shell-enabled `lab-runner`):
    reappear. Regression guard for the shared SLIM recipe. (terminfo is NOT
    bloat: it has been deliberately kept in every image since #101 — see
    [`references/terminfo-seam.md`](references/terminfo-seam.md).)
-5. **Image size ceiling** — compares Podman's uncompressed local `.Size` against
-   a per-image ceiling with FSDK growth headroom. This is not compressed registry
-   transfer size; it catches silent runtime-rootfs creep.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
 present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and
@@ -107,10 +104,8 @@ podman run --rm ghcr.io/projectbluefin/<name>:build /usr/bin/env
 - **Cutting something in the SLIM recipe without adding a matching negative `grep`
   assertion** to the verify gates — the bloat creeps back silently on the next FSDK
   point release.
-- **Encoding today's exact size as the ceiling.** FSDK minor lines grow; calibrate
-  against both architectures with headroom.
-- **Calibrating a ceiling or smoke test on one architecture only.** A library that
-  moved domains can pass `bst show` and still fail at runtime on the other arch.
+- **Smoke-testing on one architecture only.** A library that moved domains can pass
+  `bst show` and still fail at runtime on the other architecture.
 
 ## Verification
 
@@ -120,7 +115,7 @@ convenience wrapper:
 ```
 just validate                                  # graph resolves, junction + patches valid
 BUILD_IMAGE_NAME=<image> just build
-BUILD_IMAGE_NAME=<image> just verify           # size ceiling + gates + smoke test
+BUILD_IMAGE_NAME=<image> just verify           # content gates + smoke test
 just sbom <image>                              # SPDX inventory for the same element
 ```
 
@@ -132,7 +127,7 @@ architecture.** Nothing else proves it — `just validate` only resolves the gra
 To re-derive the gate set rather than trusting this doc:
 
 ```
-python3 scripts/verify_contract.py <image> --env   # the image's gates + MAX_BYTES
+python3 scripts/verify_contract.py <image> --env   # the image's gates
 grep -n 'FORBIDDEN' -A 20 scripts/verify_contract.py
 grep -n 'just build\|just verify' .github/workflows/build.yml
 grep -n 'bash' include/slim.yml                    # the explicit shell removal

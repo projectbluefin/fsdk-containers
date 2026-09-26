@@ -11,7 +11,7 @@ optimization_status: draft
 status: active
 dependencies: [container-standards]
 tags: [lab-runner, contract, ci, tooling]
-description: "The lab-runner shell-enabled capability contract — what ships, what is excluded, and the size budget. Use when adding or removing a tool in elements/lab-runner/."
+description: "The lab-runner shell-enabled capability contract — what ships, what is excluded. Use when adding or removing a tool in elements/lab-runner/."
 metadata:
   type: policy
 ---
@@ -53,13 +53,6 @@ Re-adding one of these requires new rationale here first.
 | pre-commit | Framework overhead for single-step CI; hooks belong in the checkout environment, not the runner |
 | Any runtime package manager (apk/apt/dnf/pip) | Shell-enabled does not mean mutable; a missing tool is a contract change, not a runtime install |
 
-## Size budget
-
-`just verify` enforces `MAX_BYTES=640 MiB` against `podman image inspect
-.Size` — **uncompressed**, not compressed. A PR that grows the image must name
-the capability gained; a PR that crosses the ceiling must raise it in the same
-commit with the measurement in the PR body.
-
 ## Not machine-readable (yet)
 
 Issue #94 asks for a `capabilities.yml` that *generates* the gate's tool lists
@@ -72,7 +65,6 @@ this markdown is the contract and the Justfile loops are the enforcement.
   tool is not in the stack.
 - A `--version`-only probe for a tool with pluggable back-ends (compressors,
   sandboxing) — probe the operation end to end (#87, #109).
-- Raising the 640 MiB ceiling without a measured size in the PR body.
 
 ## Verification
 

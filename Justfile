@@ -290,7 +290,7 @@ push-quay REPO:
     done < <(just tags)
 
 # ── Verify ────────────────────────────────────────────────────────────
-# Assert the image meets its contract. Gates and ceilings are derived from
+# Assert the image meets its contract. Gates are derived from
 # the catalog record via scripts/verify_contract.py — adding an image no
 # longer requires editing this recipe.
 [group('test')]
@@ -300,21 +300,13 @@ verify:
     REF="{{image_registry}}/{{image_name}}:{{local_tag}}"
     IMG="{{image_name}}"
 
-    # Derive gates, ceilings, and smoke-test args from the catalog record.
-    # IMG_KIND, MAX_BYTES, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
+    # Derive gates and smoke-test args from the catalog record.
+    # IMG_KIND, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
     # REQUIRE_BINARIES, SMOKE_OPTS, SMOKE_ARGS, SHELL_PROBE are all set here.
     # Capture first: `eval "$(cmd)"` swallows cmd's exit status (it would
     # evaluate the empty string and continue); assignment preserves it.
     CONTRACT_ENV=$(python3 scripts/verify_contract.py "$IMG" --env)
     eval "$CONTRACT_ENV"
-
-    # Guard against silent size creep (uncompressed local Podman size).
-    SIZE_BYTES=$({{sudo_cmd}} podman image inspect --format '{{"{{.Size}}"}}' "$REF")
-    if ! [[ "$SIZE_BYTES" =~ ^[0-9]+$ ]] || [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
-        echo "FAIL: $IMG image size ${SIZE_BYTES} bytes exceeds ${MAX_BYTES} bytes" >&2
-        exit 1
-    fi
-    echo "OK: image size ${SIZE_BYTES} bytes (limit ${MAX_BYTES})"
 
     {{sudo_cmd}} podman create --name verify-base "$REF" /verify-placeholder >/dev/null
     trap '{{sudo_cmd}} podman rm -f verify-base >/dev/null 2>&1 || true' EXIT

@@ -240,7 +240,7 @@
         "ci",
         "tooling"
       ],
-      "description": "The lab-runner shell-enabled capability contract \u2014 what ships, what is excluded, and the size budget. Use when adding or removing a tool in elements/lab-runner/.",
+      "description": "The lab-runner shell-enabled capability contract \u2014 what ships, what is excluded. Use when adding or removing a tool in elements/lab-runner/.",
       "version": "1.0",
       "last_updated": "2026-09-20",
       "doc_type": "policy"
