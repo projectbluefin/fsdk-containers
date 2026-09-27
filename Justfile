@@ -761,6 +761,9 @@ printing-base-bundle TAG:
     # needed. Sources come from cache.projectbluefin.io or upstream, because
     # the FSDK source cache stalls.
     targets=(printing/base.bst printing/foomatic-db.bst)
+    # --network-retries only covers errors marked temporary by the plugin.
+    # git_repo fetch failures use SourceError(temporary=False), so this flag
+    # does not retry them (see docs/skills/printing-base.md).
     just bst --network-retries 5 build \
         --ignore-project-source-remotes \
         --source-remote url=https://cache.projectbluefin.io:11001,push=false \

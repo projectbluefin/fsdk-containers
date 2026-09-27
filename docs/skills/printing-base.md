@@ -99,6 +99,15 @@ The bundle build ignores project source caches and fetches sources from
 `cache.projectbluefin.io` (or upstream), because the FSDK source cache
 stalls.
 
+The recipe retains `--network-retries 5` for errors marked temporary, but it
+does **not** retry `git_repo` fetch failures. In the pinned
+`buildstream-plugins-community` 2.3.1, `_git_utils.py` raises connection errors
+(including read timeouts) as `SourceError` without `temporary=True`; the
+[BuildStream SourceError API](https://docs.buildstream.build/master/buildstream.source.html#buildstream.source.SourceError)
+defaults that field to `False`. Do not treat this flag as protection against
+Git fetch timeouts: retrying those requires retrying the `bst build`
+invocation itself or changing the plugin's error classification.
+
 Everything else in the closure stays on the remotes (gbm.gnome.org,
 cache.freedesktop-sdk.io, cache.projectbluefin.io), and consumers pull it
 from there as usual.
