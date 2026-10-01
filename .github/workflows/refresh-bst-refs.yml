@@ -37,7 +37,12 @@ jobs:
     # then `Build images` failed on a checksum mismatch).
     if: github.event.pull_request.user.login == 'mergeraptor[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 minutes was not enough: `bst source track` runs per-arch over every
+    # changed element, and the volcano element alone carries 235 go_module
+    # sources. A Renovate volcano bump hit this ceiling, was cancelled, and
+    # left every volcano ref unrefreshed until the element was manually
+    # tracked. 120 minutes covers the heaviest element with headroom.
+    timeout-minutes: 120
     steps:
       # Renovate branches live in this repository (not a fork), so a plain
       # read-only checkout is enough here -- the mergeraptor app token is
