@@ -127,13 +127,17 @@ Multi-arch binary sources (`kubectl`, `argo`, `just`, etc.) use `(?)` conditiona
 only evaluates the active architecture and leaves the other stale.
 
 To prevent this:
-- `.github/workflows/refresh-bst-refs.yml` tracks every supported architecture in sequence
-  (`just bst -o arch <arch> source track`) and verifies ref parity before committing.
+- `.github/workflows/refresh-bst-refs.yml` tracks on x86_64 first, then classifies the
+  changed elements: only those carrying an `arch` conditional get a second
+  `just bst -o arch aarch64 source track` pass. Arch-independent sources (`go_module`,
+  plain `git_repo`) resolve the same ref for every arch, so one pass is enough. Ref
+  parity is verified before committing.
 - The PR gate runs `scripts/check_multiarch_refs.py` (`just check-refs`) to fail fast if
   exactly one architecture's ref was updated. Its git plumbing and both CI invocation
   modes are covered by `tests/test_catalog_multiarch_refs_cli.py`, which drives `main()`
   over throwaway git repositories.
-- For local manual updates, run `just track <element>` to track all architectures together.
+- For local manual updates, run `just track <element>`; it applies the same
+  classify-then-retrack logic, so arch-conditional elements get both arches.
 
 ## Adding a new upstream package
 
