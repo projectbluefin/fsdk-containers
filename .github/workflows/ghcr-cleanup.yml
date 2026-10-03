@@ -120,6 +120,60 @@ jobs:
             echo "printing=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # #23 stopped publishing :latest, but the pre-#23 tags were never
+      # removed, so they still resolve to frozen July images (issue #364).
+      # The untagged prune above never touches them (ghcr-cleanup excludes
+      # *-latest by contract), so reap them here: delete the bare :latest from
+      # every published package so unpinned consumers fail loudly instead of
+      # silently pulling a two-month-old image. dry_run defaults to true, so
+      # scheduled runs only LIST; a human must workflow_dispatch with the
+      # unchecked box to actually delete -- this is a destructive op on shared
+      # registry state and should not run blind on a cron.
+      - name: Install crane
+        if: steps.packages.outputs.list != ''
+        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
+        with:
+          tool: crane
+
+      - name: Delete stale :latest tags
+        if: steps.packages.outputs.list != ''
+        env:
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          LIST: ${{ steps.packages.outputs.list }}
+          # go-containerregistry reads GH_TOKEN to mint a ghcr token, so pass
+          # the job's packages:write token explicitly rather than relying on the
+          # ambient GITHUB_TOKEN. The prune step above already proves this token
+          # can delete packages here (dataaxiom/ghcr-cleanup-action), so the same
+          # credential can delete a tag.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          DRY_RUN="${DRY_RUN:-false}"
+          IFS=',' read -ra PKGS <<< "${LIST}"
+
+          for pkg in "${PKGS[@]}"; do
+            # Only the 8 OCI images carry a bare :latest; printing-base-devel
+            # uses <arch>-latest, so its bare :latest is absent and skipped.
+            IMG="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${pkg}"
+            if crane tags list "${IMG}" 2>/dev/null | grep -qx latest; then
+              if [[ "${DRY_RUN}" == "true" ]]; then
+                echo "== dry-run: would delete stale :latest -> ${IMG}:latest"
+              else
+                echo "== deleting stale :latest -> ${IMG}:latest"
+                # A delete can fail if :latest is the only tag of its manifest
+                # (no other tag shares that digest). That is not fatal: it just
+                # means the manifest needs a manual version-level delete, so
+                # warn and move on instead of aborting the whole run.
+                if ! crane delete "${IMG}:latest"; then
+                  echo "::warning::could not delete ${IMG}:latest (only tag of its manifest); delete the package version manually"
+                fi
+              fi
+            else
+              echo "== no :latest on ${pkg}; nothing to do"
+            fi
+          done
+
       - name: Prune untagged images
         # Skip the whole action when no candidate package exists on GHCR yet
         # (e.g. the only unpublished target), so a run against a fresh manifest
