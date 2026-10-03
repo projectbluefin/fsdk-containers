@@ -133,6 +133,82 @@ It is build-time only: it keeps every split domain, including headers, `.pc`
 files and static libs. It is never runnable and never a base layer, and it
 has no catalog record.
 
+## Shared printing runtime layer (the base layer, #342)
+
+`printing-base-devel` above is a devel-time cache fragment; it is never a
+runnable image and never a base layer. `oci/printing-runtime-layer.bst` is
+the real thing: a runtime-only, slimmed, single-layer OCI image built from
+`printing/runtime-stack.bst` (`printing/base.bst` plus the OS runtime pieces
+every printer app also needs: `runtime-gnu`, `runtime-minimal`,
+`ca-certificates`, `tzdata`, `python3`) via `printing/runtime-layer.bst`
+(the runtime-only compose) and the shared `include/slim-printing.yml`
+recipe. `.github/workflows/printing-runtime-layer.yml` builds, pushes and
+signs it as `ghcr.io/projectbluefin/printing-runtime-layer`, the same tag
+scheme as `printing-base-devel` (`<arch>-<full-key>` / `<arch>-latest` from
+`main`; `<arch>-test-<run_id>` from any other ref) plus a signed
+multi-arch `:latest` index.
+
+Before this, every printer application composed its whole image from a
+single layer, so nothing was deduplicated on pull: enabling ghostscript,
+hplip and gutenprint downloaded three independent monolithic layers even
+though 6,623 files (321.9 MiB uncompressed) are byte-for-byte identical
+across them, because every app pins the same `fsdk-containers.bst` ref.
+
+**Why the digest is stable across apps.** Two apps at the same
+fsdk-containers pin produce the same `printing-runtime-layer` tar
+byte-for-byte: `build-oci` is invoked with `gzip: disabled` and no
+`created`/timestamp field, and BuildStream's sandbox is otherwise
+hermetic and normalises file metadata. `just printing-runtime-layer-key`
+prints the full cache key so a consumer can assert its own build resolves
+to the same key before trusting the published digest, the same equality
+check rule 3 below already uses for `printing/base.bst`.
+
+**Consumer wiring.** An app's own `oci/<app>.bst` becomes a two-layer
+image: the shared layer first, then an app layer holding only what the
+shared layer does not already provide. `build-oci`'s `parent:` key
+(`parent.image` + optional `parent.index`) stacks a new `layer:` on top of
+an existing OCI image directory instead of building a single-layer image
+from scratch:
+
+```yaml
+config:
+  commands:
+    - |
+      cd "%{install-root}"
+      build-oci <<EOF
+      mode: oci
+      gzip: disabled
+      images:
+      - os: linux
+        architecture: "%{go-arch}"
+        parent:
+          image: /path/to/printing-runtime-layer   # skopeo copy'd oci: layout, digest-pinned
+        layer: /layer                              # only the app's own files
+        config: {...}
+      EOF
+```
+
+Seed `/path/to/printing-runtime-layer` the same way rule 4 below seeds the
+BuildStream cache from `printing-base-devel`: resolve the digest, `cosign
+verify` it, then `skopeo copy docker://ghcr.io/projectbluefin/printing-runtime-layer@<digest> dir:/path/to/printing-runtime-layer`.
+Never build the app layer from a tag; always from a verified digest.
+
+**Reproducing pull-time dedup.** After the four apps adopt the `parent:`
+wiring above, `podman pull` (or `skopeo copy` + registry blob `HEAD`s) on a
+second family shows only its own app-layer blob transferring; the shared
+layer's blob is already present locally under the same digest. Measure
+with `skopeo inspect --raw` on the published indexes: the base-layer
+digest must be identical across all four apps at the same
+fsdk-containers pin, and non-empty (unlike today's empty, always-shared
+second layer).
+
+**Rule: the shared layer's digest only moves when this repo's printing
+runtime bumps** -- a change to `printing/runtime-stack.bst`,
+`printing/runtime-layer.bst`, `include/slim-printing.yml`, or the
+`printing/base.bst` devel stack it is built from (patches, PAPPL /
+pappl-retrofit pins, or the FSDK junction ref). A consumer app changing its
+*own* layer, or bumping only its own patches, never moves this digest.
+
 ## Consumer contract
 
 1. Junction fsdk-containers at a pinned commit. Add no patches, no

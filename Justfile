@@ -218,7 +218,7 @@ validate:
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
     for arch in x86_64 aarch64; do
-        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst printing/foomatic-db.bst printing/mutool.bst
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst printing/foomatic-db.bst printing/mutool.bst oci/printing-runtime-layer.bst
     done
 
 # ── Build ─────────────────────────────────────────────────────────────
@@ -814,6 +814,36 @@ printing-base-bundle TAG:
         -t "{{TAG}}" "${work}/ctx"
     echo "key=${key}"
     echo "bundle_bytes=$(stat -c %s "${work}/ctx/bundle.tar")"
+
+# -- Shared printing runtime layer -------------------------------------------
+# printing/runtime-layer.bst chisels printing/runtime-stack.bst (printing/base.bst
+# plus the OS runtime pieces: bash, python3, CA certs, tzdata) down to
+# runtime-only. oci/printing-runtime-layer.bst applies include/slim-printing.yml
+# to it and publishes the result as a real, pullable, signed OCI base layer --
+# the shared layer every printer-app image is built on top of (#342). Unlike
+# printing-base-devel above, this is a runnable base layer, not a devel CAS
+# bundle: docs/skills/printing-base.md documents the two side by side.
+
+# Print the full cache key of oci/printing-runtime-layer.bst for the host
+# architecture (the `bst` wrapper forces --colors, so strip escape codes).
+# This is the stable identifier that ties one build of the layer, on one
+# arch, to the fsdk-containers pin that produced it.
+[group('printing')]
+printing-runtime-layer-key:
+    @just bst show --deps none --format '%{full-key}' oci/printing-runtime-layer.bst 2>/dev/null | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g'
+
+# Build oci/printing-runtime-layer.bst and check it out as a bare OCI image
+# directory at DIR (an `oci:` layout: index.json + blobs/), ready to push with
+# skopeo or podman, or to reference as a build-oci `parent.image`. Never
+# squashed and never re-tagged with the local build tag: it is the shared
+# base layer, not a runnable image in its own right.
+[group('printing')]
+build-printing-runtime-layer DIR:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf "{{DIR}}"
+    just bst build oci/printing-runtime-layer.bst
+    just bst artifact checkout oci/printing-runtime-layer.bst --directory "{{DIR}}"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
