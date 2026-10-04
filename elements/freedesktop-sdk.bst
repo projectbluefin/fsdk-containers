@@ -18,6 +18,10 @@ sources:
 - kind: local
   path: patches/printing/cups-filters
   directory: patches/fsdk-containers/printing/cups-filters
+# 0001 adds the GNOME and Bluefin CAS remotes to FSDK's project.conf.
+# BuildStream 2 resolves remotes per project, so junctioned elements only
+# see FSDK's own list; BST 1.x's `cache-junction-elements` junction option
+# no longer exists, so patching project.conf is the supported route.
 - kind: patch_queue
   path: patches/freedesktop-sdk
 
