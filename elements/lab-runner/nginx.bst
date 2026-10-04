@@ -35,13 +35,6 @@ environment:
 environment-nocache:
 - MAXJOBS
 
-# Nocache job count: an inline %{max-jobs} would put the host's core count
-# in the cache key.
-environment:
-  MAXJOBS: "%{max-jobs}"
-environment-nocache:
-- MAXJOBS
-
 config:
   configure-commands:
   - |
@@ -72,7 +65,7 @@ config:
       --without-http_userid_module
 
   build-commands:
-  - make -j"${MAXJOBS}"
+  - make -j%{max-jobs}
 
   install-commands:
   - make install DESTDIR="%{install-root}"

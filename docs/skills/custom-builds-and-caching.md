@@ -55,6 +55,13 @@ projects:
           client-key: /path/to/client.key
 ```
 
+The `projects:` key matches the BuildStream project name, so this entry only
+covers `fsdk-containers` elements. Junctioned elements (`freedesktop-sdk.bst:*`,
+including patched FSDK elements such as the printing stack) belong to project
+`freedesktop-sdk` and are not pushed by it. To push those too, add the same
+`artifacts:` block under `freedesktop-sdk:` (and `gnome:` for
+gnome-build-meta elements), or use a top-level `artifacts:` block that applies to every project.
+
 If you do not have certificates (e.g. testing over localhost or a secure private network), you can omit the `auth` section or use an unencrypted server:
 
 ```yaml
