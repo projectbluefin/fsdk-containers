@@ -35,6 +35,13 @@ environment:
 environment-nocache:
 - MAXJOBS
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
   - |
