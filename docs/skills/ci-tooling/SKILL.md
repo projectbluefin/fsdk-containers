@@ -38,19 +38,22 @@ Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
 
 ```yaml
 # correct
-- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+- uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
 
 # wrong — mutable tag, supply-chain risk
 - uses: taiki-e/install-action@v2
 ```
 
-Check sibling repos (`projectbluefin/dakota`, `projectbluefin/common`) for the
-current pinned SHA of any action before adding it.
+These examples illustrate SHA pinning; they are not the source of truth for
+current action versions. When reusing an action, copy its current pin from
+[the workflows](../../../.github/workflows/). For an action not yet used here,
+check sibling repos (`projectbluefin/dakota`, `projectbluefin/common`) before
+adding it. When updating workflow pins, refresh matching examples here too.
 
 ### Installing `just` — taiki-e/install-action, not snap/cargo/apt
 
 ```yaml
-- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+- uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
   with:
     tool: just
 ```
