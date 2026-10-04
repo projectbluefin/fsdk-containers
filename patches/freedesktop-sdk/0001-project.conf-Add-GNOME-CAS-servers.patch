@@ -13,6 +13,12 @@ Rebased onto freedesktop-sdk 26.08rc.1: upstream absorbed the
 previous 0001 CAS-limits patch (project.conf now sets
 retry-limit/retry-delay/request-timeout itself), so this patch's
 context now uses the upstream values.
+
+Also adds the Bluefin CAS (cache.projectbluefin.io:11001) to both
+the artifacts and source-caches lists. Junction elements resolve
+remotes from the junctioned project's project.conf, so without this
+hunk freedesktop-sdk.bst:* elements would never pull from the
+Bluefin cache. Keep it when rebasing this patch.
 ---
  project.conf | 24 ++++++++++++++++++++++++
  1 file changed, 24 insertions(+)

@@ -125,7 +125,7 @@ depending on a spike element from an existing image's stack, makes those files
 reachable; leave them in `SPIKE_ELEMENTS` and the gate goes red.
 
 Graduation is per *file*, not per directory. A spike directory can graduate
-partway: `review-runtime` depended on `node/node-stack.bst`, so that file and
+partway: `review-runtime` depends on `node/node-stack.bst`, so that file and
 `node/node.bst` left the registry first, while `node/node-runtime.bst` stayed
 registered until the standalone `node` image wired it in. Remove exactly the
 files your change wired in.
