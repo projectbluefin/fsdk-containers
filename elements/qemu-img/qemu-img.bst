@@ -2,37 +2,37 @@ kind: manual
 description: Compile qemu-img from source.
 
 sources:
-  - kind: tar
-    url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
-    ref: 079ffbff8a7111bbc89022107cbabf3bbfd614d5fc9d7cc675991196aca12482
+- kind: tar
+  url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
+  ref: 731b5681e4bb18be313231579b8efd0296c5b015fa36dc533874b639ba838016
 
 build-depends:
   # FSDK 26.08 removed the shell from runtime-minimal; these commands
 
   # are shell scripts, so declare the interpreter explicitly.
 
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
-  - freedesktop-sdk.bst:components/pkg-config.bst
-  - freedesktop-sdk.bst:components/python3.bst
-  - freedesktop-sdk.bst:components/python3-distlib.bst
-  - freedesktop-sdk.bst:components/python3-setuptools.bst
-  - freedesktop-sdk.bst:components/python3-packaging.bst
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+- freedesktop-sdk.bst:components/pkg-config.bst
+- freedesktop-sdk.bst:components/python3.bst
+- freedesktop-sdk.bst:components/python3-distlib.bst
+- freedesktop-sdk.bst:components/python3-setuptools.bst
+- freedesktop-sdk.bst:components/python3-packaging.bst
   # qemu >= 9 builds a Python venv for its build tooling; wheel and pip must be
   # present or mkvenv tries to fetch them from PyPI, which the sandbox blocks.
-  - freedesktop-sdk.bst:components/python3-wheel.bst
-  - freedesktop-sdk.bst:components/python3-pip.bst
-  - freedesktop-sdk.bst:components/ninja.bst
-  - freedesktop-sdk.bst:components/meson.bst
-  - freedesktop-sdk.bst:components/grep.bst
-  - freedesktop-sdk.bst:components/sed.bst
-  - freedesktop-sdk.bst:components/gcc.bst
-  - freedesktop-sdk.bst:components/diffutils.bst
-  - freedesktop-sdk.bst:components/make.bst
-  - freedesktop-sdk.bst:components/which.bst
+- freedesktop-sdk.bst:components/python3-wheel.bst
+- freedesktop-sdk.bst:components/python3-pip.bst
+- freedesktop-sdk.bst:components/ninja.bst
+- freedesktop-sdk.bst:components/meson.bst
+- freedesktop-sdk.bst:components/grep.bst
+- freedesktop-sdk.bst:components/sed.bst
+- freedesktop-sdk.bst:components/gcc.bst
+- freedesktop-sdk.bst:components/diffutils.bst
+- freedesktop-sdk.bst:components/make.bst
+- freedesktop-sdk.bst:components/which.bst
 
 depends:
-  - freedesktop-sdk.bst:components/glib.bst
-  - freedesktop-sdk.bst:components/pixman.bst
+- freedesktop-sdk.bst:components/glib.bst
+- freedesktop-sdk.bst:components/pixman.bst
 
 variables:
   strip-binaries: ""
@@ -40,55 +40,55 @@ variables:
   qemu_version: 11.1.2
   hardening-flags: ""
   (?):
-    - arch == "x86_64":
-        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
-    - arch == "aarch64":
-        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
+  - arch == "x86_64":
+      hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
+  - arch == "aarch64":
+      hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
 config:
   configure-commands:
-    - |
-      # --disable-download: qemu >= 9 resolves its Python build deps (qemu.qmp,
-      # meson) into a venv and reaches for PyPI when they are missing.
-      # BuildStream sandboxes have no network, so use the wheels qemu bundles
-      # in python/wheels/ instead of failing on DNS resolution.
-      ./configure \
-        --prefix=/usr \
-        --extra-cflags="%{hardening-flags}" \
-        --disable-system \
-        --disable-user \
-        --enable-tools \
-        --disable-docs \
-        --disable-download \
-        --disable-guest-agent \
-        --disable-werror \
-        --disable-sdl \
-        --disable-gtk \
-        --disable-vnc \
-        --disable-virtfs \
-        --disable-vde \
-        --disable-brlapi \
-        --disable-cap-ng \
-        --disable-curl \
-        --disable-fdt \
-        --disable-kvm \
-        --disable-libiscsi \
-        --disable-libnfs \
-        --disable-mpath \
-        --disable-numa \
-        --disable-opengl \
-        --disable-rbd \
-        --disable-rdma \
-        --disable-spice \
-        --disable-usb-redir \
-        --disable-vhost-net \
-        --disable-vte \
-        --disable-xen
+  - |
+    # --disable-download: qemu >= 9 resolves its Python build deps (qemu.qmp,
+    # meson) into a venv and reaches for PyPI when they are missing.
+    # BuildStream sandboxes have no network, so use the wheels qemu bundles
+    # in python/wheels/ instead of failing on DNS resolution.
+    ./configure \
+      --prefix=/usr \
+      --extra-cflags="%{hardening-flags}" \
+      --disable-system \
+      --disable-user \
+      --enable-tools \
+      --disable-docs \
+      --disable-download \
+      --disable-guest-agent \
+      --disable-werror \
+      --disable-sdl \
+      --disable-gtk \
+      --disable-vnc \
+      --disable-virtfs \
+      --disable-vde \
+      --disable-brlapi \
+      --disable-cap-ng \
+      --disable-curl \
+      --disable-fdt \
+      --disable-kvm \
+      --disable-libiscsi \
+      --disable-libnfs \
+      --disable-mpath \
+      --disable-numa \
+      --disable-opengl \
+      --disable-rbd \
+      --disable-rdma \
+      --disable-spice \
+      --disable-usb-redir \
+      --disable-vhost-net \
+      --disable-vte \
+      --disable-xen
 
   build-commands:
-    - |
-      ninja -C build qemu-img
+  - |
+    ninja -C build qemu-img
 
   install-commands:
-    - |
-      install -D -m 755 build/qemu-img "%{install-root}/usr/bin/qemu-img"
+  - |
+    install -D -m 755 build/qemu-img "%{install-root}/usr/bin/qemu-img"
