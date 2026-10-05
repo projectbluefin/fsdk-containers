@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).parents[1]
 JUSTFILE = ROOT / "Justfile"
@@ -105,8 +106,24 @@ RECIPE_BODY = extract_recipe_body(JUSTFILE.read_text(), RECIPE)
 # GIT_CONFIG_NOSYSTEM=1 disables /etc/gitconfig; the test still sets user.email
 # and user.name on the temp repo's local config, which is independent of
 # GIT_CONFIG_GLOBAL.
+#
+# Env-injected config (GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT/KEY_n/VALUE_n)
+# and repo-location overrides (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, e.g.
+# when the suite runs from inside a git hook) are dropped for the same reason.
+_LEAKY_GIT_ENV = {
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+}
 HERMETIC_GIT_ENV = {
-    **os.environ,
+    **{
+        k: v
+        for k, v in os.environ.items()
+        if k not in _LEAKY_GIT_ENV
+        and not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+    },
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_NOSYSTEM": "1",
 }
@@ -453,11 +470,13 @@ class GitEnvIsHermeticTests(unittest.TestCase):
             )
             repo = Path(tmp) / "repo"
             repo.mkdir()
-            saved_global = os.environ.get("GIT_CONFIG_GLOBAL")
-            saved_nosystem = os.environ.get("GIT_CONFIG_NOSYSTEM")
-            os.environ["GIT_CONFIG_GLOBAL"] = str(host_cfg)
-            os.environ["GIT_CONFIG_NOSYSTEM"] = "0"
-            try:
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "GIT_CONFIG_GLOBAL": str(host_cfg),
+                    "GIT_CONFIG_NOSYSTEM": "0",
+                },
+            ):
                 # Init under HERMETIC_GIT_ENV so setUp doesn't leak.
                 git(repo, "init", "-q", "-b", "main")
                 git(repo, "config", "user.email", "quality@example.invalid")
@@ -488,23 +507,13 @@ class GitEnvIsHermeticTests(unittest.TestCase):
                 # helper raises CalledProcessError on non-zero exit, so a
                 # visible diff.renames = false would make the helper exit 0
                 # and not raise.
-                from tests.test_catalog_changed_targets import git as helper_git
                 with self.assertRaises(
                     subprocess.CalledProcessError,
                     msg="git() helper returned 0 — diff.renames was visible "
                         "to the child, so the helper is no longer overriding "
                         "GIT_CONFIG_GLOBAL via HERMETIC_GIT_ENV",
                 ):
-                    helper_git(repo, "config", "--get", "diff.renames")
-            finally:
-                if saved_global is None:
-                    os.environ.pop("GIT_CONFIG_GLOBAL", None)
-                else:
-                    os.environ["GIT_CONFIG_GLOBAL"] = saved_global
-                if saved_nosystem is None:
-                    os.environ.pop("GIT_CONFIG_NOSYSTEM", None)
-                else:
-                    os.environ["GIT_CONFIG_NOSYSTEM"] = saved_nosystem
+                    git(repo, "config", "--get", "diff.renames")
 
 
 if __name__ == "__main__":
