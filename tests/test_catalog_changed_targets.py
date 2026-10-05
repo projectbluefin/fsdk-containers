@@ -19,6 +19,7 @@ dependency of this suite (the Python test lanes do not install it); only
 """
 
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -95,6 +96,22 @@ def extract_recipe_body(text, name):
 RECIPE_BODY = extract_recipe_body(JUSTFILE.read_text(), RECIPE)
 
 
+# Host-global git config leaks into the temp repo and into the gate script's
+# `git diff`/`git merge-base` if the child inherits the parent's environment
+# verbatim: `core.hooksPath` (the focus of #370), but also `diff.renames`,
+# `commit.template`, `core.autocrlf`, `core.attributes`, alias.*, etc. The
+# recipe's behaviour must not depend on what the developer happens to have set
+# in ~/.gitconfig. GIT_CONFIG_GLOBAL=/dev/null disables ~/.gitconfig and
+# GIT_CONFIG_NOSYSTEM=1 disables /etc/gitconfig; the test still sets user.email
+# and user.name on the temp repo's local config, which is independent of
+# GIT_CONFIG_GLOBAL.
+HERMETIC_GIT_ENV = {
+    **os.environ,
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_NOSYSTEM": "1",
+}
+
+
 def git(repo, *args):
     return subprocess.run(
         ["git", *args],
@@ -102,6 +119,7 @@ def git(repo, *args):
         check=True,
         capture_output=True,
         text=True,
+        env=HERMETIC_GIT_ENV,
     ).stdout
 
 
@@ -147,6 +165,7 @@ class ChangedTargetsTests(unittest.TestCase):
             cwd=self.repo,
             capture_output=True,
             text=True,
+            env=HERMETIC_GIT_ENV,
         )
         self.assertEqual(
             proc.returncode,
@@ -177,6 +196,7 @@ class ChangedTargetsTests(unittest.TestCase):
             capture_output=True,
             text=True,
             check=True,
+            env=HERMETIC_GIT_ENV,
         )
         self.assertEqual(len(proc.stdout.strip().splitlines()), 1)
 
@@ -386,6 +406,105 @@ class RecipeIsStillTheOneCiRunsTests(unittest.TestCase):
             "canary_image is not a published image, so a shared-path change "
             "would select a target the build matrix cannot build",
         )
+
+
+class GitEnvIsHermeticTests(unittest.TestCase):
+    """The temp repo and the gate script must not see the developer's
+    ~/.gitconfig: a host-global `core.hooksPath`, `diff.renames`,
+    `commit.template`, etc. would otherwise let the suite's behaviour drift
+    with the developer's shell. PR #370 added hooks isolation; #375 extends
+    that to the full git config surface by passing GIT_CONFIG_GLOBAL and
+    GIT_CONFIG_NOSYSTEM to every child process.
+
+    This test pins the contract at the source of truth: HERMETIC_GIT_ENV
+    must explicitly carry both overrides. If a future refactor reverts the
+    dict to `os.environ.copy()` (no overrides), the developer's ~/.gitconfig
+    leaks into every child and the suite silently drifts with their shell.
+    """
+
+    def test_hermetic_env_overrides_host_and_system_gitconfig(self):
+        self.assertEqual(
+            HERMETIC_GIT_ENV.get("GIT_CONFIG_GLOBAL"), "/dev/null",
+            "HERMETIC_GIT_ENV does not override GIT_CONFIG_GLOBAL — the "
+            "parent's ~/.gitconfig will leak into every child git process",
+        )
+        self.assertEqual(
+            HERMETIC_GIT_ENV.get("GIT_CONFIG_NOSYSTEM"), "1",
+            "HERMETIC_GIT_ENV does not set GIT_CONFIG_NOSYSTEM=1 — the "
+            "system /etc/gitconfig will leak into every child git process",
+        )
+
+    def test_helper_strips_host_config(self):
+        """End-to-end: a hostile GIT_CONFIG_GLOBAL that the parent process
+        carries does not propagate into a child git invocation made through
+        the `git()` helper. Pins the contract that the helper's
+        env=HERMETIC_GIT_ENV argument wins over the inherited environment.
+
+        Setup writes a real gitconfig file with hostile values and points
+        GIT_CONFIG_GLOBAL at it via os.environ (the parent). A bare git
+        invocation under the helper's path must NOT see the hostile values;
+        the same invocation against the parent's env (the regression path)
+        must see them, so the negative assertion below is meaningful."""
+        with tempfile.TemporaryDirectory() as tmp:
+            host_cfg = Path(tmp) / "host.gitconfig"
+            host_cfg.write_text(
+                "[diff]\n\t renames = false\n"
+                "[commit]\n\ttemplate = /nonexistent/template\n"
+            )
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            saved_global = os.environ.get("GIT_CONFIG_GLOBAL")
+            saved_nosystem = os.environ.get("GIT_CONFIG_NOSYSTEM")
+            os.environ["GIT_CONFIG_GLOBAL"] = str(host_cfg)
+            os.environ["GIT_CONFIG_NOSYSTEM"] = "0"
+            try:
+                # Init under HERMETIC_GIT_ENV so setUp doesn't leak.
+                git(repo, "init", "-q", "-b", "main")
+                git(repo, "config", "user.email", "quality@example.invalid")
+                git(repo, "config", "user.name", "quality")
+
+                # Regression path: a child that inherits os.environ would
+                # see diff.renames = false. Confirm the host stand-in is
+                # actually wired up so the negative assertion below is
+                # meaningful.
+                leaked = subprocess.run(
+                    ["git", "config", "--get", "diff.renames"],
+                    cwd=repo, capture_output=True, text=True,
+                )
+                self.assertEqual(
+                    leaked.returncode, 0,
+                    "test wiring broken: host stand-in did not propagate "
+                    "diff.renames via os.environ; the negative assertion "
+                    "below would be vacuous",
+                )
+                self.assertEqual(leaked.stdout.strip(), "false")
+
+                # Production path: the git() helper must pass
+                # env=HERMETIC_GIT_ENV (with GIT_CONFIG_GLOBAL=/dev/null),
+                # hiding the host stand-in. Probe via the helper itself —
+                # this is what the regression actually exercises: a refactor
+                # that drops env=HERMETIC_GIT_ENV from subprocess.run
+                # inside git() would let the host stand-in through. The
+                # helper raises CalledProcessError on non-zero exit, so a
+                # visible diff.renames = false would make the helper exit 0
+                # and not raise.
+                from tests.test_catalog_changed_targets import git as helper_git
+                with self.assertRaises(
+                    subprocess.CalledProcessError,
+                    msg="git() helper returned 0 — diff.renames was visible "
+                        "to the child, so the helper is no longer overriding "
+                        "GIT_CONFIG_GLOBAL via HERMETIC_GIT_ENV",
+                ):
+                    helper_git(repo, "config", "--get", "diff.renames")
+            finally:
+                if saved_global is None:
+                    os.environ.pop("GIT_CONFIG_GLOBAL", None)
+                else:
+                    os.environ["GIT_CONFIG_GLOBAL"] = saved_global
+                if saved_nosystem is None:
+                    os.environ.pop("GIT_CONFIG_NOSYSTEM", None)
+                else:
+                    os.environ["GIT_CONFIG_NOSYSTEM"] = saved_nosystem
 
 
 if __name__ == "__main__":
