@@ -152,6 +152,11 @@ via `printing/runtime-layer.bst` and `include/slim-printing.yml`.
 as `ghcr.io/projectbluefin/printing-runtime-layer` (`<arch>-<key>` / `<arch>-latest`
 from `main`; `<arch>-test-<run_id>` from others) plus a signed `:latest` index.
 
+The runtime build uses the bundle recipe's source-cache stall workarounds.
+Publisher inspection reuses the login's Docker auth file; credentials stay
+off Skopeo's command line. Shell-executed contract tests cover both signing
+jobs on main and proof refs, including removal-of-signing mutations.
+
 **Consumer wiring & diff mechanics.** In `build-oci`, `parent.image` (/parent)
 declares the lower layer and `layer:` (/layer) contains the **full final rootfs**
 (not an app-only subset). The diff builder (`layer_builder.py:create_layer`)

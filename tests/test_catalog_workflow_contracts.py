@@ -7,7 +7,11 @@ Validates safety invariants in .github/workflows/ and Justfile:
 """
 
 from pathlib import Path
+import json
+import os
 import re
+import subprocess
+import tempfile
 import unittest
 import yaml
 
@@ -18,7 +22,95 @@ JUSTFILE = ROOT / "Justfile"
 
 
 class PrintingRuntimeLayerContractTests(unittest.TestCase):
-    """Static contracts for printing runtime layer workflow and recipes."""
+    """Contracts for printing runtime layer workflow and recipes."""
+
+    def _run_script(self, script, ref="refs/heads/producer-proof"):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            binary = work / "bin"
+            binary.mkdir()
+            home = work / "home"
+            (home / ".docker").mkdir(parents=True)
+            (home / ".docker/config.json").write_text('{"auths": {}}')
+            stub = binary / "command"
+            stub.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, os, sys\n"
+                "from pathlib import Path\n"
+                "name = Path(sys.argv[0]).name\n"
+                "args = sys.argv[1:]\n"
+                "with open(os.environ['CALLS'], 'a') as stream:\n"
+                "    stream.write(json.dumps([name, *args]) + '\\n')\n"
+                "if name == 'podman' and args[0] == 'pull':\n"
+                "    print('fixture-image')\n"
+                "elif name == 'skopeo':\n"
+                "    if '--authfile' in args:\n"
+                "        json.loads(Path(args[args.index('--authfile') + 1]).read_text())\n"
+                "    print(json.dumps({'Digest': 'sha256:' + 'a' * 64}))\n"
+            )
+            stub.chmod(0o755)
+            for command in ("podman", "docker", "cosign", "skopeo", "just"):
+                (binary / command).symlink_to(stub)
+            env = dict(
+                os.environ, PATH=f"{binary}:{os.environ['PATH']}", HOME=str(home),
+                CALLS=str(work / "calls"), REF=ref, RUN_ID="42",
+                TAGS="x86_64-run-42", LAYER_REPO="example.invalid/printing",
+                GITHUB_STEP_SUMMARY=str(work / "summary"),
+            )
+            script = script.replace("${{ github.actor }}", "fixture-user")
+            script = script.replace("${{ secrets.GITHUB_TOKEN }}", "fixture-token")
+            subprocess.run(
+                ["bash", "-euo", "pipefail", "-c", script],
+                cwd=work, env=env, check=True, capture_output=True, text=True,
+            )
+            return [json.loads(line) for line in (work / "calls").read_text().splitlines()]
+
+    def test_publish_scripts_sign_and_verify_on_main_and_proof_refs(self):
+        doc = yaml.safe_load((WORKFLOW_DIR / "printing-runtime-layer.yml").read_text())
+        for job, step in (
+            ("build", "Push architecture image and sign"),
+            ("manifest", "Assemble multi-arch index, sign, and verify"),
+        ):
+            script = next(s["run"] for s in doc["jobs"][job]["steps"] if s.get("name") == step)
+            for ref in ("refs/heads/main", "refs/heads/producer-proof"):
+                with self.subTest(job=job, ref=ref):
+                    calls = self._run_script(script, ref)
+                    self.assertIn(
+                        ["cosign", "sign", "-y", "example.invalid/printing@sha256:" + "a" * 64],
+                        calls,
+                    )
+                    self.assertTrue(any(call[:2] == ["cosign", "verify"] for call in calls))
+
+    def test_publish_scripts_keep_credentials_off_skopeo_argv(self):
+        doc = yaml.safe_load((WORKFLOW_DIR / "printing-runtime-layer.yml").read_text())
+        for job, step in (
+            ("build", "Push architecture image and sign"),
+            ("manifest", "Assemble multi-arch index, sign, and verify"),
+        ):
+            script = next(s["run"] for s in doc["jobs"][job]["steps"] if s.get("name") == step)
+            with self.subTest(job=job):
+                calls = [call for call in self._run_script(script) if call[0] == "skopeo"]
+                self.assertTrue(calls)
+                for call in calls:
+                    self.assertNotIn("--creds", call)
+                    self.assertFalse(any("fixture-token" in arg for arg in call))
+                    self.assertIn("--authfile", call)
+
+    def test_build_recipe_uses_working_source_cache_options(self):
+        content = JUSTFILE.read_text()
+        recipe = re.search(
+            r"^build-printing-runtime-layer:\n(?P<body>(?:[ \t]+[^\n]*(?:\n|$)|\n)+)",
+            content, re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(recipe)
+        calls = self._run_script(recipe.group("body"))
+        build = next(call for call in calls if call[:2] == ["just", "bst"] and "build" in call)
+        self.assertEqual(build, [
+            "just", "bst", "--network-retries", "5", "build",
+            "--ignore-project-source-remotes",
+            "--source-remote", "url=https://cache.projectbluefin.io:11001,push=false",
+            "oci/printing-runtime-layer.bst",
+        ])
 
     def test_manifest_job_refuses_failed_builds(self):
         """manifest job must require needs.build.result == 'success'."""
@@ -49,17 +141,6 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
             perms = doc["jobs"][job_name].get("permissions", {})
             self.assertEqual(perms.get("id-token"), "write",
                              f"Job '{job_name}' must declare id-token: write")
-
-    def test_per_arch_and_index_signing_executes_on_nonmain_refs(self):
-        """Cosign signing must not be gated behind REF == main so dev proof images are signed."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        content = path.read_text()
-
-        # Both the build push step and manifest step should sign without REF == main guard
-        self.assertNotIn('if [[ "${REF}" == refs/heads/main ]]; then\n            cosign sign', content,
-                         "cosign sign in build step must execute on dev/dispatch runs too")
-        self.assertNotIn('if [[ "${REF}" == refs/heads/main ]]; then\n            cosign sign -y "${LAYER_REPO}@${DIGEST}"', content,
-                         "cosign sign in manifest step must execute on dev/dispatch runs too")
 
     def test_docker_compat_auth_file_configured_for_cosign(self):
         """Build job must configure ~/.docker/config.json via --compat-auth-file."""

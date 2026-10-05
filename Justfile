@@ -863,7 +863,10 @@ build-printing-runtime-layer:
         exit 1
     fi
     rm -rf "${out}"
-    just bst build oci/printing-runtime-layer.bst
+    just bst --network-retries 5 build \
+        --ignore-project-source-remotes \
+        --source-remote url=https://cache.projectbluefin.io:11001,push=false \
+        oci/printing-runtime-layer.bst
     just bst artifact checkout oci/printing-runtime-layer.bst --directory "${out}"
 
 # -- Homebrew nspawn machine image -------------------------------------------

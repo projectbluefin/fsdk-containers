@@ -112,7 +112,7 @@ jobs:
             fi
           done
           # Authenticate skopeo using Docker config created at login
-          DIGEST="$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${LAYER_REPO}:${FIRST_TAG}" | jq -r '.Digest')"
+          DIGEST="$(skopeo inspect --authfile "${HOME}/.docker/config.json" "docker://${LAYER_REPO}:${FIRST_TAG}" | jq -r '.Digest')"
           # Always sign per-arch image digest (both main and dev proof tags)
           cosign sign -y "${LAYER_REPO}@${DIGEST}"
           for tag in ${TAGS}; do
@@ -165,7 +165,7 @@ jobs:
             docker buildx imagetools create -t "${LAYER_REPO}:${tag}" \
               --annotation "index:org.opencontainers.image.ref.name=${LAYER_REPO}:${tag}" \
               "${LAYER_REPO}:x86_64-run-${RUN_ID}" "${LAYER_REPO}:aarch64-run-${RUN_ID}"
-            d="$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${LAYER_REPO}:${tag}" | jq -r '.Digest')"
+            d="$(skopeo inspect --authfile "${HOME}/.docker/config.json" "docker://${LAYER_REPO}:${tag}" | jq -r '.Digest')"
             if [[ -n "${DIGEST}" && "${d}" != "${DIGEST}" ]]; then
               echo "ERROR: ${LAYER_REPO}:${tag} resolved to ${d}, expected ${DIGEST}" >&2
               exit 1
