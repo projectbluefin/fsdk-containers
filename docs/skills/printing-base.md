@@ -88,7 +88,9 @@ log for its key. `scripts/printing_base_bundle.py` walks each bundled
 artifact's proto and lists its refs (strong and weak key) plus the CAS
 objects `Artifact.query_cache()` needs: the `files` tree, the metadata, the
 public data and the logs. That list is tarred as the single layer of a
-`FROM scratch` image.
+`FROM scratch` image. `tests/test_printing_base_bundle.py` covers that
+selection on the host with stand-in protos; `just printing-base-check` runs
+it, and `printing-base-bundle` runs it first.
 
 `printing/foomatic-db.bst` goes in the same bundle. It is a stack of FSDK's
 `components/foomatic-db.bst`, which build-depends on the patched CUPS, so

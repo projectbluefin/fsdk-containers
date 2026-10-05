@@ -779,12 +779,19 @@ publish-podman-vm:
 printing-base-key:
     @just bst show --deps none --format '%{full-key}' printing/base.bst 2>/dev/null | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g'
 
+# Host-side unit tests for scripts/printing_base_bundle.py, which picks the
+# refs and CAS objects the bundle ships. Runs before the multi-hour build so a
+# broken selector fails in seconds.
+[group('test')]
+printing-base-check:
+    python3 -m unittest discover -s tests -p 'test_printing_base_bundle*.py' -v
+
 # Build printing/base.bst and printing/foomatic-db.bst in a clean local cache,
 # then load the artifacts that the build had to build as the single-layer image
 # TAG. BST_CACHE_DIR can name the cache to use (it must hold no artifacts yet);
 # without it, a temporary cache is created.
 [group('printing')]
-printing-base-bundle TAG:
+printing-base-bundle TAG: printing-base-check
     #!/usr/bin/env bash
     set -euo pipefail
     work="$(mktemp -d "${TMPDIR:-/var/tmp}/printing-base.XXXXXX")"
