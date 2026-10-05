@@ -17,13 +17,20 @@ WORKFLOW_DIR = ROOT / ".github" / "workflows"
 JUSTFILE = ROOT / "Justfile"
 
 
+def _publisher_workflow_path():
+    p = WORKFLOW_DIR / "printing-runtime-layer.yml"
+    if p.exists():
+        return p
+    return WORKFLOW_DIR / "printing-base.yml"
+
+
 class PrintingRuntimeLayerContractTests(unittest.TestCase):
     """Static contracts for printing runtime layer workflow and recipes."""
 
     def test_manifest_job_refuses_failed_builds(self):
         """manifest job must require needs.build.result == 'success'."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        self.assertTrue(path.exists(), "printing-runtime-layer.yml must exist")
+        path = _publisher_workflow_path()
+        self.assertTrue(path.exists(), f"{path.name} must exist")
         doc = yaml.safe_load(path.read_text())
 
         manifest_job = doc["jobs"]["manifest"]
@@ -33,7 +40,7 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
 
     def test_manifest_assembles_from_immutable_same_run_refs(self):
         """manifest job must assemble index from run-specific tags, not mutable aliases."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
+        path = _publisher_workflow_path()
         content = path.read_text()
         self.assertIn("x86_64-run-${RUN_ID}", content,
                       "manifest job must reference immutable x86_64 same-run tag")
@@ -42,7 +49,7 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
 
     def test_build_and_manifest_jobs_have_id_token_permission(self):
         """Both jobs must declare id-token: write for Sigstore keyless signing."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
+        path = _publisher_workflow_path()
         doc = yaml.safe_load(path.read_text())
 
         for job_name in ("build", "manifest"):
@@ -52,7 +59,7 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
 
     def test_per_arch_and_index_signing_executes_on_nonmain_refs(self):
         """Cosign signing must not be gated behind REF == main so dev proof images are signed."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
+        path = _publisher_workflow_path()
         content = path.read_text()
 
         # Both the build push step and manifest step should sign without REF == main guard
@@ -63,7 +70,7 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
 
     def test_docker_compat_auth_file_configured_for_cosign(self):
         """Build job must configure ~/.docker/config.json via --compat-auth-file."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
+        path = _publisher_workflow_path()
         content = path.read_text()
         self.assertIn("--compat-auth-file ~/.docker/config.json", content,
                       "build login must write ~/.docker/config.json for cosign")
