@@ -135,6 +135,54 @@ It is build-time only: it keeps every split domain, including headers, `.pc`
 files and static libs. It is never runnable and never a base layer, and it
 has no catalog record.
 
+## Shared printing runtime layer (the base layer, #342)
+
+**Status:** Proposed (#342 / #374). Consumer adoption is pending verification
+against a published dev-only layer; downstream applications do not yet publish
+this layer.
+
+`printing-base-devel` above is a devel-time cache fragment; it is never a
+runnable image and never a base layer. `oci/printing-runtime-layer.bst` is
+the runtime-only, slimmed, single-layer OCI image built from
+`printing/runtime-stack.bst` (`printing/base.bst` plus OS runtime pieces:
+`runtime-gnu`, `runtime-minimal`, `ca-certificates`, `tzdata`, `python3`)
+via `printing/runtime-layer.bst` and `include/slim-printing.yml`.
+`.github/workflows/printing-runtime-layer.yml` builds, pushes and signs it
+as `ghcr.io/projectbluefin/printing-runtime-layer` (`<arch>-<key>` / `<arch>-latest`
+from `main`; `<arch>-test-<run_id>` from others) plus a signed `:latest` index.
+
+**Consumer wiring (proposed).** An app's `oci/<app>.bst` becomes a two-layer
+image using `build-oci`'s `parent:` key (`parent.image`):
+
+```yaml
+config:
+  commands:
+    - |
+      cd "%{install-root}"
+      build-oci <<EOF
+      mode: oci
+      gzip: disabled
+      images:
+      - os: linux
+        architecture: "%{go-arch}"
+        parent:
+          image: /path/to/printing-runtime-layer   # skopeo oci: layout, digest-pinned
+        layer: /layer                              # app files only
+        config: {...}
+      EOF
+```
+
+Seed `/path/to/printing-runtime-layer` via:
+`skopeo copy docker://ghcr.io/projectbluefin/printing-runtime-layer@<digest> oci:/path/to/printing-runtime-layer:layer`.
+`oci:` layout (`index.json` + `blobs/`) is required by `build-oci`; `dir:` lacks `index.json`.
+Never build from a tag; always from a verified digest.
+
+**Layer blob preservation.** The consumer's build-oci configuration must
+preserve the parent's base layer blob verbatim to avoid recompression drift.
+
+**Rule: the shared layer's digest only moves when this repo's printing
+runtime bumps** (stack, compose, slim recipe, patches, or FSDK junction).
+
 ## Consumer contract
 
 1. Junction fsdk-containers at a pinned commit. Add no patches, no
