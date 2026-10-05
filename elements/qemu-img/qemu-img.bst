@@ -36,7 +36,7 @@ depends:
 
 variables:
   strip-binaries: ""
-  # renovate: datasource=gitlab-tags depName=qemu-project/qemu extractVersion=^v(?<version>.+)$
+  # renovate: datasource=custom.qemu-downloads depName=qemu extractVersion=qemu-(?<version>[0-9][^/]*)\.tar\.xz$
   qemu_version: 11.1.1
   hardening-flags: ""
   (?):
