@@ -137,9 +137,10 @@ has no catalog record.
 
 ## Shared printing runtime layer (the base layer, #342)
 
-**Status:** Proposed (#342 / #374). Consumer adoption is pending verification
-against a published dev-only layer; downstream applications do not yet publish
-this layer.
+**Status:** Proposed (main approval pending); consumer development proof
+verified on unmerged topic ([commit `39f3961`](https://github.com/projectbluefin/gutenprint-printer-app/commit/39f3961a397abd1f8394155a697e3df04bdcd755),
+[run 37262658918](https://github.com/projectbluefin/gutenprint-printer-app/actions/runs/37262658918));
+production adoption remains pending.
 
 `printing-base-devel` above is a devel-time cache fragment; it is never a
 runnable image and never a base layer. `oci/printing-runtime-layer.bst` is
@@ -151,8 +152,11 @@ via `printing/runtime-layer.bst` and `include/slim-printing.yml`.
 as `ghcr.io/projectbluefin/printing-runtime-layer` (`<arch>-<key>` / `<arch>-latest`
 from `main`; `<arch>-test-<run_id>` from others) plus a signed `:latest` index.
 
-**Consumer wiring (proposed).** An app's `oci/<app>.bst` becomes a two-layer
-image using `build-oci`'s `parent:` key (`parent.image`):
+**Consumer wiring & diff mechanics.** In `build-oci`, `parent.image` (/parent)
+declares the lower layer and `layer:` (/layer) contains the **full final rootfs**
+(not an app-only subset). The diff builder (`layer_builder.py:create_layer`)
+skips identical files and emits whiteouts for removals (e.g. 700 locale deletions
+in Gutenprint #65), producing an app-only delta overlay in Layer 1.
 
 ```yaml
 config:
@@ -166,19 +170,24 @@ config:
       - os: linux
         architecture: "%{go-arch}"
         parent:
-          image: /path/to/printing-runtime-layer   # skopeo oci: layout, digest-pinned
-        layer: /layer                              # app files only
+          image: /parent                          # staged verified OCI layout
+        layer: /layer                              # full final rootfs (diff-built)
         config: {...}
       EOF
 ```
 
-Seed `/path/to/printing-runtime-layer` via:
-`skopeo copy docker://ghcr.io/projectbluefin/printing-runtime-layer@<digest> oci:/path/to/printing-runtime-layer:layer`.
-`oci:` layout (`index.json` + `blobs/`) is required by `build-oci`; `dir:` lacks `index.json`.
-Never build from a tag; always from a verified digest.
+**Publication boundary & blob preservation.** Local `build-oci` with `gzip: disabled`
+outputs uncompressed tar DiffIDs. Pushing through container storage recompresses
+the parent differently, breaking blob digest equality. To preserve Layer 0 identity:
+1. Seed the parent using `skopeo copy ... --preserve-digests oci:/parent:layer`.
+2. Carry the original verified compressed parent descriptor and blob into the child
+   OCI layout, leaving child Layer 1 and config untouched.
+3. Publish with `skopeo copy --preserve-digests` directly to the registry.
 
-**Layer blob preservation.** The consumer's build-oci configuration must
-preserve the parent's base layer blob verbatim to avoid recompression drift.
+Remote inspection of consumer proof manifests confirms exact byte-for-byte reuse of the
+compressed producer Layer 0 blob:
+- amd64: `sha256:48f4771e199eead682c592e87c043c2389670e5b84e8d35cc40204e3b24fcd4f` (95,202,019 B)
+- arm64: `sha256:ab5ecb38c3290228a32ec8b8ec1453738ce66ffb0557deab3b71172236ae4836` (91,779,276 B)
 
 **Rule: the shared layer's digest only moves when this repo's printing
 runtime bumps** (stack, compose, slim recipe, patches, or FSDK junction).
