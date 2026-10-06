@@ -28,6 +28,13 @@ variables:
   # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
   nginx_version: 1.31.6
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
   - |
@@ -58,7 +65,7 @@ config:
       --without-http_userid_module
 
   build-commands:
-  - make -j%{max-jobs}
+  - make -j"${MAXJOBS}"
 
   install-commands:
   - make install DESTDIR="%{install-root}"

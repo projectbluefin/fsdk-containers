@@ -122,6 +122,7 @@ class ChangedTargetsTests(unittest.TestCase):
         git(self.repo, "config", "user.email", "quality@example.invalid")
         git(self.repo, "config", "user.name", "quality")
         git(self.repo, "config", "commit.gpgsign", "false")
+        git(self.repo, "config", "core.hooksPath", "/dev/null")
 
         self.write("elements/targets.json", json.dumps(MANIFEST, indent=2))
         self.write("README.md", "seed\n")
@@ -138,7 +139,7 @@ class ChangedTargetsTests(unittest.TestCase):
 
     def commit(self, message):
         git(self.repo, "add", "-A")
-        git(self.repo, "commit", "-q", "-m", message)
+        git(self.repo, "commit", "-q", "--no-verify", "-m", message)
 
     def run_gate(self, base=None, head="HEAD"):
         proc = subprocess.run(

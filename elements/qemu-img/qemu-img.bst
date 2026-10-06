@@ -4,7 +4,7 @@ description: Compile qemu-img from source.
 sources:
   - kind: tar
     url: https://download.qemu.org/qemu-%{qemu_version}.tar.xz
-    ref: 079ffbff8a7111bbc89022107cbabf3bbfd614d5fc9d7cc675991196aca12482
+    ref: 731b5681e4bb18be313231579b8efd0296c5b015fa36dc533874b639ba838016
 
 build-depends:
   # FSDK 26.08 removed the shell from runtime-minimal; these commands
@@ -37,7 +37,7 @@ depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=custom.qemu-downloads depName=qemu extractVersion=qemu-(?<version>[0-9][^/]*)\.tar\.xz$
-  qemu_version: 11.1.1
+  qemu_version: 11.1.2
   hardening-flags: ""
   (?):
     - arch == "x86_64":
