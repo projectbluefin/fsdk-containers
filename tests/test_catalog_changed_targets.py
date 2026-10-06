@@ -115,6 +115,23 @@ RECIPE_BODY = extract_recipe_body(JUSTFILE.read_text(), RECIPE)
 # `git add -A` silently skip README.md and docs/notes.md, producing an empty
 # commit and breaking two ChangedTargetsTests (#391).
 #
+# `git init` consults $GIT_TEMPLATE_DIR (falling back to the compiled-in
+# $(prefix)/share/git-core/templates) and copies every file under it into the
+# new repo's .git/ — including active (non-.sample) hooks the host happens to
+# have installed. Without an override, a developer's custom pre-commit hook
+# would land in the temp repo and could (a) fire on every commit() call in
+# ChangedTargetsTests, breaking the suite; (b) silently flip `core.hooksPath`
+# semantics later in setUp when the test sets it to /dev/null, since the
+# copied hooks are still executable on disk. We point GIT_TEMPLATE_DIR at a
+# fresh empty tempdir so `git init` creates no hooks directory at all (#396).
+#
+# `gitattributes` (the $(prefix)/etc/gitattributes system file consulted
+# after $GIT_DIR/info/attributes and worktree .gitattributes) is *not* covered
+# by GIT_CONFIG_NOSYSTEM — only GIT_ATTR_NOSYSTEM=1 disables it. Without the
+# override, a host /etc/gitattributes declaring e.g. `* text=auto` would
+# silently renormalise line endings on add/checkout and break the suite's
+# assumption that `git add -A` is a byte-faithful snapshot (#396).
+#
 # Env-injected config (GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT/KEY_n/VALUE_n)
 # and repo-location overrides (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, e.g.
 # when the suite runs from inside a git hook) are dropped for the same reason.
@@ -125,10 +142,12 @@ _LEAKY_GIT_ENV = {
     "GIT_WORK_TREE",
     "GIT_INDEX_FILE",
 }
-# Fresh empty XDG root for every process invocation; kept alive at module
-# scope so the path stays valid for the lifetime of the test runner. The
-# directory is process-private so no other git invocation can observe it.
+# Fresh empty XDG root and template dir for every process invocation; kept
+# alive at module scope so the paths stay valid for the lifetime of the test
+# runner. Each directory is process-private so no other git invocation can
+# observe it.
 _HERMETIC_XDG_HOME = tempfile.mkdtemp(prefix="fsdk-test-xdg-")
+_HERMETIC_TEMPLATE_DIR = tempfile.mkdtemp(prefix="fsdk-test-template-")
 HERMETIC_GIT_ENV = {
     **{
         k: v
@@ -138,6 +157,8 @@ HERMETIC_GIT_ENV = {
     },
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_ATTR_NOSYSTEM": "1",
+    "GIT_TEMPLATE_DIR": _HERMETIC_TEMPLATE_DIR,
     "XDG_CONFIG_HOME": _HERMETIC_XDG_HOME,
 }
 
@@ -463,6 +484,13 @@ class GitEnvIsHermeticTests(unittest.TestCase):
             "HERMETIC_GIT_ENV does not set GIT_CONFIG_NOSYSTEM=1 — the "
             "system /etc/gitconfig will leak into every child git process",
         )
+        self.assertEqual(
+            HERMETIC_GIT_ENV.get("GIT_ATTR_NOSYSTEM"), "1",
+            "HERMETIC_GIT_ENV does not set GIT_ATTR_NOSYSTEM=1 — the "
+            "system $(prefix)/etc/gitattributes will leak into every child "
+            "git process and a host '* text=auto' would silently "
+            "renormalise line endings on add/checkout (#396)",
+        )
         self.assertTrue(
             HERMETIC_GIT_ENV.get("XDG_CONFIG_HOME"),
             "HERMETIC_GIT_ENV does not override XDG_CONFIG_HOME — a host "
@@ -472,6 +500,18 @@ class GitEnvIsHermeticTests(unittest.TestCase):
         self.assertTrue(
             Path(HERMETIC_GIT_ENV["XDG_CONFIG_HOME"]).is_dir(),
             "HERMETIC_GIT_ENV['XDG_CONFIG_HOME'] does not point at a "
+            "directory the suite actually exercises",
+        )
+        self.assertTrue(
+            HERMETIC_GIT_ENV.get("GIT_TEMPLATE_DIR"),
+            "HERMETIC_GIT_ENV does not override GIT_TEMPLATE_DIR — a "
+            "host $GIT_TEMPLATE_DIR (or its compiled-in default) will be "
+            "consulted by `git init` and any pre-installed hooks will be "
+            "copied into the temp repo's .git/hooks/ (#396)",
+        )
+        self.assertTrue(
+            Path(HERMETIC_GIT_ENV["GIT_TEMPLATE_DIR"]).is_dir(),
+            "HERMETIC_GIT_ENV['GIT_TEMPLATE_DIR'] does not point at a "
             "directory the suite actually exercises",
         )
 
@@ -633,6 +673,106 @@ class GitEnvIsHermeticTests(unittest.TestCase):
                     "is not actually empty, so the override is not "
                     "isolating the suite from the host (#391)",
                 )
+
+    def test_helper_strips_host_template_dir(self):
+        """`git init` copies $GIT_TEMPLATE_DIR's contents (including any
+        pre-installed active hooks) into the new repo's .git/hooks/. Without
+        the override, a developer's custom template would land active hooks
+        in the temp repo and the test would silently pick them up — the
+        `--no-verify` flag in commit() only blocks commit-time triggers, not
+        installed-on-disk hooks that `git check-attr`/attribute lookups could
+        consult. Pins the contract that the helper's env=HERMETIC_GIT_ENV
+        wins over any inherited GIT_TEMPLATE_DIR (#396).
+
+        Setup: a hostile template containing an executable pre-commit hook.
+        Confirm a child git process that inherits os.environ (the regression
+        path) sees the host's template and copies the hook, so the negative
+        assertion below is meaningful. Then confirm a child git process
+        invoked through the `git()` helper does NOT — i.e. the helper's
+        env=HERMETIC_GIT_ENV overrides the inherited GIT_TEMPLATE_DIR.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            host_tmpl = Path(tmp) / "host-template"
+            (host_tmpl / "hooks").mkdir(parents=True)
+            hook = host_tmpl / "hooks" / "pre-commit"
+            hook.write_text("#!/bin/sh\necho hostile\n")
+            hook.chmod(0o755)
+
+            repo = Path(tmp) / "repo"
+            with mock.patch.dict(os.environ, {"GIT_TEMPLATE_DIR": str(host_tmpl)}):
+                # Regression path: a child that inherits os.environ copies
+                # the hostile hook into .git/hooks/. Confirm the host
+                # stand-in is actually wired up so the negative assertion
+                # below is meaningful.
+                leaked_repo = Path(tmp) / "leaked"
+                leaked_repo.mkdir()
+                subprocess.run(
+                    ["git", "init", "-q", "-b", "main"],
+                    cwd=leaked_repo, check=True,
+                )
+                self.assertTrue(
+                    (leaked_repo / ".git" / "hooks" / "pre-commit").exists(),
+                    "test wiring broken: a child inheriting os.environ "
+                    "did not copy the hostile pre-commit hook from "
+                    "GIT_TEMPLATE_DIR; the negative assertion below would "
+                    "be vacuous",
+                )
+
+                # Production path: the git() helper must pass
+                # env=HERMETIC_GIT_ENV (with GIT_TEMPLATE_DIR pointing at
+                # the hermetic empty directory), so the hostile hook is
+                # NOT copied into the temp repo.
+                repo.mkdir()
+                git(repo, "init", "-q", "-b", "main")
+                self.assertFalse(
+                    (repo / ".git" / "hooks" / "pre-commit").exists(),
+                    "git() helper invoked `git init` under a child that "
+                    "consulted the host's GIT_TEMPLATE_DIR — the "
+                    "hostile pre-commit hook was copied into the temp "
+                    "repo. HERMETIC_GIT_ENV's GIT_TEMPLATE_DIR override "
+                    "is missing or the helper is no longer passing it (#396)",
+                )
+
+    def test_helper_strips_system_gitattributes(self):
+        """GIT_CONFIG_NOSYSTEM disables /etc/gitconfig but NOT
+        $(prefix)/etc/gitattributes — only GIT_ATTR_NOSYSTEM=1 disables the
+        latter. Pins the contract that HERMETIC_GIT_ENV carries that var
+        so a system file with e.g. `* text=auto` does not silently
+        renormalise line endings on add/checkout (#396).
+
+        The $(prefix)/etc/gitattributes path is compiled into git at build
+        time and cannot be redirected at runtime, so the end-to-end probe
+        uses the static contract: HERMETIC_GIT_ENV['GIT_ATTR_NOSYSTEM']
+        must be '1' and must NOT be overwritten by a parent-side patch.dict
+        (which is how an accidental refactor that re-spreads os.environ would
+        manifest). Git's git_attr_system_is_enabled reads GIT_ATTR_NOSYSTEM
+        via git_env_bool() (git/attr.c); if '1' is in the child's env, the
+        system file is bypassed.
+        """
+        with mock.patch.dict(os.environ, {"GIT_ATTR_NOSYSTEM": "0"}):
+            self.assertNotEqual(
+                os.environ.get("GIT_ATTR_NOSYSTEM"),
+                HERMETIC_GIT_ENV.get("GIT_ATTR_NOSYSTEM"),
+                "HERMETIC_GIT_ENV inherited the patched parent's "
+                "GIT_ATTR_NOSYSTEM — the override is missing, so a host "
+                "$(prefix)/etc/gitattributes with `* text=auto` would "
+                "silently renormalise line endings in the suite (#396)",
+            )
+            self.assertEqual(
+                HERMETIC_GIT_ENV["GIT_ATTR_NOSYSTEM"], "1",
+                "HERMETIC_GIT_ENV['GIT_ATTR_NOSYSTEM'] is not '1' — the "
+                "system $(prefix)/etc/gitattributes will leak into every "
+                "child git process (#396)",
+            )
+            # Confirm the helper still runs after the patch (sanity check
+            # on the wiring) and that the value is still '1' in the dict
+            # the helper's subprocess.run will pass through.
+            self.assertEqual(
+                HERMETIC_GIT_ENV["GIT_ATTR_NOSYSTEM"], "1",
+                "HERMETIC_GIT_ENV's GIT_ATTR_NOSYSTEM flipped after a "
+                "parent's mock.patch.dict — the override is not stable "
+                "across the helper's subprocess.run calls (#396)",
+            )
 
 
 if __name__ == "__main__":
