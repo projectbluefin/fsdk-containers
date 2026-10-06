@@ -344,7 +344,7 @@ apply the same external fetch retry loop there rather than reaching for
 
 - Any `uses:` line with a mutable ref (`@v2`, `@main`, `@latest`)
 - `sudo podman` in one job and plain `podman` in another job doing the same operation
-- A new action not present in any sibling repo — check upstream first
+- A new action not already pinned in `.github/workflows/` — check upstream first and resolve the release tag to its commit SHA yourself
 - A publish, sign, or release step reachable from a `pull_request` event
 - An automated push, PR, or dispatch using `secrets.GITHUB_TOKEN` instead of a Mergeraptor token
 - A `create-github-app-token` step in a **forked** repo with no `owner:` — the mint 404s on the per-repository installation lookup, and 404 is not retried
