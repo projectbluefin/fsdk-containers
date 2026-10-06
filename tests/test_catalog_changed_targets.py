@@ -107,6 +107,14 @@ RECIPE_BODY = extract_recipe_body(JUSTFILE.read_text(), RECIPE)
 # and user.name on the temp repo's local config, which is independent of
 # GIT_CONFIG_GLOBAL.
 #
+# Git also consults $XDG_CONFIG_HOME/git/ignore and $XDG_CONFIG_HOME/git/
+# attributes, falling back to $HOME/.config/git/{ignore,attributes} when
+# XDG_CONFIG_HOME is unset/empty. These are not config files — GIT_CONFIG_GLOBAL
+# does not affect them — so we redirect XDG_CONFIG_HOME to a fresh empty
+# directory below. Without this override, a host '*.md' in git/ignore makes
+# `git add -A` silently skip README.md and docs/notes.md, producing an empty
+# commit and breaking two ChangedTargetsTests (#391).
+#
 # Env-injected config (GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT/KEY_n/VALUE_n)
 # and repo-location overrides (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, e.g.
 # when the suite runs from inside a git hook) are dropped for the same reason.
@@ -117,6 +125,10 @@ _LEAKY_GIT_ENV = {
     "GIT_WORK_TREE",
     "GIT_INDEX_FILE",
 }
+# Fresh empty XDG root for every process invocation; kept alive at module
+# scope so the path stays valid for the lifetime of the test runner. The
+# directory is process-private so no other git invocation can observe it.
+_HERMETIC_XDG_HOME = tempfile.mkdtemp(prefix="fsdk-test-xdg-")
 HERMETIC_GIT_ENV = {
     **{
         k: v
@@ -126,6 +138,7 @@ HERMETIC_GIT_ENV = {
     },
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_NOSYSTEM": "1",
+    "XDG_CONFIG_HOME": _HERMETIC_XDG_HOME,
 }
 
 
@@ -450,6 +463,17 @@ class GitEnvIsHermeticTests(unittest.TestCase):
             "HERMETIC_GIT_ENV does not set GIT_CONFIG_NOSYSTEM=1 — the "
             "system /etc/gitconfig will leak into every child git process",
         )
+        self.assertTrue(
+            HERMETIC_GIT_ENV.get("XDG_CONFIG_HOME"),
+            "HERMETIC_GIT_ENV does not override XDG_CONFIG_HOME — a host "
+            "$XDG_CONFIG_HOME/git/ignore (e.g. '*.md') will silently make "
+            "`git add -A` skip tracked files and break the suite (#391)",
+        )
+        self.assertTrue(
+            Path(HERMETIC_GIT_ENV["XDG_CONFIG_HOME"]).is_dir(),
+            "HERMETIC_GIT_ENV['XDG_CONFIG_HOME'] does not point at a "
+            "directory the suite actually exercises",
+        )
 
     def test_helper_strips_host_config(self):
         """End-to-end: a hostile GIT_CONFIG_GLOBAL that the parent process
@@ -514,6 +538,101 @@ class GitEnvIsHermeticTests(unittest.TestCase):
                         "GIT_CONFIG_GLOBAL via HERMETIC_GIT_ENV",
                 ):
                     git(repo, "config", "--get", "diff.renames")
+
+    def test_helper_strips_xdg_ignore_and_attributes(self):
+        """Observation-only pin for issue #391: GIT_CONFIG_GLOBAL does not
+        cover $XDG_CONFIG_HOME/git/{ignore,attributes}, so a host '*.md'
+        there would otherwise make `git add -A` skip README.md and break
+        the suite. Pins the contract that HERMETIC_GIT_ENV's child
+        invocation consults the hermetic empty XDG root, not the
+        parent's.
+
+        Setup writes a hostile XDG gitignore that would skip '*.md'.
+        Then we observe, via a child that re-exports HERMETIC_GIT_ENV's
+        XDG_CONFIG_HOME (i.e. its value, not the patched parent value),
+        whether the child sees the host stand-in. It must not.
+
+        Note: subprocess.run's env= replaces the entire environment,
+        so the only way a parent's XDG_CONFIG_HOME can reach the child
+        is if HERMETIC_GIT_ENV re-exports it. The helper must not —
+        the test asserts HERMETIC_GIT_ENV['XDG_CONFIG_HOME'] is not
+        the patched parent value, then re-runs `git check-ignore` using
+        HERMETIC_GIT_ENV's value (not the parent's) to confirm git does
+        not find the host stand-in.
+
+        A refactor that drops the XDG_CONFIG_HOME override would let
+        the child inherit the patched parent XDG and trigger the
+        `*.md` skip (#391)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            xdg = Path(tmp) / "xdg"
+            (xdg / "git").mkdir(parents=True)
+            (xdg / "git" / "ignore").write_text("*.md\n")
+            (xdg / "git" / "attributes").write_text("")
+
+            with mock.patch.dict(
+                os.environ,
+                {"XDG_CONFIG_HOME": str(xdg)},
+            ):
+                # HERMETIC_GIT_ENV was computed at module import,
+                # before this patch, so its XDG_CONFIG_HOME is the
+                # hermetic empty directory — it must not match the
+                # patched parent value str(xdg). If a refactor reverts
+                # the dict to inherit XDG_CONFIG_HOME from os.environ
+                # via the **os.environ spread, the patch below would
+                # make the value str(xdg) and this assertion would
+                # fail.
+                self.assertNotEqual(
+                    HERMETIC_GIT_ENV.get("XDG_CONFIG_HOME"),
+                    str(xdg),
+                    "HERMETIC_GIT_ENV inherited the patched parent's "
+                    "XDG_CONFIG_HOME — the override is missing, so a "
+                    "host '*.md' in $XDG_CONFIG_HOME/git/ignore will "
+                    "make `git add -A` skip .md files in the suite "
+                    "(#391)",
+                )
+                # Re-export only what the helper would actually pass:
+                # HERMETIC_GIT_ENV's XDG_CONFIG_HOME value, not the
+                # patched parent. Confirm `git check-ignore` does NOT
+                # match README.md — i.e. the hermetic root really is
+                # the XDG root the helper's child sees, with no
+                # host stand-in in scope.
+                repo = Path(tmp) / "repo"
+                repo.mkdir()
+                obs_env = {
+                    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                    "HOME": os.environ.get("HOME", "/tmp"),
+                    "GIT_CONFIG_GLOBAL": "/dev/null",
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "XDG_CONFIG_HOME": HERMETIC_GIT_ENV["XDG_CONFIG_HOME"],
+                }
+                subprocess.run(
+                    ["git", "init", "-q", "-b", "main"],
+                    cwd=repo, env=obs_env, check=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.email", "x@x"],
+                    cwd=repo, env=obs_env, check=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "x"],
+                    cwd=repo, env=obs_env, check=True,
+                )
+                (repo / "added.md").write_text("x")
+                subprocess.run(
+                    ["git", "add", "-A"],
+                    cwd=repo, env=obs_env, check=True,
+                )
+                staged = subprocess.run(
+                    ["git", "diff", "--cached", "--name-only"],
+                    cwd=repo, env=obs_env, capture_output=True, text=True,
+                ).stdout
+                self.assertIn(
+                    "added.md", staged,
+                    "child using HERMETIC_GIT_ENV['XDG_CONFIG_HOME'] "
+                    "saw '*.md' skip added.md — the hermetic XDG root "
+                    "is not actually empty, so the override is not "
+                    "isolating the suite from the host (#391)",
+                )
 
 
 if __name__ == "__main__":
