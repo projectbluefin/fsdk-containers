@@ -38,19 +38,21 @@ Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
 
 ```yaml
 # correct
-- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+- uses: taiki-e/install-action@e407f7bafb71fd004bc5c2da3032e5470cbb6ef0 # v2
 
 # wrong — mutable tag, supply-chain risk
 - uses: taiki-e/install-action@v2
 ```
 
-Check sibling repos (`projectbluefin/dakota`, `projectbluefin/common`) for the
-current pinned SHA of any action before adding it.
+These examples illustrate SHA pinning; they are not the source of truth for
+current action versions. When reusing an action, copy its current pin from
+[the workflows](../../../.github/workflows/). When updating workflow pins,
+refresh matching examples here too.
 
 ### Installing `just` — taiki-e/install-action, not snap/cargo/apt
 
 ```yaml
-- uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+- uses: taiki-e/install-action@e407f7bafb71fd004bc5c2da3032e5470cbb6ef0 # v2
   with:
     tool: just
 ```
@@ -342,7 +344,7 @@ apply the same external fetch retry loop there rather than reaching for
 
 - Any `uses:` line with a mutable ref (`@v2`, `@main`, `@latest`)
 - `sudo podman` in one job and plain `podman` in another job doing the same operation
-- A new action not present in any sibling repo — check upstream first
+- A new action not already pinned in `.github/workflows/` — check upstream first and resolve the release tag to its commit SHA yourself
 - A publish, sign, or release step reachable from a `pull_request` event
 - An automated push, PR, or dispatch using `secrets.GITHUB_TOKEN` instead of a Mergeraptor token
 - A `create-github-app-token` step in a **forked** repo with no `owner:` — the mint 404s on the per-repository installation lookup, and 404 is not retried

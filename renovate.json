@@ -38,6 +38,13 @@
       "versioningTemplate": "pep440"
     }
   ],
+  "customDatasources": {
+    "qemu-downloads": {
+      "description": "qemu-img tracks the release tarballs on download.qemu.org, not the GitLab tags. Upstream creates the vX.Y.Z tag before the tarball is published, so a gitlab-tags proposal makes `bst source track` fail with HTTP 404 until the tarball lands. Scraping the download index only ever proposes a version that can actually be fetched.",
+      "defaultRegistryUrlTemplate": "https://download.qemu.org/",
+      "format": "html"
+    }
+  },
   "packageRules": [
     {
       "matchManagers": [
