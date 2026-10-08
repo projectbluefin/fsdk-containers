@@ -972,18 +972,42 @@ uninstall-brew:
 sbom variant="base":
     #!/usr/bin/env bash
     set -euo pipefail
-    just _check-bst2-image
     if [ "{{variant}}" = "podman-vm" ]; then
-        ELEMENT="podman-vm/podman-vm-efi.bst"
-        SPDX_NAME="podman-vm"
+        just _sbom-run "podman-vm/podman-vm-efi.bst=podman-vm"
     elif jq -e --arg v "{{variant}}" '.oci_images | index($v) != null' elements/targets.json >/dev/null; then
-        ELEMENT="oci/{{variant}}.bst"
-        SPDX_NAME="{{variant}}"
+        just _sbom-run "oci/{{variant}}.bst={{variant}}"
     else
         echo "ERROR: unknown variant '{{variant}}' (not in elements/targets.json, not 'podman-vm')" >&2
         exit 1
     fi
-    OUTFILE="${SPDX_NAME}.spdx.json"
+
+# Generate BuildStream-native SBOMs for all images in a single optimized container run
+[group('test')]
+sboms:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Read the manifest on the host (jq is a GHA-runner/host dependency, not a
+    # bst2-container one) so the container loop never needs its own copy of
+    # the image list.
+    mapfile -t PAIRS < <(jq -r '.oci_images[] | "oci/\(.).bst=\(.)"' elements/targets.json)
+    just _sbom-run "${PAIRS[@]}"
+
+# The one SBOM pipeline behind `sbom` and `sboms`. Each argument is an
+# `<element>=<spdx-name>` pair; every pair is generated in a single bst2
+# container start and written to `<spdx-name>.spdx.json`. Arguments arrive
+# positionally and reach the container as an environment variable, never as
+# a Just interpolation inside the privileged script.
+[positional-arguments]
+_sbom-run +pairs: _check-bst2-image
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PAIRS="$*"
+    for pair in ${PAIRS}; do
+        if [[ ! "${pair}" =~ ^[A-Za-z0-9._/-]+\.bst=[A-Za-z0-9._-]+$ ]]; then
+            echo "ERROR: invalid SBOM pair '${pair}' (want <element>.bst=<spdx-name>)" >&2
+            exit 1
+        fi
+    done
     mkdir -p "${HOME}/.cache/buildstream"
     mkdir -p "${HOME}/.cache/pip"
     # buildstream-sbom invokes BuildStream directly rather than through `just
@@ -999,9 +1023,7 @@ sbom variant="base":
         -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
         -v "${HOME}/.cache/pip:/root/.cache/pip:rw" \
         -w /src \
-        -e ELEMENT="${ELEMENT}" \
-        -e SPDX_NAME="${SPDX_NAME}" \
-        -e OUTFILE="${OUTFILE}" \
+        -e PAIRS="${PAIRS}" \
         -e GIT_SHA="${GIT_SHA}" \
         -e FSDK_VERSION="${fsdk_version}" \
         -e FSDK_REF="${fsdk_ref}" \
@@ -1014,95 +1036,36 @@ sbom variant="base":
                 echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
                 [ "${attempt}" -lt 3 ] && sleep 5
             done
-            buildstream-sbom "${ELEMENT}" \
-                --spdx-name "${SPDX_NAME}" \
-                --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}" \
-                --spdx-creator "Tool: buildstream-sbom" \
-                --spdx-creator "Organization: projectbluefin" \
-                --spdx-creator "Organization: io.projectbluefin.fsdk.version=${FSDK_VERSION}" \
-                --spdx-creator "Organization: io.projectbluefin.fsdk.ref=${FSDK_REF}" \
-                --deps all \
-                --output "/src/${OUTFILE}"
+            for pair in ${PAIRS}; do
+                ELEMENT="${pair%%=*}"
+                SPDX_NAME="${pair#*=}"
+                echo "==> Generating SBOM for ${SPDX_NAME} (${ELEMENT})..."
+                buildstream-sbom "${ELEMENT}" \
+                    --spdx-name "${SPDX_NAME}" \
+                    --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${SPDX_NAME}" \
+                    --spdx-creator "Tool: buildstream-sbom" \
+                    --spdx-creator "Organization: projectbluefin" \
+                    --spdx-creator "Organization: io.projectbluefin.fsdk.version=${FSDK_VERSION}" \
+                    --spdx-creator "Organization: io.projectbluefin.fsdk.ref=${FSDK_REF}" \
+                    --deps all \
+                    --output "/src/${SPDX_NAME}.spdx.json"
+            done
         '
 
     # The FSDK provenance creators above are the whole point of the SBOM being
     # signed evidence rather than a package list (#128), and no published-image
     # gate ever reads them back. Assert them here so a silent drop fails the
     # job that generates the SBOM instead of shipping provenance-free.
-    jq -e --arg v "io.projectbluefin.fsdk.version=${fsdk_version}" \
-          --arg r "io.projectbluefin.fsdk.ref=${fsdk_ref}" '
-        (.creationInfo.creators // []) as $c
-        | ($c | index("Organization: " + $v)) != null
-          and ($c | index("Organization: " + $r)) != null
-    ' "${OUTFILE}" >/dev/null || {
-        echo "ERROR: ${OUTFILE} is missing io.projectbluefin.fsdk provenance in creationInfo.creators" >&2
-        exit 1
-    }
-    echo "==> FSDK provenance verified in ${OUTFILE} (version=${fsdk_version})"
-
-# Generate BuildStream-native SBOMs for all images in a single optimized container run
-[group('test')]
-sboms:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just _check-bst2-image
-    mkdir -p "${HOME}/.cache/buildstream"
-    mkdir -p "${HOME}/.cache/pip"
-    # Keep direct buildstream-sbom invocation consistent with `just bst`.
-    printf 'fsdk-version: "%s"\n' "{{fsdk_version}}" > include/fsdk-version.yml
-    GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-    # Read the manifest on the host (jq is a GHA-runner/host dependency, not a
-    # bst2-container one) so the container loop below never needs its own
-    # copy of the image list.
-    IMAGES="$(jq -r '.oci_images | join(" ")' elements/targets.json)"
-
-    {{sudo_cmd}} podman run --rm \
-        --privileged \
-        --device /dev/fuse \
-        --network=host \
-        -v "{{justfile_directory()}}:/src:rw" \
-        -v "${HOME}/.cache/buildstream:/root/.cache/buildstream:rw" \
-        -v "${HOME}/.cache/pip:/root/.cache/pip:rw" \
-        -w /src \
-        -e GIT_SHA="${GIT_SHA}" \
-        -e IMAGES="${IMAGES}" \
-        -e FSDK_VERSION="${fsdk_version}" \
-        -e FSDK_REF="${fsdk_ref}" \
-        "${bst2_image}" \
-        bash -c '
-            for attempt in 1 2 3; do
-                pip install --quiet \
-                    git+https://gitlab.com/BuildStream/buildstream-sbom.git@0706fec3bedf6f73bd9d2fed32c2aed585feef8d \
-                    && break
-                echo "buildstream-sbom install failed (attempt ${attempt}/3); retrying in 5s..."
-                [ "${attempt}" -lt 3 ] && sleep 5
-            done
-            for img in ${IMAGES}; do
-                ELEMENT="oci/${img}.bst"
-                echo "==> Generating SBOM for ${img}..."
-                buildstream-sbom "${ELEMENT}" \
-                    --spdx-name "${img}" \
-                    --spdx-namespace "https://github.com/projectbluefin/fsdk-containers/sbom/${GIT_SHA}/${img}" \
-                    --spdx-creator "Tool: buildstream-sbom" \
-                    --spdx-creator "Organization: projectbluefin" \
-                    --spdx-creator "Organization: io.projectbluefin.fsdk.version=${FSDK_VERSION}" \
-                    --spdx-creator "Organization: io.projectbluefin.fsdk.ref=${FSDK_REF}" \
-                    --deps all \
-                    --output "/src/${img}.spdx.json"
-            done
-        '
-
-    # Same provenance assertion as `just sbom`: fail here rather than publish an
-    # SBOM whose creationInfo.creators lost the FSDK version/ref (#128).
-    for img in ${IMAGES}; do
+    for pair in ${PAIRS}; do
+        OUTFILE="${pair#*=}.spdx.json"
         jq -e --arg v "io.projectbluefin.fsdk.version=${fsdk_version}" \
               --arg r "io.projectbluefin.fsdk.ref=${fsdk_ref}" '
             (.creationInfo.creators // []) as $c
             | ($c | index("Organization: " + $v)) != null
               and ($c | index("Organization: " + $r)) != null
-        ' "${img}.spdx.json" >/dev/null || {
-            echo "ERROR: ${img}.spdx.json is missing io.projectbluefin.fsdk provenance in creationInfo.creators" >&2
+        ' "${OUTFILE}" >/dev/null || {
+            echo "ERROR: ${OUTFILE} is missing io.projectbluefin.fsdk provenance in creationInfo.creators" >&2
             exit 1
         }
+        echo "==> FSDK provenance verified in ${OUTFILE} (version=${fsdk_version})"
     done
-    echo "==> FSDK provenance verified in all SBOMs (version=${fsdk_version})"
