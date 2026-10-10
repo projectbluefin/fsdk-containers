@@ -64,5 +64,17 @@ change default package contents. Treat it as a coverage refresh:
 ## Adding a gate
 
 When you cut something in the SLIM recipe that must stay gone, add a matching
-`grep` assertion to gate `[5/N]` in the `verify` recipe so the build fails if it
-creeps back. Renumber the gate labels.
+negative assertion so the build fails if it creeps back. Gates are no longer
+hand-written in the `verify` recipe — the recipe reads its contract from each
+image's catalog record, so declare the new check there instead of editing the
+recipe:
+
+- A path or binary that this image must contain goes in
+  `gates.require_paths:` / `gates.require_binaries:` in
+  `catalog/<image>.yaml`.
+- A piece of bloat that must never reappear across every slim image goes in the
+  shared `FORBIDDEN` patterns in `scripts/verify_contract.py` — that is where the
+  slim-bloat gate already lives. The recipe applies those automatically, so there
+  are no `[N/M]` labels to number.
+
+Run `just verify` to confirm the new gate both fires and passes.

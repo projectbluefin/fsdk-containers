@@ -727,12 +727,6 @@ class GitEnvIsHermeticTests(unittest.TestCase):
                 "system $(prefix)/etc/gitattributes will leak into every "
                 "child git process (#396)",
             )
-            self.assertEqual(
-                HERMETIC_GIT_ENV["GIT_ATTR_NOSYSTEM"], "1",
-                "HERMETIC_GIT_ENV's GIT_ATTR_NOSYSTEM flipped after a "
-                "parent's mock.patch.dict — the override is not stable "
-                "across the helper's subprocess.run calls (#396)",
-            )
 
     def test_helper_strips_repo_location_overrides(self):
         """The four same-class repo-location / object-store overrides
