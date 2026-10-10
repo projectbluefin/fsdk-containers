@@ -14,6 +14,7 @@ other in the Actions UI:
 | `oci-images.yml` | `build.yml` via `workflow_call`, `image` input | `build` + `manifest` jobs for exactly one OCI distroless image |
 | `vm-guest.yml` | `build.yml` via `workflow_call` | `guest-contract` job gating a `build` job (matrix arch) for the podman-vm guest disk lane |
 | `printing-base.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `printing/base.bst` per arch from a clean cache and publishes its artifact closure as the signed `printing-base-devel` CAS bundle ([printing-base.md](../../printing-base.md)) |
+| `printing-runtime-layer.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `oci/printing-runtime-layer.bst` per arch, pushes and signs it as the shared, pullable `printing-runtime-layer` OCI base layer ([printing-base.md](../../printing-base.md)) |
 | `.github/actions/vm-boot-test` | `vm-guest.yml` and `build.yml` | composite action: install QEMU + UEFI firmware for one arch and run `tests/vm-boot.sh`, so the PR gate cannot drift from the release check |
 
 Supporting workflows, none of which touch publication:

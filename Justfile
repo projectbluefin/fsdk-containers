@@ -238,7 +238,7 @@ validate:
         ELEMENTS+=("oci/${img}.bst")
     done < <(just image-list)
     for arch in x86_64 aarch64; do
-        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst printing/foomatic-db.bst printing/mutool.bst
+        just bst -o arch "${arch}" show --deps all "${ELEMENTS[@]}" podman-vm/podman-vm-efi.bst printing/base.bst printing/foomatic-db.bst printing/mutool.bst oci/printing-runtime-layer.bst
     done
 
 # ── Build ─────────────────────────────────────────────────────────────
@@ -841,6 +841,34 @@ printing-base-bundle TAG: printing-base-check
         -t "{{TAG}}" "${work}/ctx"
     echo "key=${key}"
     echo "bundle_bytes=$(stat -c %s "${work}/ctx/bundle.tar")"
+
+# -- Shared printing runtime layer -------------------------------------------
+# printing/runtime-layer.bst chisels printing/runtime-stack.bst down to runtime.
+# oci/printing-runtime-layer.bst builds the shared OCI base layer.
+
+# Print the full cache key of oci/printing-runtime-layer.bst for host arch.
+[group('printing')]
+printing-runtime-layer-key:
+    @just bst show --deps none --format '%{full-key}' oci/printing-runtime-layer.bst 2>/dev/null | tail -n 1 | sed 's/\x1b\[[0-9;]*m//g'
+
+# Build oci/printing-runtime-layer.bst and check out to owned .build-out scratch.
+# Output is strictly restricted to owned .build-out; rejects symlinks to prevent
+# deleting arbitrary paths.
+[group('printing')]
+build-printing-runtime-layer:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=".build-out"
+    if [ -L "${out}" ]; then
+        echo "ERROR: ${out} is a symlink, refusing to remove" >&2
+        exit 1
+    fi
+    rm -rf "${out}"
+    just bst --network-retries 5 build \
+        --ignore-project-source-remotes \
+        --source-remote url=https://cache.projectbluefin.io:11001,push=false \
+        oci/printing-runtime-layer.bst
+    just bst artifact checkout oci/printing-runtime-layer.bst --directory "${out}"
 
 # -- Homebrew nspawn machine image -------------------------------------------
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /

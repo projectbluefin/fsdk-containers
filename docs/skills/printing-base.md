@@ -135,6 +135,68 @@ It is build-time only: it keeps every split domain, including headers, `.pc`
 files and static libs. It is never runnable and never a base layer, and it
 has no catalog record.
 
+## Shared printing runtime layer (the base layer, #342)
+
+**Status:** Proposed (main approval pending); consumer development proof
+verified on unmerged topic ([commit `39f3961`](https://github.com/projectbluefin/gutenprint-printer-app/commit/39f3961a397abd1f8394155a697e3df04bdcd755),
+[run 37262658918](https://github.com/projectbluefin/gutenprint-printer-app/actions/runs/37262658918));
+production adoption remains pending.
+
+`printing-base-devel` above is a devel-time cache fragment; it is never a
+runnable image and never a base layer. `oci/printing-runtime-layer.bst` is
+the runtime-only, slimmed, single-layer OCI image built from
+`printing/runtime-stack.bst` (`printing/base.bst` plus OS runtime pieces:
+`runtime-gnu`, `runtime-minimal`, `ca-certificates`, `tzdata`, `python3`)
+via `printing/runtime-layer.bst` and `include/slim-printing.yml`.
+`.github/workflows/printing-runtime-layer.yml` builds, pushes and signs it
+as `ghcr.io/projectbluefin/printing-runtime-layer` (`<arch>-<key>` / `<arch>-latest`
+from `main`; `<arch>-test-<run_id>` from others) plus a signed `:latest` index.
+
+The runtime build uses the bundle recipe's source-cache stall workarounds.
+Publisher inspection reuses the login's Docker auth file; credentials stay
+off Skopeo's command line. Shell-executed contract tests cover both signing
+jobs on main and proof refs, including removal-of-signing mutations.
+
+**Consumer wiring & diff mechanics.** In `build-oci`, `parent.image` (/parent)
+declares the lower layer and `layer:` (/layer) contains the **full final rootfs**
+(not an app-only subset). The diff builder (`layer_builder.py:create_layer`)
+skips identical files and emits whiteouts for removals (e.g. 700 locale deletions
+in Gutenprint #65), producing an app-only delta overlay in Layer 1.
+
+```yaml
+config:
+  commands:
+    - |
+      cd "%{install-root}"
+      build-oci <<EOF
+      mode: oci
+      gzip: disabled
+      images:
+      - os: linux
+        architecture: "%{go-arch}"
+        parent:
+          image: /parent                          # staged verified OCI layout
+        layer: /layer                              # full final rootfs (diff-built)
+        config: {...}
+      EOF
+```
+
+**Publication boundary & blob preservation.** Local `build-oci` with `gzip: disabled`
+outputs uncompressed tar DiffIDs. Pushing through container storage recompresses
+the parent differently, breaking blob digest equality. To preserve Layer 0 identity:
+1. Seed the parent using `skopeo copy ... --preserve-digests oci:/parent:layer`.
+2. Carry the original verified compressed parent descriptor and blob into the child
+   OCI layout, leaving child Layer 1 and config untouched.
+3. Publish with `skopeo copy --preserve-digests` directly to the registry.
+
+Remote inspection of consumer proof manifests confirms exact byte-for-byte reuse of the
+compressed producer Layer 0 blob:
+- amd64: `sha256:48f4771e199eead682c592e87c043c2389670e5b84e8d35cc40204e3b24fcd4f` (95,202,019 B)
+- arm64: `sha256:ab5ecb38c3290228a32ec8b8ec1453738ce66ffb0557deab3b71172236ae4836` (91,779,276 B)
+
+**Rule: the shared layer's digest only moves when this repo's printing
+runtime bumps** (stack, compose, slim recipe, patches, or FSDK junction).
+
 ## Consumer contract
 
 1. Junction fsdk-containers at a pinned commit. Add no patches, no
