@@ -1,0 +1,34 @@
+# Per-runtime-family bloat stripping for images that ship git.
+# Included under an element's variables: mapping with (@), alongside include/slim.yml.
+# Referenced by the OCI script element as %{slim-git-commands}.
+#
+# Perl rides in as git's dependency and costs ~60 MB unpacked — more than node's
+# system ICU or the whole python3 stdlib. Modern git implements its everyday
+# commands (clone, fetch, diff, log, add -i, rebase, submodule) in C; only the
+# perl-scripted long tail (svn/cvs/arch interop, send-email, gitweb, instaweb,
+# request-pull) needs the interpreter, so those scripts leave with it rather
+# than staying behind broken.
+slim-git-commands: |
+  set -eu
+  L=/layer
+
+  rm -rf "$L"/usr/lib/perl5 "$L"/usr/share/perl5 "$L"/usr/share/gitweb
+  rm -f "$L"/usr/bin/perl "$L"/usr/bin/perl5* "$L"/usr/bin/perlbug \
+        "$L"/usr/bin/perldoc "$L"/usr/bin/perlivp "$L"/usr/bin/perlthanks \
+        "$L"/usr/bin/corelist "$L"/usr/bin/cpan "$L"/usr/bin/enc2xs \
+        "$L"/usr/bin/encguess "$L"/usr/bin/h2ph "$L"/usr/bin/h2xs \
+        "$L"/usr/bin/instmodsh "$L"/usr/bin/json_pp "$L"/usr/bin/libnetcfg \
+        "$L"/usr/bin/piconv "$L"/usr/bin/pl2pm "$L"/usr/bin/pod2html \
+        "$L"/usr/bin/pod2man "$L"/usr/bin/pod2text "$L"/usr/bin/pod2usage \
+        "$L"/usr/bin/podchecker "$L"/usr/bin/prove "$L"/usr/bin/ptar \
+        "$L"/usr/bin/ptardiff "$L"/usr/bin/ptargrep "$L"/usr/bin/shasum \
+        "$L"/usr/bin/splain "$L"/usr/bin/streamzip "$L"/usr/bin/xsubpp \
+        "$L"/usr/bin/zipdetails
+  rm -f "$L"/usr/libexec/git-core/git-archimport \
+        "$L"/usr/libexec/git-core/git-cvsexportcommit \
+        "$L"/usr/libexec/git-core/git-cvsimport \
+        "$L"/usr/libexec/git-core/git-cvsserver \
+        "$L"/usr/libexec/git-core/git-instaweb \
+        "$L"/usr/libexec/git-core/git-request-pull \
+        "$L"/usr/libexec/git-core/git-send-email \
+        "$L"/usr/libexec/git-core/git-svn

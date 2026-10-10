@@ -23,9 +23,10 @@ each, measured, and generalised the reusable parts into `include/`.
 | --- | --- | --- | --- | --- |
 | **JVM** | `jmods`, `ct.sym`, `src.zip`, `include/`, `man/`, JDK dev binaries (`javac`, `jshell`, `jdb`) | `java`, `keytool`, JRE runtime | 429 → 334 MB uncompressed, 243 → 158.6 MB gzip | opensearch, jre |
 | **Python** | test suite, `ensurepip`, `tkinter`/`idlelib`, `lib2to3`, `pydoc_data`, `config-*`, `.a` archives | interpreter + stdlib, tzdata, CA certs | (see below) | python, cloud-custodian, in-toto |
-| **Node** | devDependencies, bundled test suites, source maps, prebuilt binaries for other platforms | `node`, production `node_modules` | measure per image | node, kubestellar-hive |
+| **Node** | devDependencies, bundled test suites, source maps, prebuilt binaries for other platforms | `node`, production `node_modules`, system ICU (see below) | measure per image | node, kubestellar-hive, review-runtime |
 | **Go** | confirm `-trimpath` / `-buildvcs=false`; strip symbols only if debuggability allows | the single static binary | usually already minimal | skopeo, buildah, lab-runner |
 | **C daemons** | what FSDK split-rules already cover vs what leaks through the runtime domain | the daemon binary + its libs | check valkey/nginx/postgres/mariadb | valkey, nginx, postgres, mariadb |
+| **Git** (`include/slim-git.yml`) | perl (`usr/lib/perl5`, `perl*` + perl CLIs), gitweb, perl-scripted porcelain (svn/cvs/arch, send-email, instaweb, request-pull) | git + its C builtins and `git-remote-http(s)` | review-runtime 337.2 → 276.5 MB unpacked (−60.7), 122.8 → 106.7 MB gzip | review-runtime, lab-runner |
 | **Printing** (shell-enabled appliances, junction consumers) | ICU + `libxml2`, sanitizer/Fortran runtimes, Python `.opt-N.pyc` + stdlib tail + build-only site-packages, gconv/i18n tail, unreachable runtime-gnu CLIs and libs | bash + coreutils, python3 + plain `.pyc` + lzma, curl, gpg, NSS/p11-kit/OpenSSL modules, tzdata, CA certs, terminfo, `usr/share/locale` | 407 → 299 MiB rootfs (ghostscript), 499 → 375 (hplip), 419 → 320 (gutenprint) | ghostscript-, hplip-, gutenprint-, ps-printer-app |
 
 The JVM and Python rows are the big levers — distribution choice + build-time
@@ -47,6 +48,31 @@ vendored wheels) are **measured candidates, not yet applied** — each needs a
 smoke test proving the target app's real functionality still runs first. They
 are documented in the header comment of `include/slim-python.yml` so the work is
 visible without a build.
+
+## The git recipe is implemented
+
+Perl reaches an image only as `components/git.bst`'s dependency. Git 2.55 does
+clone, fetch, diff, log, `add -i`/`-p`, rebase and submodule in C, so
+`include/slim-git.yml` removes perl and only the porcelain that is written in
+perl or calls it. Any image that ships git adds `slim-git.yml` to
+`slim.includes`. `review-runtime`'s smoke test commits, clones, diffs and logs
+with git to prove it. One trap: `git clone <local path>` runs
+`git-upload-pack` through `/bin/sh`, so in a distroless image it fails even
+with perl present. HTTPS clones work, and the smoke test clones a local repo
+through a bundle instead.
+
+## Node keeps system ICU (measured, do not retry small-icu)
+
+`libicudata` is 33 MB of `review-runtime`, and node is its only consumer.
+`--with-intl=small-icu` would drop it, but node's `tools/icu/icu_small.json`
+strips the break-iterator data. Without it, `new Intl.Segmenter().segment()`
+segfaults instead of throwing (nodejs/node#51752, still open; reproduced on
+Fedora's small-icu node 22, ICU 78.2). That is a hard crash on a standard
+ECMA-402 API that terminal-width libraries call. The configure default
+(`full-icu`) builds offline from the tarball's `deps/icu-small`, which holds the
+full data, but it embeds the same ~32 MB in `node` and loses FSDK's ICU patching.
+`review-runtime`'s smoke test checks the German month name and `Intl.Segmenter`,
+so a switch to small-icu fails `just verify`.
 
 ## Where recipes live
 
