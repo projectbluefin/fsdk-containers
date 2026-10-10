@@ -92,7 +92,14 @@ A family recipe is not done until it ships with before/after numbers:
 3. Run `just verify` so the family's smoke test and content gates pass. Record
    the measured size in the PR body to make regressions visible during review.
 4. Lock the removal in a `just verify` gate (a forbidden-path/forbidden-name
-   assertion) so the bloat cannot creep back on the next version bump.
+   assertion) so the bloat cannot creep back on the next version bump. For
+   per-image `slim.extra` removals, declare the path in
+   `catalog/<name>.yaml` under `gates.forbid_paths` (or `gates.forbid_binaries`
+   for the basename-only shorthand) so `just verify` proves the file is gone;
+   the shared SLIM recipe's `no-shell`/`no-sanitizers`/`no-locale-archive`/
+   `no-debug-symbols` regex gates are unconditional, but `forbid_paths` is
+   the per-image equivalent for CLIs the binary's closure pulls in but the
+   binary never executes (issue #421).
 
 ## Compression — the remaining free bytes (needs a maintainer decision)
 

@@ -155,6 +155,8 @@ def contract_env(**overrides):
         "REQUIRE_PATHS": "usr/share/zoneinfo/UTC",
         "REQUIRE_ANY_PATHS": "etc/ssl/certs/ca-certificates.crt\netc/pki/tls/certs/ca-bundle.crt",
         "REQUIRE_BINARIES": "",
+        "FORBID_PATHS": "",
+        "FORBID_BINARIES": "",
         "SMOKE_OPTS": "",
         "SMOKE_ARGS": "",
         "SHELL_PROBE": "",
@@ -384,6 +386,99 @@ class RequiredBinaryGateTests(VerifyRecipeTestCase):
             ),
             "required binary missing: skopeo",
         )
+
+
+class ForbiddenPathGateTests(VerifyRecipeTestCase):
+    """Issue #421: per-image slim.extra removals declare forbid_paths so the
+    recipe asserts the file is gone. The gate matches the rootfs path
+    verbatim with grep -qxF, so a substring like "bash" cannot accidentally
+    satisfy a path like "usr/bin/bash-completion"."""
+
+    def test_present_forbidden_path_fails(self):
+        # A record that deletes usr/bin/dmesg in slim.extra declares it here;
+        # the build still shipping dmesg fails the merge.
+        self.assertFailed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/bin/dmesg"],
+                FORBID_PATHS="usr/bin/dmesg",
+            ),
+            "forbidden path present: /usr/bin/dmesg",
+        )
+
+    def test_absent_forbidden_path_passes(self):
+        # The slim.extra actually did its job: dmesg is gone, the gate is
+        # satisfied, the build passes.
+        self.assertPassed(self.run_verify(FORBID_PATHS="usr/bin/dmesg"))
+
+    def test_substring_does_not_match_a_path(self):
+        # "usr/bin/dmesg" must not be tripped by forbidding "usr/bin/dmesg-something";
+        # a substring match would falsely claim success on a slim.extra that only
+        # deleted the full path. grep -qxF is anchored on both ends.
+        self.assertPassed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/bin/dmesg-something"],
+                FORBID_PATHS="usr/bin/dmesg",
+            )
+        )
+
+    def test_empty_forbid_paths_is_skipped(self):
+        # shell-enabled records and any image without a slim.extra declare no
+        # forbid_paths; the gate must not run as "no paths absent -> fail".
+        self.assertPassed(self.run_verify(FORBID_PATHS=""))
+
+    def test_multiple_forbidden_paths_are_each_checked(self):
+        self.assertFailed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/bin/dmesg", "usr/bin/script"],
+                FORBID_PATHS="usr/bin/dmesg\nusr/bin/script",
+            ),
+            "forbidden path present: /usr/bin/script",
+        )
+
+
+class ForbiddenBinaryGateTests(VerifyRecipeTestCase):
+    """forbid_binaries is the basename-only shorthand for forbid_paths: a
+    record that promises no `dmesg` does not have to know whether it lives in
+    usr/bin or usr/sbin. The gate projects listing basenames with `awk -F/`
+    and matches them with `grep -qxF` so a basename does not match a longer
+    one (e.g. `find` does not match `find-something`) and a regex
+    metacharacter in a basename (e.g. `[`) cannot error out and fail open.
+    """
+
+    def test_present_forbidden_binary_fails(self):
+        self.assertFailed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/bin/dmesg"],
+                FORBID_BINARIES="dmesg",
+            ),
+            "forbidden binary present: dmesg",
+        )
+
+    def test_basename_match_in_alternate_directory_passes_only_when_actually_absent(self):
+        # forbid_binaries matches the basename anywhere in the rootfs, so a
+        # binary that lives in usr/sbin/ still trips the gate (mirroring the
+        # slim.extra contract: "we do not ship dmesg at all").
+        self.assertFailed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/sbin/dmesg"],
+                FORBID_BINARIES="dmesg",
+            ),
+            "forbidden binary present: dmesg",
+        )
+
+    def test_basename_does_not_match_a_longer_name(self):
+        # `dmesg` must not be tripped by a file called "dmesg-something"; the
+        # gate projects each entry's basename with awk and matches it whole-line
+        # with `grep -qxF`, so only an exact basename counts.
+        self.assertPassed(
+            self.run_verify(
+                listing=CLEAN_LISTING + ["usr/bin/dmesg-something"],
+                FORBID_BINARIES="dmesg",
+            )
+        )
+
+    def test_empty_forbid_binaries_is_skipped(self):
+        self.assertPassed(self.run_verify(FORBID_BINARIES=""))
 
 
 class GateAccumulationTests(VerifyRecipeTestCase):

@@ -93,6 +93,73 @@ class GateDerivationTests(unittest.TestCase):
         self.assertNotIn("--entrypoint", argv)
         self.assertEqual(argv, ["skopeo", "--version"])
 
+    def test_forbid_gates_default_to_empty(self):
+        """A record that does not declare forbid_paths/forbid_binaries derives
+        empty lists, so the Justfile skips those gates."""
+        record = {"name": "synthetic", "gates": {}}
+        self.assertEqual(vc.forbid_paths_for(record), [])
+        self.assertEqual(vc.forbid_binaries_for(record), [])
+        self.assertEqual(vc.forbid_paths_for({"name": "synthetic"}), [])
+        self.assertEqual(vc.forbid_binaries_for({"name": "synthetic"}), [])
+
+    def test_forbid_paths_come_from_the_record(self):
+        """Issue #421: a record that deletes a CLI in slim.extra declares the
+        path here so just verify can assert it. The list is verbatim --
+        whatever the record says is what the gate enforces."""
+        record = catalog.load_record(ROOT / "catalog" / "base.yaml")
+        # base has no slim.extra on main, so this is the empty-default case;
+        # a synthetic record exercises the derivation path.
+        record["gates"] = dict(record.get("gates", {}))
+        record["gates"]["forbid_paths"] = ["usr/bin/dmesg", "usr/bin/script"]
+        record["gates"]["forbid_binaries"] = ["dmesg"]
+        self.assertEqual(
+            vc.forbid_paths_for(record),
+            ["usr/bin/dmesg", "usr/bin/script"],
+        )
+        self.assertEqual(vc.forbid_binaries_for(record), ["dmesg"])
+
+    def test_forbid_paths_round_trip_through_the_env(self):
+        """The new env vars (FORBID_PATHS, FORBID_BINARIES) must be emitted by
+        verify_contract.py --env so the Justfile can read them. One entry per
+        line, same newline-delimited convention as REQUIRE_PATHS."""
+        record = catalog.load_record(ROOT / "catalog" / "base.yaml")
+        record["gates"] = dict(record.get("gates", {}))
+        record["gates"]["forbid_paths"] = ["usr/bin/dmesg", "usr/bin/script"]
+        record["gates"]["forbid_binaries"] = ["script"]
+
+        with mock.patch.object(vc.catalog, "load_record", return_value=record):
+            argv = sys.argv
+            sys.argv = ["verify_contract.py", "synthetic", "--env"]
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    vc.main()
+            finally:
+                sys.argv = argv
+        env = buf.getvalue()
+        self.assertIn('FORBID_PATHS=', env)
+        self.assertIn('FORBID_BINARIES=', env)
+        # Justfile iterates these line by line (`while read` over a here-string),
+        # so the entries must be newline-separated (not space-separated) and empty for an
+        # undeclared field. Use a synthetic record (not a real catalog file)
+        # so the assertion does not couple to whichever record happens to
+        # omit forbid_paths/forbid_binaries at HEAD — buildah is expected
+        # to declare them once #417 lands, but the empty-string contract
+        # is what we want to pin here.
+        record_no_forbid = {"name": "buildah", "kind": "distroless", "gates": {}}
+        with mock.patch.object(vc.catalog, "load_record", return_value=record_no_forbid):
+            argv = sys.argv
+            sys.argv = ["verify_contract.py", "buildah", "--env"]
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    vc.main()
+            finally:
+                sys.argv = argv
+        env = buf.getvalue()
+        self.assertIn("FORBID_PATHS=''", env)
+        self.assertIn("FORBID_BINARIES=''", env)
+
 
 class SmokeSplitTests(unittest.TestCase):
     """smoke_split separates podman options (before the image ref) from the

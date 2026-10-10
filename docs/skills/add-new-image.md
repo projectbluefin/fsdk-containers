@@ -71,6 +71,12 @@ Junction changes are covered by `shared_paths`.
   `description`; set it only when the published string must differ from the
   element-level one. It is never rendered into a BuildStream element, so it
   cannot move a cache key.
+- If the record's `slim.extra` removes a file the shared SLIM recipe does not
+  cover, declare the path in `gates.forbid_paths` (or `gates.forbid_binaries`
+  for the basename-only shorthand) so `just verify` proves the file is gone
+  (issue #421). Use `forbid_paths` when the absolute path is part of the
+  contract; use `forbid_binaries` when only the basename matters. An image
+  with no `slim.extra` declares neither; the list is empty by default.
 - Descriptions, entrypoints, and keywords are interpolated into single-quoted
   YAML scalars by the generator, which escapes `'` as `''`. Apostrophes are
   safe; do not pre-quote or pre-escape values in the record.

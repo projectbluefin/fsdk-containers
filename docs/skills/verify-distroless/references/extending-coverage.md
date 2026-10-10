@@ -77,4 +77,41 @@ recipe:
   slim-bloat gate already lives. The recipe applies those automatically, so there
   are no `[N/M]` labels to number.
 
+### When slim.extra removes a per-image CLI (issue #421)
+
+The shared SLIM recipe's `no-shell`, `no-sanitizers`, `no-locale-archive`, and
+`no-debug-symbols` gates cover the OS layer. When a record's `slim.extra`
+removes a CLI pulled in by the runtime closure that the shared recipe cannot
+cover, declare the path in the record's `gates` block so the merge gate
+asserts the file is gone:
+
+```yaml
+gates:
+  forbid_paths:
+    - usr/share/misc/magic.mgc       # libmagic's database; buildah does not call file(1)
+    - usr/libexec/podman/aardvark-dns # netavark's DNS server; only runs on bridge networks
+  forbid_binaries:
+    - dmesg                          # util-linux; buildah never reads the kernel ring buffer
+```
+
+`forbid_paths` matches the rootfs path verbatim (`grep -qxF`); `forbid_binaries`
+projects the listing with `awk -F/ '{print $NF}'` and matches each basename
+with `grep -qxF`, so a basename is taken as a fixed string (regex
+metacharacters are literal) and cannot accidentally match a longer sibling
+(`find` does not match `find-something`). Use `forbid_paths` when the absolute
+path is part of the contract; use `forbid_binaries` when only the basename
+matters and the binary could land in `usr/bin` or `usr/sbin`. The lists
+empty by default, so an image with no `slim.extra` is unaffected.
+
+Forbidding a **directory** with `forbid_paths` requires the trailing slash —
+`tar -tf` lists directories as `usr/share/foo/` while a file at that path is
+listed without the slash, so an entry without the slash never matches the
+directory and the gate silently passes. Use `usr/share/foo/` to forbid the
+directory and a separate file entry for individual files inside it.
+
+If the removed file is matched by a directory glob (e.g. an entire `usr/bin/*/`
+sibling tree), prefer widening the shared SLIM recipe's regex in
+`include/slim.yml` so the gate covers every image. `forbid_paths` is for
+per-image paths the shared recipe should not adopt.
+
 Run `just verify` to confirm the new gate both fires and passes.

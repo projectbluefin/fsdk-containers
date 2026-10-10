@@ -51,6 +51,14 @@ distroless images (everything except the shell-enabled `lab-runner`):
    reappear. Regression guard for the shared SLIM recipe. (terminfo is NOT
    bloat: it has been deliberately kept in every image since #101 — see
    [`references/terminfo-seam.md`](references/terminfo-seam.md).)
+5. **Per-image slim.extra removals** — `gates.forbid_paths` and
+   `gates.forbid_binaries` in the catalog record (issue #421). The shared SLIM
+   recipe covers the OS layer; per-image `slim.extra` removes CLIs that the
+   record's runtime closure pulls in but the binary never executes. The record
+   declares those removals here so `just verify` asserts the file is gone. Use
+   `forbid_paths` (e.g. `usr/bin/dmesg`) when the absolute path is part of the
+   contract; use `forbid_binaries` (e.g. `dmesg`) when only the basename
+   matters and the binary might live in `usr/bin` or `usr/sbin`.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
 present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and
@@ -132,6 +140,15 @@ grep -n 'FORBIDDEN' -A 20 scripts/verify_contract.py
 grep -n 'just build\|just verify' .github/workflows/build.yml
 grep -n 'bash' include/slim.yml                    # the explicit shell removal
 ```
+
+`--env` emits one shell variable per gate set: `FORBID_PATTERNS` / `FORBID_NAMES`
+(the global regex gates the shared SLIM recipe enforces), `REQUIRE_PATHS` /
+`REQUIRE_ANY_PATHS` / `REQUIRE_BINARIES` (the presence gates the record
+declares), and `FORBID_PATHS` / `FORBID_BINARIES` (the per-image slim.extra
+gates added in #421). When adding `slim.extra` to a record, declare the
+removed files in one of those last two lists so `just verify` proves they are
+gone. This is a convention, not an automated check: nothing cross-checks
+`slim.extra` against the gates, and both gates are skipped when empty.
 
 ## Reference material
 

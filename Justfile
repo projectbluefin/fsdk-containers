@@ -353,7 +353,8 @@ verify:
 
     # Derive gates and smoke-test args from the catalog record.
     # IMG_KIND, FORBID_NAMES, FORBID_PATTERNS, REQUIRE_PATHS,
-    # REQUIRE_BINARIES, SMOKE_OPTS, SMOKE_ARGS, SHELL_PROBE are all set here.
+    # REQUIRE_BINARIES, FORBID_PATHS, FORBID_BINARIES, SMOKE_OPTS,
+    # SMOKE_ARGS, SHELL_PROBE are all set here.
     # Capture first: `eval "$(cmd)"` swallows cmd's exit status (it would
     # evaluate the empty string and continue); assignment preserves it.
     CONTRACT_ENV=$(python3 scripts/verify_contract.py "$IMG" --env)
@@ -421,6 +422,43 @@ verify:
             echo "OK: $b present"
         fi
     done <<< "$REQUIRE_BINARIES"
+
+    # Forbidden-path gates (issue #421): per-image slim.extra removals declare
+    # the path here so a record that promises a CLI is gone proves it. Matched
+    # verbatim with `grep -qxF` so a substring like "bash" cannot accidentally
+    # satisfy a path like "usr/bin/bash-completion". Empty by default; the
+    # global FORBIDDEN regex gates above cover what the shared slim recipe
+    # already removes.
+    if [ -n "$FORBID_PATHS" ]; then
+        while read -r p; do
+            [ -n "$p" ] || continue
+            if grep -qxF "$p" "$LISTING"; then
+                echo "FAIL: forbidden path present: /$p" >&2
+                failed=1
+            else
+                echo "OK: /$p absent"
+            fi
+        done <<< "$FORBID_PATHS"
+    fi
+
+    # Forbidden-binary gates: like forbid_paths but matched by basename
+    # anywhere in the rootfs, so a record that says "no `dmesg`" does not
+    # need to know whether it lives in usr/bin or usr/sbin. Basenames are
+    # projected with awk and matched with `grep -qxF` (fixed string, whole
+    # line) so `dmesg` does not match `dmesg-something` and a basename with
+    # regex metacharacters (e.g. `[`) cannot error out and fail open.
+    if [ -n "$FORBID_BINARIES" ]; then
+        BASENAMES="$(awk -F/ '{print $NF}' "$LISTING")"
+        while read -r b; do
+            [ -n "$b" ] || continue
+            if grep -qxF -- "$b" <<< "$BASENAMES"; then
+                echo "FAIL: forbidden binary present: $b" >&2
+                failed=1
+            else
+                echo "OK: $b absent"
+            fi
+        done <<< "$FORBID_BINARIES"
+    fi
 
     # Shell-enabled images must ship a complete terminfo database. The specific
     # entries are already in REQUIRE_PATHS; this count check proves nothing was
