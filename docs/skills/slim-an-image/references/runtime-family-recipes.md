@@ -37,9 +37,13 @@ needs. Buildah (measured 2026-10-09): FSDK `containers-common` leaves the
 storage `driver` unset, so buildah silently falls back to `vfs`; overlay needs an
 explicit `/etc/containers/storage.conf` plus `components/fuse-overlayfs.bst`.
 buildah also refuses every working-container command (`from`, `commit`) unless
-`netavark` exists, so `components/netavark.bst` is required, not optional. Their
-closure adds util-linux (libmagic's 10.8 MB `magic.mgc`) and `aardvark-dns`
-(2.5 MB, `buildah run` DNS only); `catalog/buildah.yaml` `slim.extra` removes both.
+`netavark` exists, so `components/netavark.bst` is required, not optional. RUN
+steps in an unprivileged container need `BUILDAH_ISOLATION=chroot` (catalog
+`env`); crun only works with `--privileged`, and its default bridge network
+would also need pasta and nftables. The closure of fuse3 (util-linux-full) and
+crun (systemd-libs) adds about 130 CLIs, libmagic's 10.8 MB `magic.mgc`, bash
+completions, and `aardvark-dns`. None of them is exec'd, so
+`catalog/buildah.yaml` `slim.extra` removes them by name.
 
 ## The Python recipe is implemented
 

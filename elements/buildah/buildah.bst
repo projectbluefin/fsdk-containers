@@ -33,6 +33,10 @@ depends:
 # buildah resolves its network backend on every working-container command
 # (`from`, `commit`, ...) and errors out unless the netavark binary exists.
 - freedesktop-sdk.bst:components/netavark.bst
+# OCI runtime for `buildah run` / RUN steps under oci isolation
+# (BUILDAH_ISOLATION=oci, needs --privileged and --network=host|none: the
+# default bridge network would also need pasta and nftables).
+- freedesktop-sdk.bst:components/crun.bst
 
 variables:
   strip-binaries: ""
