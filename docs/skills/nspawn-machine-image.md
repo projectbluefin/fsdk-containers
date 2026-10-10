@@ -98,7 +98,18 @@ entries, `etc/locale.conf`, `etc/machine-id`, and the app user at uid 1001
 target). The element's `brew-version` variable must stay in lockstep with the
 Justfile's `brew_version` (both carry the same `renovate` annotation) —
 verify-brew builds the expected tarball name from it. The
-scheduled/on-demand `.github/workflows/brew-nspawn.yml` job runs this check
-on a native Ubuntu runner; nothing publishes the tarball yet. Booting
+`.github/workflows/brew-nspawn.yml` job runs this check weekly, on demand,
+and on PRs touching brew or its shared build inputs. The paths filter must
+include `elements/base/**` (including terminfo source files), the FSDK
+junction, and `project.conf`. Project configuration imports GNOME/FSDK
+configuration and plugin junctions, so also cover `elements/gnome-build-meta.bst`,
+`elements/plugins/**`, `include/**`, and `patches/**`. Directory filters must
+use `/**` to match files inside patch queues. Keep the Justfile and workflow
+itself covered; unrelated image and documentation edits skip this heavy build.
+`tests/test_catalog_brew_paths.py` checks positive and negative examples in the
+existing catalog unit-test lane, without needing to build a rootfs.
+GitHub's [workflow syntax](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetpathspaths-ignore)
+documents PR path filtering. The job uses a native Ubuntu runner; nothing
+publishes the tarball yet. Booting
 (`machinectl import-tar` + `machinectl start`) requires a systemd host and
 remains a separate integration step.
