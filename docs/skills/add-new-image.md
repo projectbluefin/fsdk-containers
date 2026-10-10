@@ -71,9 +71,12 @@ Junction changes are covered by `shared_paths`.
   `description`; set it only when the published string must differ from the
   element-level one. It is never rendered into a BuildStream element, so it
   cannot move a cache key.
-- Descriptions, entrypoints, and keywords are interpolated into single-quoted
-  YAML scalars by the generator, which escapes `'` as `''`. Apostrophes are
-  safe; do not pre-quote or pre-escape values in the record.
+- Descriptions, entrypoints, `env` entries, and keywords are interpolated into
+  single-quoted YAML scalars by the generator, which escapes `'` as `''`.
+  Apostrophes are safe; do not pre-quote or pre-escape values in the record.
+- `env` (optional, `KEY=VALUE` list) becomes the OCI config `Env`. It is
+  rendered only when present, so other images' elements and cache keys do not
+  change.
 - Smoke `args` and `entrypoint_override` may contain spaces or glob characters:
   `scripts/verify_contract.py` emits them newline-delimited and the `verify`
   recipe reads them with `mapfile` into bash arrays, so every argument reaches

@@ -4,6 +4,17 @@ description: Distroless Buildah container-building tool built on freedesktop-sdk
 export_description: Distroless Buildah container-building tool built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,buildah
 entrypoint: ["/usr/bin/buildah"]
+# Same as quay.io/buildah/stable: a container without CAP_SYS_ADMIN cannot set
+# up crun's namespaces, so RUN steps default to chroot isolation. Override with
+# BUILDAH_ISOLATION=oci under --privileged.
+env: ["BUILDAH_ISOLATION=chroot"]
+# storage.conf pins overlay + mount_program=/usr/bin/fuse-overlayfs, same as
+# quay.io/buildah/stable, so `bud` needs /dev/fuse (--device /dev/fuse or
+# --privileged). No-FUSE escape (measured 2026-10-10, buildah 1.45.1):
+#   -e STORAGE_DRIVER=vfs -e STORAGE_OPTS= --tmpfs /var/tmp
+# STORAGE_OPTS= drops mount_program, which buildah >= 1.44 also uses for the
+# overlay it mounts over the build context; that native overlay then needs a
+# non-overlay /var/tmp.
 smoke:
   args: ["--version"]
 stack:
@@ -20,3 +31,39 @@ stack:
 gates:
   require_paths:
     - usr/share/zoneinfo/UTC
+    - etc/containers/storage.conf
+    - usr/bin/fuse-overlayfs
+    - usr/bin/crun
+    - usr/libexec/podman/netavark
+slim:
+  # Runtime closure of fuse-overlayfs (fuse3 -> util-linux-full -> libmagic,
+  # libcap-ng) and crun (libcap; systemd-libs -> libgcrypt, lz4) ships ~130
+  # CLIs that neither buildah, crun nor fuse-overlayfs execs: they mount,
+  # unshare and set caps through syscalls. Kept: crun, fuse-overlayfs,
+  # fusermount{,3}, mount.fuse3. Also dropped: libmagic's 10.8 MB magic
+  # database, bash completions (no shell), and aardvark-dns (2.5 MB), which
+  # only serves DNS on netavark bridge networks; those need nftables, which is
+  # not shipped.
+  extra: |
+    rm -rf /layer/usr/share/misc/magic.mgc /layer/usr/libexec/podman/aardvark-dns \
+      /layer/usr/share/bash-completion
+    rm -f /layer/usr/bin/{addpart,agetty,bits,blkdiscard,blkid,blkpr,blkzone} \
+      /layer/usr/bin/{blockdev,cal,capsh,cfdisk,chcpu,chmem,choom,chrt,col} \
+      /layer/usr/bin/{colcrt,colrm,column,copyfilerange,coresched,ctrlaltdel} \
+      /layer/usr/bin/{delpart,dmesg,dumpsexp,eject,enosys,exch,fadvise} \
+      /layer/usr/bin/{fallocate,fdisk,file,filecap,fincore,findfs,findmnt} \
+      /layer/usr/bin/{flock,fsck,fsck.cramfs,fsck.minix,fsfreeze,fstrim} \
+      /layer/usr/bin/{getcap,getino,getopt,getpcaps,hardlink,hexdump,hmac256} \
+      /layer/usr/bin/{hwclock,i386,ionice,ipcmk,ipcrm,ipcs,irqtop,isosize} \
+      /layer/usr/bin/{last,lastb,lastlog2,ldattach,linux32,linux64,logger} \
+      /layer/usr/bin/{look,losetup,lsblk,lsclocks,lscpu,lsfd,lsipc,lsirq} \
+      /layer/usr/bin/{lslocks,lslogins,lsmem,lsns,lz4,lz4c,lz4cat,mcookie} \
+      /layer/usr/bin/{mesg,mkfs,mkfs.bfs,mkfs.cramfs,mkfs.minix,mkswap,more} \
+      /layer/usr/bin/{mount,mountpoint,mpicalc,namei,netcap,nsenter,partx} \
+      /layer/usr/bin/{pipesz,pivot_root,prlimit,pscap,readprofile,rename} \
+      /layer/usr/bin/{renice,resizepart,rev,rfkill,rtcwake,script,scriptlive} \
+      /layer/usr/bin/{scriptreplay,setarch,setcap,setpgid,setpriv,setsid} \
+      /layer/usr/bin/{setterm,sfdisk,sulogin,swaplabel,swapoff,swapon} \
+      /layer/usr/bin/{switch_root,taskset,uclampset,ul,umount,uname26,unlz4} \
+      /layer/usr/bin/{unshare,utmpdump,uuidd,uuidgen,uuidparse,waitpid,wdctl} \
+      /layer/usr/bin/{whereis,wipefs,x86_64,aarch64,zramctl}
