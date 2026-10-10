@@ -16,6 +16,11 @@ SBOMs with every pull-request check green. Two gates close that:
 * this module asserts the flags and that assertion are still spelled in the
   Justfile, so the drop fails at pull-request time rather than after merge.
 
+Both public recipes delegate to one private pipeline, ``_sbom-run``, so the
+flags, the generator pin and the assertion are spelled exactly once. The
+module also pins that delegation: a public recipe that grows its own
+``buildstream-sbom`` invocation would fork the pipeline again.
+
 It also pins *how* the values reach the container. The recipe body is a
 single-quoted ``bash -c`` script inside a ``--privileged podman run``; a Just
 ``{{...}}`` interpolation there would paste the junction ``ref:`` line of
@@ -31,7 +36,10 @@ import unittest
 ROOT = Path(__file__).parents[1]
 JUSTFILE = ROOT / "Justfile"
 
-SBOM_RECIPES = ("sbom", "sboms")
+PUBLIC_RECIPES = ("sbom", "sboms")
+PIPELINE_RECIPE = "_sbom-run"
+SBOM_RECIPES = (PIPELINE_RECIPE,)
+GENERATOR_PIN = "git+https://gitlab.com/BuildStream/buildstream-sbom.git@"
 PROVENANCE_KEYS = (
     "io.projectbluefin.fsdk.version",
     "io.projectbluefin.fsdk.ref",
@@ -41,7 +49,7 @@ PROVENANCE_KEYS = (
 def recipe_body(name: str) -> str:
     """Return the indented body of a Justfile recipe, without its header."""
     text = JUSTFILE.read_text(encoding="utf-8")
-    start = re.search(rf"^{re.escape(name)}(?: [^\n]*)?:\s*$", text, re.MULTILINE)
+    start = re.search(rf"^{re.escape(name)}(?:\s[^\n]*?)?:(?:\s[^\n]*)?$", text, re.MULTILINE)
     assert start, f"recipe '{name}' not found in {JUSTFILE}"
     lines = text[start.end() :].splitlines()
     body = []
@@ -91,6 +99,30 @@ class SbomProvenanceTests(unittest.TestCase):
                 self.assertNotIn("{{fsdk_ref}}", container_script)
                 self.assertIn("${FSDK_VERSION}", container_script)
                 self.assertIn("${FSDK_REF}", container_script)
+
+    def test_public_recipes_delegate_to_the_single_pipeline(self):
+        for recipe in PUBLIC_RECIPES:
+            body = recipe_body(recipe)
+            with self.subTest(recipe=recipe):
+                self.assertIn(
+                    f"just {PIPELINE_RECIPE} ",
+                    body,
+                    f"`just {recipe}` no longer delegates to `{PIPELINE_RECIPE}`",
+                )
+                self.assertNotIn(
+                    "buildstream-sbom",
+                    body,
+                    f"`just {recipe}` forks its own buildstream-sbom pipeline",
+                )
+
+    def test_generator_is_pinned_exactly_once(self):
+        text = JUSTFILE.read_text(encoding="utf-8")
+        self.assertEqual(
+            text.count(GENERATOR_PIN),
+            1,
+            "buildstream-sbom must be pinned in one place (the _sbom-run recipe)",
+        )
+        self.assertIn(GENERATOR_PIN, recipe_body(PIPELINE_RECIPE))
 
 
 if __name__ == "__main__":
