@@ -24,7 +24,7 @@ Supporting workflows, none of which touch publication:
 | `validate-renovate.yml` | PR/push touching `renovate.json` | thin caller into `projectbluefin/actions` |
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
-| `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, and keeps the newest 5 tagged `printing-base-devel` bundles per arch |
+| `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, keeps the newest 5 tagged `printing-base-devel` bundles per arch, and removes bare `:latest` tags (dry-run on schedule; real delete only via `workflow_dispatch` with `dry_run` unchecked) |
 | `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
