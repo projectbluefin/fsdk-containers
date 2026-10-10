@@ -35,13 +35,61 @@ slim-distroless-commands: |
     done
   done
 
+  # Only C.utf8 is kept: en_US.utf8 is 2.9 MB (2.6 MB of it LC_COLLATE) that
+  # nothing selects -- no image sets LANG, and consumers set LANG=C.UTF-8.
   rm -f "$L"/usr/lib/locale/locale-archive
+  rm -rf "$L"/usr/lib/locale/en_US.utf8
   rm -rf "$L"/usr/share/i18n/charmaps
   rm -f "$L"/usr/bin/localedef "$L"/usr/bin/sln "$L"/usr/bin/iconvconfig \
         "$L"/usr/bin/ldconfig "$L"/usr/sbin/ldconfig \
         "$L"/usr/bin/pcre2test "$L"/usr/bin/pcre2grep
   rm -f "$L"/usr/lib/*/libpcre2-16.so* "$L"/usr/lib/*/libpcre2-32.so* \
         "$L"/usr/lib/*/libpcre2-posix.so*
+
+  # Base userland: every executable runtime-gnu/runtime-minimal and the CA
+  # stack put in usr/bin (~14 MB, 184 entries; distroless/base-debian12 ships
+  # none). Without a shell nothing can call them, and the CA bundle is already
+  # extracted at compose time. Libraries (p11-kit trust module, libselinux,
+  # libacl...) stay. Explicit names, never usr/bin/*: the same recipe runs on
+  # images whose payload binaries also live in usr/bin. Downstream images that
+  # add a shell on top of base (projectbluefin/contribute) stage their own
+  # coreutils.
+  (
+  cd "$L"/usr/bin
+  # coreutils
+  rm -f '[' arch b2sum base32 base64 basename basenc cat chcon chgrp chmod \
+        chown chroot cksum comm cp csplit cut date dd df dir dircolors \
+        dirname du echo env expand expr factor false fmt fold groups head \
+        hostid hostname id install join link ln logname ls md5sum mkdir \
+        mkfifo mknod mktemp mv nice nl nohup nproc numfmt od paste pathchk \
+        pinky pr printenv printf ptx pwd readlink realpath rm rmdir runcon \
+        seq sha1sum sha224sum sha256sum sha384sum sha512sum shred shuf \
+        sleep sort split stat stdbuf stty sum sync tac tail tee test timeout \
+        touch tr true truncate tsort tty uname unexpand uniq unlink users \
+        vdir wc who whoami yes
+  # glibc
+  rm -f gencat getconf getent iconv ld.so ldd locale makedb mtrace nscd \
+        pcprofiledump pldd sotruss sprof tzselect xtrace zdump zic
+  # libselinux / libsepol
+  rm -f avcstat chkcon compute_av compute_create compute_member \
+        compute_relabel getconlist getdefaultcon getenforce getfilecon \
+        getpidcon getpidprevcon getpolicyload getsebool getseuser \
+        matchpathcon policyvers sefcontext_compile selabel_compare \
+        selabel_digest selabel_get_digests_all_partial_matches \
+        selabel_lookup selabel_lookup_best_match selabel_partial_match \
+        selinux_check_access selinux_check_securetty_context selinuxenabled \
+        selinuxexeccon sepol_check_access sepol_compute_av \
+        sepol_compute_member sepol_compute_relabel sepol_validate_transition \
+        setenforce setfilecon togglesebool validatetrans
+  # acl, attr, libtasn1
+  rm -f attr chacl getfacl getfattr setfacl setfattr \
+        asn1Coding asn1Decoding asn1Parser
+  # ncurses tools (the terminfo database itself is kept)
+  rm -f captoinfo clear infocmp infotocap reset tabs tic toe tput tset
+  # p11-kit, ca-certificates
+  rm -f p11-kit trust ca-legacy update-ca-trust
+  )
+  rm -rf "$L"/usr/libexec/coreutils "$L"/usr/libexec/p11-kit
 
 slim-shell-enabled-commands: |
   set -eu

@@ -1,7 +1,7 @@
 ---
 name: verify-distroless
-version: "1.1"
-last_updated: "2026-09-18"
+version: "1.2"
+last_updated: "2026-10-09"
 id: verify-distroless
 one_line_purpose: Run and extend the per-image verify contract that gates every merge.
 entry_point: docs/skills/verify-distroless/SKILL.md
@@ -47,10 +47,15 @@ distroless images (everything except the shell-enabled `lab-runner`):
 2. **CA certificates present** — `etc/(ssl|pki)/.*(ca-bundle|cert)` in the rootfs.
 3. **tzdata present** — `usr/share/zoneinfo/UTC`. A kept crash-preventer.
 4. **Slim bloat removed** — fails if sanitizer/Fortran runtimes,
-   locale archives/charmaps, leaked locale/build tools, or extra PCRE2 widths
-   reappear. Regression guard for the shared SLIM recipe. (terminfo is NOT
-   bloat: it has been deliberately kept in every image since #101 — see
+   locale archives/charmaps, the en_US.utf8 compiled locale, leaked
+   locale/build tools, or extra PCRE2 widths reappear. Regression guard for the
+   shared SLIM recipe. (terminfo is NOT bloat: it has been deliberately kept in
+   every image since #101 — see
    [`references/terminfo-seam.md`](references/terminfo-seam.md).)
+5. **No base userland** (`no-base-userland`) — fails if coreutils, glibc
+   tools, SELinux/acl CLIs, ncurses tools, or p11-kit/ca-trust CLIs reappear in
+   `usr/bin`/`usr/libexec`. `base` ships no executables at all, like
+   distroless/base-debian12.
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
 present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and
@@ -80,11 +85,12 @@ podman export "$cid" | tar -tf - | grep -E '<thing you expect/don.t expect>'
 podman rm "$cid"
 ```
 
-A functional smoke test (loader + libc) on a distroless image — run a real binary,
-not a shell:
+A functional smoke test (loader + libc) on a distroless image — run the image's
+own payload binary, not a shell. `base` has no executable to run (that is the
+point), so prove its loader through a dependent:
 
 ```
-podman run --rm ghcr.io/projectbluefin/<name>:build /usr/bin/env
+podman run --rm ghcr.io/projectbluefin/python:build -c pass
 ```
 
 ## Red Flags

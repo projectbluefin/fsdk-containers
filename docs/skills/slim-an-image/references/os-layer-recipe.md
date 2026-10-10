@@ -77,8 +77,22 @@ must verify the result with `tar -t`, not trust the element's own description.
 - gcc sanitizer runtimes `lib{asan,tsan,lsan,ubsan,hwasan}.so*` (~5 MB) — debug only.
 - `libgfortran.so*` (~3.6 MB) — FORTRAN runtime pulled by gcc-libs.
 - glibc `locale-archive`, `usr/share/i18n/charmaps` (~3 MB).
+- the compiled `usr/lib/locale/en_US.utf8` (~2.9 MB, 2.6 MB of it
+  `LC_COLLATE`). `C.utf8` is kept: it is what `LANG=C.UTF-8` resolves to.
 - leaked build tools: `localedef`, `sln`, `iconvconfig`, `ldconfig`, `pcre2test`.
 - extra pcre2 widths `libpcre2-16/32`, `libpcre2-posix` (keep the 8-bit lib).
+- base userland (~14 MB, all 184 `usr/bin` entries of `base`): coreutils,
+  glibc tools (`getent`, `ldd`, `iconv`, `locale`, `nscd`, `zic`...),
+  libselinux/libsepol, acl, attr and libtasn1 CLIs, ncurses tools (`tic`,
+  `infocmp`, `tput`...), `p11-kit`/`trust`/`update-ca-trust`, plus
+  `usr/libexec/{coreutils,p11-kit}`. No shell means nothing can call them; the
+  CA bundle is extracted at compose time and the integration/initial scripts
+  run from the sandbox's own coreutils, not the layer's. Removed by explicit
+  name, never `usr/bin/*`, because the same recipe runs on images whose payload
+  lives in `usr/bin`. Only executables go: the libraries (p11-kit trust
+  module, libselinux, libacl) stay. A downstream image that adds a shell on top
+  of `base` must stage its own userland (projectbluefin/contribute does, via
+  its `stage-runtime.sh`). Gated by `no-base-userland`.
 
 **Medium risk — trim, don't gut:**
 - `gconv/` charset modules (~8 MB). Keep `gconv-modules*`, `UTF*`, `UNICODE*`,

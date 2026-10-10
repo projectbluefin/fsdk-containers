@@ -14,7 +14,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, coreutils, CA certificates, timezone data. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
+| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, CA certificates, timezone data, terminfo. No shell, no userland executables, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
 | `ghcr.io/projectbluefin/static` | ~40 MB | **Deprecated — currently identical to `base`.** Intended as a libc-free tier for `CGO_ENABLED=0` binaries, but it ships full glibc and differs from `base` by two files. Use `base` instead. See [#116](https://github.com/projectbluefin/fsdk-containers/issues/116). |
 | `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
@@ -23,13 +23,12 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/review-runtime` | — | Review-appliance runtime: python3, node, git, curl plus the POSIX text tools (diff, find, gawk, gzip, less, sed, tar). Multi-arch: linux/amd64, linux/arm64. |
 
-<a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
-shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
-and coreutils together; the SLIM recipe removes only bash. In FSDK 26.08+, the
-split becomes explicit: `runtime-minimal` drops both bash and coreutils, which move
-to `public-stacks/runtime-gnu`. The distroless `base` image continues to compose
-from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
-(lab-runner, brew) must add `runtime-gnu` when upgrading to FSDK 26.08+.
+<a name="base-contract"></a> **¹ Base image contract:** The base image ships no
+executables at all, like distroless/base-debian12: no shell, no coreutils, no
+glibc/SELinux/p11-kit CLIs. `public-stacks/runtime-gnu` is composed in only so the
+ca-certificates and ldconfig integration scripts can run; the SLIM recipe
+(`include/slim.yml`) then removes the shell and every `usr/bin` entry it brought.
+An image that adds a shell on top of `base` must stage its own userland.
 
 ### Machine images (not distroless)
 
