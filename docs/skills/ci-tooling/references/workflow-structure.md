@@ -15,6 +15,7 @@ other in the Actions UI:
 | `vm-guest.yml` | `build.yml` via `workflow_call` | `guest-contract` job gating a `build` job (matrix arch) for the podman-vm guest disk lane |
 | `printing-base.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `printing/base.bst` per arch from a clean cache and publishes its artifact closure as the signed `printing-base-devel` CAS bundle ([printing-base.md](../../printing-base.md)) |
 | `.github/actions/vm-boot-test` | `vm-guest.yml` and `build.yml` | composite action: install QEMU + UEFI firmware for one arch and run `tests/vm-boot.sh`, so the PR gate cannot drift from the release check |
+| `.github/actions/bst-cache-config` | `oci-images.yml`, `vm-guest.yml` and `build.yml` PR jobs | composite action: when `CASD_CLIENT_CERT`/`CASD_CLIENT_KEY` are set, adds `cache.projectbluefin.io:11002` via `BST_FLAGS=--config`; push only on main push/dispatch, else pull; no-op without them (see SKILL.md "Slow elements, main-run concurrency, and the shared cache") |
 
 Supporting workflows, none of which touch publication:
 

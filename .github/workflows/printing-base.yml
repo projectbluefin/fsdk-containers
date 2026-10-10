@@ -20,8 +20,10 @@ on:
   workflow_dispatch:
 
 concurrency:
+  # Never cancel on main (13 of the last 40 runs were): a cancelled run can
+  # leave a pinned commit's keyed tag unpublished. Other refs still cancel.
   group: printing-base-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions: {}
 
