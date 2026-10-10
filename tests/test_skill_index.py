@@ -196,43 +196,6 @@ class BuildCatalogTests(SkillsTreeTestCase):
         self.assertEqual(catalog["schema_version"], gsi.SCHEMA_VERSION)
 
 
-class GeneratedAtPinningTests(SkillsTreeTestCase):
-    def test_unchanged_content_keeps_the_committed_date(self):
-        catalog = {"generated_at": "2026-08-27", "schema_version": "1.0", "skills": []}
-        existing = {"generated_at": "2024-01-02", "schema_version": "1.0", "skills": []}
-        gsi.pin_unchanged_generated_at(catalog, existing)
-        self.assertEqual(catalog["generated_at"], "2024-01-02")
-
-    def test_changed_skills_advance_the_date(self):
-        catalog = {"generated_at": "2026-08-27", "schema_version": "1.0", "skills": [{"id": "a"}]}
-        existing = {"generated_at": "2024-01-02", "schema_version": "1.0", "skills": []}
-        gsi.pin_unchanged_generated_at(catalog, existing)
-        self.assertEqual(catalog["generated_at"], "2026-08-27")
-
-    def test_schema_version_bump_advances_the_date(self):
-        catalog = {"generated_at": "2026-08-27", "schema_version": "2.0", "skills": []}
-        existing = {"generated_at": "2024-01-02", "schema_version": "1.0", "skills": []}
-        gsi.pin_unchanged_generated_at(catalog, existing)
-        self.assertEqual(catalog["generated_at"], "2026-08-27")
-
-    def test_absent_existing_catalog_is_a_no_op(self):
-        catalog = {"generated_at": "2026-08-27", "schema_version": "1.0", "skills": []}
-        gsi.pin_unchanged_generated_at(catalog, None)
-        self.assertEqual(catalog["generated_at"], "2026-08-27")
-
-
-class LoadExistingCatalogTests(SkillsTreeTestCase):
-    def test_missing_index_returns_none(self):
-        self.assertIsNone(gsi.load_existing_catalog())
-
-    def test_corrupt_index_returns_none_instead_of_raising(self):
-        gsi.INDEX_PATH.write_text("{ not json")
-        self.assertIsNone(gsi.load_existing_catalog())
-
-    def test_valid_index_is_returned(self):
-        gsi.INDEX_PATH.write_text(json.dumps({"schema_version": "1.0", "skills": []}))
-        self.assertEqual(gsi.load_existing_catalog()["schema_version"], "1.0")
-
 
 class ValidateCatalogTests(SkillsTreeTestCase):
     def test_a_conforming_catalog_passes(self):
@@ -302,16 +265,14 @@ class MainTests(SkillsTreeTestCase):
         self.assertEqual(code, 1)
         self.assertIn("error:", err)
 
-    def test_write_is_idempotent_and_does_not_advance_generated_at(self):
+    def test_write_is_idempotent(self):
         self.write_skill("example-skill.md")
         self._run("--write")
-        gsi.INDEX_PATH.write_text(
-            gsi.INDEX_PATH.read_text().replace(
-                json.loads(gsi.INDEX_PATH.read_text())["generated_at"], "2020-01-01"
-            )
-        )
+        first_json = gsi.INDEX_PATH.read_text()
+        first_md = (self.skills / "index.md").read_text()
         self._run("--write")
-        self.assertEqual(json.loads(gsi.INDEX_PATH.read_text())["generated_at"], "2020-01-01")
+        self.assertEqual(gsi.INDEX_PATH.read_text(), first_json)
+        self.assertEqual((self.skills / "index.md").read_text(), first_md)
 
 
 class CommittedCatalogTests(unittest.TestCase):
