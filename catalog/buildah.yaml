@@ -8,6 +8,13 @@ entrypoint: ["/usr/bin/buildah"]
 # up crun's namespaces, so RUN steps default to chroot isolation. Override with
 # BUILDAH_ISOLATION=oci under --privileged.
 env: ["BUILDAH_ISOLATION=chroot"]
+# storage.conf pins overlay + mount_program=/usr/bin/fuse-overlayfs, same as
+# quay.io/buildah/stable, so `bud` needs /dev/fuse (--device /dev/fuse or
+# --privileged). No-FUSE escape (measured 2026-10-10, buildah 1.45.1):
+#   -e STORAGE_DRIVER=vfs -e STORAGE_OPTS= --tmpfs /var/tmp
+# STORAGE_OPTS= drops mount_program, which buildah >= 1.44 also uses for the
+# overlay it mounts over the build context; that native overlay then needs a
+# non-overlay /var/tmp.
 smoke:
   args: ["--version"]
 stack:
