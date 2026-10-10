@@ -13,6 +13,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -395,6 +396,19 @@ class MainHandshakeTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     bootstrap.main()
             self.assertNotIn("HIVE_REGISTRATION_TOKEN", os.environ)
+
+class WorkerRefParityTests(unittest.TestCase):
+    def test_worker_source_and_config_share_commit_ref(self):
+        source_file = ROOT / "elements/podman-vm/files/donate-clanker-worker.source"
+        config_file = ROOT / "elements/podman-vm/donate-clanker-vm-config.bst"
+        m = re.search(r"^commit=(\S+)", source_file.read_text(), re.MULTILINE)
+        self.assertIsNotNone(m, "donate-clanker-worker.source missing commit=")
+        commit = m.group(1)
+        self.assertIn(
+            f"ref: {commit}",
+            config_file.read_text(),
+            "donate-clanker-vm-config.bst ref must match worker.source commit",
+        )
 
 
 if __name__ == "__main__":

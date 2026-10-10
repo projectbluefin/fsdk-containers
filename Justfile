@@ -183,11 +183,7 @@ catalog-write:
 [group('test')]
 catalog-check:
     python3 scripts/generate_image_elements.py --check
-    python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
-    python3 -m unittest discover -s tests -p 'test_generated*.py' -v
-    python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
-    python3 -m unittest discover -s tests -p 'test_slim*.py' -v
-    python3 -m unittest discover -s tests -p 'test_printing_base_bundle*.py' -v
+    python3 -m unittest discover -s tests -v
 
 [group('test')]
 skill-catalog-check:
@@ -522,12 +518,10 @@ verify:
 # Podman, only checked out and published as versioned GitHub Release assets.
 
 # Host-side checks for the guest bootstrap contract: no VM, no BuildStream.
-# Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py and runs the
-# tests/podman-vm-contract.sh pin/shape assertions.
+# Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py and worker ref parity.
 [group('test')]
 podman-vm-check:
     python3 -m unittest discover -s tests -p 'test_donate_clanker*.py' -v
-    tests/podman-vm-contract.sh
 
 # Build the podman-vm-efi.bst element (BuildStream build only, no export).
 [group('vm')]
