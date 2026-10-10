@@ -12,6 +12,9 @@ build-depends:
   - filename: buildah/buildah-runtime.bst
     config:
       location: /layer
+  - filename: oci/base.bst
+    config:
+      location: /parent
 
 variables:
   (@):
@@ -35,6 +38,8 @@ config:
       images:
       - os: linux
         architecture: "%{go-arch}"
+        parent:
+          image: /parent
         layer: /layer
         comment: "fsdk-containers buildah image"
         config:
