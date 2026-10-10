@@ -87,7 +87,7 @@ class SchemaTests(unittest.TestCase):
         catalog.validate(record)
 
     def test_smoke_none_is_the_explicit_opt_out(self):
-        """base and static declare smoke: none rather than omitting smoke."""
+        """base declares smoke: none (static: no-exec) rather than omitting smoke."""
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")
         self.assertEqual(record["smoke"], "none")
 

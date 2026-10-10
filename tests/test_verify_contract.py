@@ -3,6 +3,7 @@
 import contextlib
 import io
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -92,6 +93,41 @@ class GateDerivationTests(unittest.TestCase):
         # No --entrypoint override; skopeo is CMD, proving PATH resolution
         self.assertNotIn("--entrypoint", argv)
         self.assertEqual(argv, ["skopeo", "--version"])
+
+    def test_static_forbids_libc_and_executables(self):
+        """#116: static shipped full glibc while claiming 'no libc'. Its
+        record-level gates must catch any shared object or binary dir."""
+        record = catalog.load_record(ROOT / "catalog" / "static.yaml")
+        forbid = vc.gates_for(record)["forbid"]
+        self.assertIn("no-shell", forbid)  # built-ins kept
+        leaks = [
+            "usr/lib/x86_64-linux-gnu/libc.so.6",
+            "usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+            "usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1",
+            "usr/bin/true",
+        ]
+        for path in leaks:
+            with self.subTest(path=path):
+                self.assertTrue(any(re.search(p, path) for p in forbid.values()))
+        for path in ("etc/ssl/certs", "usr/share/zoneinfo/UTC", "etc/passwd"):
+            with self.subTest(path=path):
+                self.assertFalse(any(re.search(p, path) for p in forbid.values()))
+
+    def test_record_forbid_cannot_redefine_a_builtin_gate(self):
+        record = catalog.load_record(ROOT / "catalog" / "static.yaml")
+        record["gates"]["forbid"] = {"no-shell": "^nothing$"}
+        with self.assertRaises(ValueError):
+            vc.gates_for(record)
+
+    def test_no_exec_only_for_data_only_images(self):
+        for record in catalog.load_all():
+            with self.subTest(image=record["name"]):
+                out = io.StringIO()
+                with mock.patch.object(sys, "argv", ["vc", record["name"], "--env"]), \
+                        contextlib.redirect_stdout(out):
+                    vc.main()
+                want = "NO_EXEC=1" if record["name"] == "static" else "NO_EXEC=0"
+                self.assertIn(want, out.getvalue().splitlines())
 
 
 class SmokeSplitTests(unittest.TestCase):
