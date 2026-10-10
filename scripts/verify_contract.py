@@ -81,6 +81,10 @@ def gates_for(record: dict) -> dict:
         del forbid["no-shell"]
         for gate in DISTROLESS_ONLY_GATES:
             forbid.pop(gate, None)
+    for gate, pattern in record.get("gates", {}).get("forbid", {}).items():
+        if gate in forbid:
+            raise ValueError(f"{record['name']}: gates.forbid may not redefine built-in gate {gate!r}")
+        forbid[gate] = pattern
 
     require_binaries = list(record.get("gates", {}).get("require_binaries", []))
     if record["kind"] == "shell-enabled" and "bash" not in require_binaries:
@@ -120,10 +124,10 @@ def require_any_paths_for(record: dict) -> list[str]:
 def smoke_argv(record: dict) -> list[str]:
     """Arguments to append to `podman run --rm <ref>` for the smoke test.
 
-    Returns [] for an image whose smoke is "none" (base, static) -- every
-    record must say so explicitly now, there is no longer a silent-omission
-    case. The Justfile/CI fall back to the plain runnability probe then,
-    matching today's behaviour.
+    Returns [] for an image whose smoke is "none" (base) or "no-exec"
+    (static) -- every record must say so explicitly now, there is no longer a
+    silent-omission case. Post-publish CI falls back to a /usr/bin/true
+    runnability probe for "none" and runs nothing for "no-exec" (NO_EXEC=1).
     """
     smoke = record.get("smoke")
     if not isinstance(smoke, dict):
@@ -186,6 +190,8 @@ def main() -> int:
     smoke = record.get("smoke")
     shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
+    # Data-only images (static) have nothing to execute, not even /usr/bin/true.
+    print(f"NO_EXEC={1 if record.get('smoke') == 'no-exec' else 0}")
     return 0
 
 

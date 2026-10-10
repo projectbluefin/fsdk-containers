@@ -41,8 +41,8 @@ metadata:
 
 `just verify` is the merge contract. Every OCI image must pass the gates below
 and — for images that ship a real binary — a smoke test that executes it
-(`base`/`static` get their `/usr/bin/true` smoke only in the post-publish
-`publish-smoke` job).
+(`base` gets its `/usr/bin/true` smoke only in the post-publish `publish-smoke`
+job; `static` is `smoke: no-exec` — data files only, nothing to execute).
 
 Distroless images (all except `lab-runner`):
 
@@ -62,7 +62,9 @@ both functionally probed), and the full terminfo database present.
 
 Terminfo is deliberately **kept** in every base-derived image: it is ~0.5 MB
 compressed, and removing it produced real colour and rendering bugs downstream.
-(`static` ships certs + tzdata only and carries no ncurses.)
+(`static` ships certs + tzdata only and carries no ncurses. Its record adds
+`gates.forbid` gates `no-shared-objects` and `no-executable-dirs`, so any ELF
+creeping back — glibc included — fails `just verify`.)
 
 ### The non-root contract (decided in #120, not yet implemented)
 
