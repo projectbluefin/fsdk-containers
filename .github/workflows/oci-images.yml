@@ -21,9 +21,10 @@ on:
 
 concurrency:
   # Serialize only conflicting publication for this ref/image; other targets
-  # remain free to build, verify, sign, and publish in parallel.
+  # remain free to build, verify, sign, and publish in parallel. github.* is
+  # the caller's context, so this cancels only for pull requests (see build.yml).
   group: oci-image-${{ inputs.ref }}-${{ inputs.image }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   BUILD_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
@@ -54,6 +55,11 @@ jobs:
       - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2
         with:
           tool: just
+      # Pushes built artifacts to the shared cache on main only.
+      - uses: ./.github/actions/bst-cache-config
+        env:
+          CASD_CLIENT_CERT: ${{ vars.CASD_CLIENT_CERT }}
+          CASD_CLIENT_KEY: ${{ secrets.CASD_CLIENT_KEY }}
       - name: Install python dependencies
         run: 'python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt'
       - name: Compute OCI Metadata

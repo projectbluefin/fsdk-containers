@@ -240,9 +240,9 @@ Failure here does not look like a failure. Jobs **queue** rather than error, so 
 every other repo in the org waiting behind a catalog build, with nothing pointing at the cause.
 Watch the job count, not just the red X.
 
-Build time is not the constraint and has never been: the entire 7-image catalog builds serially
-in ~40 minutes on `x86_64` (~29 on `aarch64`) against a 180-minute job timeout. Fan-out is
-mostly scheduling overhead.
+Most images build in 1-4 minutes against a 180-minute job timeout; the
+exceptions are the uncached elements in "Slow elements, main-run concurrency,
+and the shared cache" below. Fan-out is mostly scheduling overhead.
 
 Today the `matrix` job resolves `oci_images` from `elements/targets.json` and
 the build fans out **one reusable call per image** — adding image N+1 changes
@@ -253,6 +253,52 @@ Re-derive the batch size when any single image's build exceeds ~18 minutes.
 When batching a loop over images, **do not `set -e` out of the loop.** Collect per-image
 results, print one line per image, and exit non-zero at the end — otherwise one bad image hides
 the other nine behind a single click.
+
+### Slow elements, main-run concurrency, and the shared cache
+
+`project.conf`'s remotes are pull-only and anything no remote serves is
+compiled from scratch in every run. Measured (runs 37962030576, 37401968758,
+37245550972):
+
+| Element | Job | x86_64 | aarch64 |
+|---|---|---|---|
+| `node/node.bst` | `review-runtime` | 97-127 min | 86 min |
+| `freedesktop-sdk.bst:components/linux.bst` | `vm-guest` | pulled (job 4 min) | ~59 min |
+
+**Main runs are never cancelled.** `build.yml`, `oci-images.yml` and
+`printing-base.yml` set `cancel-in-progress` only for pull requests / non-main
+refs. With `cancel-in-progress: true`, 67 of the last 100 main `build.yml`
+runs were cancelled by the next push, before the ~2h `node.bst` leg could
+finish. Now a newer main push waits behind the running one (GitHub keeps one
+pending run per group). In a reusable workflow `github.event_name` is the
+caller's event, so `oci-images.yml` uses the same expression.
+
+**Opt-in artifact push.** `.github/actions/bst-cache-config` (a port of
+projectbluefin/dakota's `generate-bst-ci-config`) runs before every
+BuildStream job. When the repository variable `CASD_CLIENT_CERT` and secret
+`CASD_CLIENT_KEY` are both set it writes `.casd/buildstream.conf` and exports
+`BST_FLAGS=--config /src/.casd/buildstream.conf`, which the `just bst` wrapper
+forwards. That adds `https://cache.projectbluefin.io:11002` (mTLS) as a global
+artifact and source remote — `push: true` only for `push`/`workflow_dispatch`
+on `refs/heads/main`, pull-only everywhere else (PRs, other refs,
+`repository_dispatch`). Global remotes add to project remotes, so junctioned
+FSDK elements (`linux.bst`) are covered too. Without both values — forks,
+or before provisioning — the action is a no-op and CI behaves as before.
+`project.conf` stays pull-only: anonymous pulls use port 11001 of the same
+CAS.
+
+Provisioning is a human step (needs repo admin; the key cannot be read back
+from dakota):
+
+```console
+$ gh variable get CASD_CLIENT_CERT -R projectbluefin/dakota \
+    | gh variable set CASD_CLIENT_CERT -R projectbluefin/fsdk-containers
+$ gh secret set CASD_CLIENT_KEY -R projectbluefin/fsdk-containers < client.key
+```
+
+`client.key` is the private key matching that certificate, held by whoever
+administers `cache.projectbluefin.io` (it is the one dakota uses). A different
+certificate must first be added to the CAS's trusted client list.
 
 ### Debugging a failed job — check for artifacts before concluding "no logs"
 
