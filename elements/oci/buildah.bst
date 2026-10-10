@@ -22,6 +22,8 @@ config:
   commands:
     - "%{slim-distroless-commands}"
     - |
+      rm -f /layer/usr/share/misc/magic.mgc /layer/usr/libexec/podman/aardvark-dns
+    - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do
           "${i}" /layer

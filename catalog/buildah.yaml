@@ -20,3 +20,14 @@ stack:
 gates:
   require_paths:
     - usr/share/zoneinfo/UTC
+    - etc/containers/storage.conf
+    - usr/bin/fuse-overlayfs
+    - usr/libexec/podman/netavark
+slim:
+  # fuse-overlayfs -> fuse3 -> util-linux runtime-depends libmagic, whose
+  # 10.8 MB magic database nothing in this image reads. netavark
+  # runtime-depends aardvark-dns (2.5 MB), which serves DNS only to `buildah
+  # run` containers; the image ships no OCI runtime, so it is never started
+  # (buildah tolerates it missing).
+  extra: |
+    rm -f /layer/usr/share/misc/magic.mgc /layer/usr/libexec/podman/aardvark-dns

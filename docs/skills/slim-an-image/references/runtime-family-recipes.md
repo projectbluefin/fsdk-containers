@@ -32,6 +32,15 @@ The JVM and Python rows are the big levers — distribution choice + build-time
 artifact removal measured at ~750 MB on the fat-image path (#130), dwarfing the
 ~40 MB FSDK-base-vs-AlmaLinux swap.
 
+Go tools still drag runtime helpers whose FSDK closure is bigger than the tool
+needs. Buildah (measured 2026-10-09): FSDK `containers-common` leaves the
+storage `driver` unset, so buildah silently falls back to `vfs`; overlay needs an
+explicit `/etc/containers/storage.conf` plus `components/fuse-overlayfs.bst`.
+buildah also refuses every working-container command (`from`, `commit`) unless
+`netavark` exists, so `components/netavark.bst` is required, not optional. Their
+closure adds util-linux (libmagic's 10.8 MB `magic.mgc`) and `aardvark-dns`
+(2.5 MB, `buildah run` DNS only); `catalog/buildah.yaml` `slim.extra` removes both.
+
 ## The Python recipe is implemented
 
 `catalog/python.yaml` now composes `include/slim-python.yml` (via
