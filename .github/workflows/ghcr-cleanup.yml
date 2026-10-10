@@ -1,6 +1,6 @@
 name: GHCR cleanup
 
-# This repo publishes 7 manifest packages plus 14 per-architecture staging
+# This repo publishes 8 manifest packages plus 16 per-architecture staging
 # packages (base-x86_64, base-aarch64, ...), and every FSDK point release adds
 # another layer set to each. The org-wide cleanup in projectbluefin/actions
 # covers the bluefin, dakota and common families only, so nothing here was
