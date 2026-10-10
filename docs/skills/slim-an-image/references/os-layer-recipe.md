@@ -64,12 +64,20 @@ tzdata + CA certs) **must run the full SLIM recipe**. Reason: `tzdata.bst` has a
 and terminfo into any compose that includes it. Skipping the SLIM recipe on a
 "minimal" image will fail the slim gate of `just verify`.
 
-This is not hypothetical: the repo's own `static` tier intended exactly that and **ships full
+This is not hypothetical: the repo's own `static` tier intended exactly that and **shipped full
 glibc anyway** — 88 shared objects, 15.9 MB compressed, differing from `base` by two files
-(#116). Declaring a tier "static" in a description does not make it so. If you intend a
-libc-free rootfs, you must compose the *produced files* (the cert bundle, zoneinfo) rather than
-depend on the components, because `ca-certificates` pulls p11-kit and therefore glibc — and you
-must verify the result with `tar -t`, not trust the element's own description.
+(#116). Declaring a tier "static" in a description does not make it so. A libc-free rootfs
+must keep the *produced files* (the cert bundle, zoneinfo) rather than trust the component
+graph, because `ca-certificates` pulls p11-kit and therefore glibc, and its `update-ca-trust`
+integration needs a shell to generate the bundle at all.
+
+`catalog/static.yaml` does this with a **`slim.extra` allowlist**: the stack still stages
+runtime-gnu so integration runs, then the OCI script copies a fixed path list (passwd/group,
+os-release, zoneinfo + `etc/localtime`, the TLS bundle and its `etc/ssl`/`etc/pki/tls`
+symlinks, `tmp`, `root`) aside, wipes `/layer`, and restores only those. A missing path fails
+the build. Result: 1.9 MB unpacked / ~0.46 MB gzip, no ELF, vs ~45 MB before. Record-level
+`gates.forbid` (`no-shared-objects`, `no-executable-dirs`) keeps it that way — verify with
+`tar -t`, never the element's own description.
 
 ## Risk tiers
 

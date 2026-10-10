@@ -20,9 +20,10 @@ extend coverage:
    and `ldd` inside BuildStream's sandbox does not replicate the stripped container
    rootfs — execution is the only way to prove all dynamic dependencies survived
    `compose`. (Today the local smoke branches cover skopeo, python, buildah,
-   qemu-img, and lab-runner; `base`/`static` only get their `/usr/bin/true`
-   smoke in the post-publish `publish-smoke` job — add a local branch when the
-   image gains a real binary.)
+   qemu-img, and lab-runner; `base` only gets its `/usr/bin/true` smoke in the
+   post-publish `publish-smoke` job — add a local branch when the image gains a
+   real binary. `static` declares `smoke: no-exec`: it has no executable, so
+   its contract is the tar-listing gates only.)
 3. **Record the image size.** Measure uncompressed Podman size on both
    architectures and include it in the PR so future growth can be reviewed.
 4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the

@@ -384,12 +384,13 @@ jobs:
           podman pull --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}"
           actual_arch="$(podman image inspect --format '{{.Architecture}}' "${REPO}@${arch_digest}")"
           test "${actual_arch}" = "${PLATFORM_ARCH}"
-          # All published images must be runnable with their OCI config.
-          # The smoke command comes from the catalog record — the single
-          # source of truth per elements/targets.json — derived exactly the
-          # way `just verify` derives it. Adding an image never touches this
-          # job; a record with no smoke: block gets the plain runnability
-          # probe (today's base/static behaviour).
+          # Every published image that ships an executable must be runnable
+          # with its OCI config. The smoke command comes from the catalog
+          # record — the single source of truth per elements/targets.json —
+          # derived exactly the way `just verify` derives it. Adding an image
+          # never touches this job; `smoke: none` (base) gets the plain
+          # /usr/bin/true runnability probe, `smoke: no-exec` (static, data
+          # files only) has nothing to run and stops at the pull/arch check.
           CONTRACT_ENV=$(python3 scripts/verify_contract.py "${{ inputs.image }}" --env)
           eval "$CONTRACT_ENV"
           SMOKE_OPTS_ARR=()
@@ -402,7 +403,7 @@ jobs:
           fi
           if [ "${#SMOKE_OPTS_ARR[@]}" -gt 0 ] || [ "${#SMOKE_ARGS_ARR[@]}" -gt 0 ]; then
             podman run --rm --platform "linux/${PLATFORM_ARCH}" "${SMOKE_OPTS_ARR[@]}" "${REPO}@${arch_digest}" "${SMOKE_ARGS_ARR[@]}"
-          else
+          elif [ "$NO_EXEC" != 1 ]; then
             podman run --rm --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}" /usr/bin/true
           fi
           # Shell-enabled images (lab-runner) additionally run shell_probe

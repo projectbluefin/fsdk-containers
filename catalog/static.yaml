@@ -1,11 +1,11 @@
 name: static
 kind: distroless
-description: "Deprecated: currently identical to the base image and ships glibc. Use ghcr.io/projectbluefin/base. See issue 116."
-export_description: Static-tier runner for compiled Go/Rust binaries built on freedesktop-sdk
+description: "Static-binary runner: CA certificates, tzdata, os-release, passwd/group. No libc, no shell, no executables. For CGO_ENABLED=0 Go and static Rust binaries."
 keywords: distroless,freedesktop-sdk,bluefin,static
 # static has its own init-script element; all other images use base/base-init-script.bst
 init_script: static/static-init-script.bst
-smoke: none
+# Nothing in the image is executable, so there is nothing to run.
+smoke: no-exec
 stack:
   depends:
     - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -13,3 +13,39 @@ stack:
     - freedesktop-sdk.bst:components/tzdata.bst
     - freedesktop-sdk.bst:components/os-release.bst
     - freedesktop-sdk.bst:integration/extra-fs.bst
+slim:
+  extra: |
+    # Data-only allowlist: keep these paths, delete everything else (glibc,
+    # p11-kit, coreutils...). A missing path fails the build rather than
+    # shipping an image without CA certs or zoneinfo.
+    K=/static-keep
+    for p in etc/passwd etc/group etc/localtime etc/os-release \
+             usr/lib/os-release usr/share/zoneinfo \
+             etc/ssl/cert.pem etc/ssl/certs \
+             etc/pki/tls/cert.pem etc/pki/tls/certs/ca-bundle.crt \
+             etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+             etc/pki/ca-trust/extracted/pem/directory-hash \
+             usr/share/licenses/freedesktop-sdk/tzdata \
+             root tmp var/tmp; do
+      if [ ! -e "/layer/$p" ] && [ ! -L "/layer/$p" ]; then
+        echo "static allowlist: /$p missing from the composed layer" >&2
+        exit 1
+      fi
+      mkdir -p "$K/$(dirname "$p")"
+      cp -a "/layer/$p" "$K/$p"
+    done
+    rm -rf /layer/*
+    cp -a "$K"/. /layer/
+gates:
+  forbid:
+    no-shared-objects: '\.so(\.[0-9]+)*$'
+    no-executable-dirs: '^usr/(s?bin|libexec)/.'
+notes: |
+  A real static tier (#116): the rootfs is data files only, matching the
+  shape of gcr.io/distroless/static. runtime-gnu is staged solely so the
+  ca-certificates integration command (update-ca-trust, a shell script that
+  runs p11-kit) can generate the CA bundle at compose time; the slim.extra
+  allowlist in the OCI element then deletes every ELF file, glibc included.
+  ca-certificates cannot be composed without its p11-kit/glibc closure, so
+  the tier is assembled by keeping the produced files, not by dropping the
+  dependency.

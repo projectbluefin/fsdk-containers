@@ -46,10 +46,10 @@
       "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
     },
     "smoke": {
-      "description": "How to prove this image runs. Either a smoke-test block, or the literal string \"none\" for images that genuinely have no smoke test in the Justfile today (base, static). Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
+      "description": "How to prove this image runs. A smoke-test block; the literal string \"none\" for images with no smoke test of their own (base), which get only the post-publish /usr/bin/true probe; or \"no-exec\" for data-only images with nothing executable at all (static), which get no run probe. Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
       "oneOf": [
         {
-          "const": "none"
+          "enum": ["none", "no-exec"]
         },
         {
           "type": "object",
@@ -168,6 +168,14 @@
             "type": "string"
           },
           "description": "Basenames that must appear somewhere in the rootfs listing."
+        },
+        "forbid": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Extra forbidden-path gates for this image only: gate name -> extended regex that must match nothing in the exported tar listing. Added on top of the kind's built-in gates, never replacing them."
         }
       }
     },
