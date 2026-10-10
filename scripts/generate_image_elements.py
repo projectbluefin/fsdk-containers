@@ -135,6 +135,14 @@ def render_oci(record: dict) -> str:
     # field added to static.yaml beyond what the brief specified, required to
     # reproduce the committed build-depends faithfully.
     init_script = record.get("init_script", "base/base-init-script.bst")
+    # Distroless images carved from base-stack are built on top of the base
+    # image: build-oci emits base's layer verbatim plus a diff layer, so pulling
+    # several images downloads base once. The child rootfs is a superset of
+    # base's (same stack, same slim-distroless recipe), so the diff carries no
+    # whiteouts for base files.
+    layered = record["name"] != "base" and record["kind"] == "distroless" and (
+        "base/base-stack.bst" in record["stack"]["depends"]
+    )
     lines = [_header(name, "oci")]
     lines.append("kind: script")
     lines.append("")
@@ -149,6 +157,10 @@ def render_oci(record: dict) -> str:
     lines.append(f"  - filename: {name}/{name}-runtime.bst")
     lines.append("    config:")
     lines.append("      location: /layer")
+    if layered:
+        lines.append("  - filename: oci/base.bst")
+        lines.append("    config:")
+        lines.append("      location: /parent")
     lines.append("")
     lines.append("variables:")
     lines.append("  (@):")
@@ -191,6 +203,9 @@ def render_oci(record: dict) -> str:
     lines.append("      images:")
     lines.append("      - os: linux")
     lines.append('        architecture: "%{go-arch}"')
+    if layered:
+        lines.append("        parent:")
+        lines.append("          image: /parent")
     lines.append("        layer: /layer")
     lines.append(f'        comment: "fsdk-containers {name} image"')
     lines.append("        config:")
