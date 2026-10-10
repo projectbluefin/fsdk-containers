@@ -37,7 +37,12 @@ jobs:
     # then `Build images` failed on a checksum mismatch).
     if: github.event.pull_request.user.login == 'mergeraptor[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 minutes was not enough: `bst source track` runs per-arch over every
+    # changed element, and the volcano element alone carries 235 go_module
+    # sources. A Renovate volcano bump hit this ceiling, was cancelled, and
+    # left every volcano ref unrefreshed until the element was manually
+    # tracked. 120 minutes covers the heaviest element with headroom.
+    timeout-minutes: 120
     steps:
       # Renovate branches live in this repository (not a fork), so a plain
       # read-only checkout is enough here -- the mergeraptor app token is
@@ -90,9 +95,31 @@ jobs:
           ELEMENTS: ${{ steps.changed.outputs.elements }}
         run: |
           # shellcheck disable=SC2086  # word splitting intended: multiple element args
-          for arch in x86_64 aarch64; do
-            just bst -o arch "$arch" source track $ELEMENTS
+          # Arch-independent sources (go_module, plain git_repo) resolve one
+          # ref for every arch, so a single x86_64 track sets the ref all arches
+          # read. Arch-conditional sources (kind:remote per-arch downloads) need
+          # a second aarch64 track or one ref stays stale -- the check_multiarch
+          # parity gate below then fails. Classify once (cheap local grep),
+          # track the dependent subset a second time.
+          just bst -o arch x86_64 source track $ELEMENTS
+          arch_dependent=()
+          for e in $ELEMENTS; do
+            # Elements are addressable either way; any `arch` conditional
+            # (==, !=, in) makes the refs arch-dependent. Fail loudly on a
+            # path we cannot read instead of silently misclassifying it as
+            # arch-independent (the old `arch ==`-only grep missed it).
+            f="elements/$e"
+            if [ ! -f "$f" ]; then
+              echo "track: no such element file: $f" >&2
+              exit 1
+            fi
+            if grep -qE '\barch[[:space:]]*(==|!=)|\barch[[:space:]]+in[[:space:]]' "$f"; then
+              arch_dependent+=("$e")
+            fi
           done
+          if [ "${#arch_dependent[@]}" -gt 0 ]; then
+            just bst -o arch aarch64 source track "${arch_dependent[@]}"
+          fi
 
       - name: Validate element graph
         if: steps.changed.outputs.elements != ''
