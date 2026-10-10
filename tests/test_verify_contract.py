@@ -59,6 +59,20 @@ class GateDerivationTests(unittest.TestCase):
             with self.subTest(image=record["name"]):
                 self.assertIn("no-debug-symbols", vc.gates_for(record)["forbid"])
 
+    def test_distroless_images_forbid_base_userland(self):
+        """include/slim.yml removes base's usr/bin; every distroless image
+        carries the gate, and the gate matches what the recipe removes."""
+        pattern = vc.FORBIDDEN["no-base-userland"]
+        for record in catalog.load_all():
+            if record["kind"] != "distroless":
+                continue
+            with self.subTest(image=record["name"]):
+                self.assertIn("no-base-userland", vc.gates_for(record)["forbid"])
+        for path in ("usr/bin/ls", "usr/bin/getent", "usr/libexec/p11-kit/p11-kit-server"):
+            self.assertRegex(path, pattern)
+        for path in ("usr/bin/python3", "usr/bin/git", "usr/lib/x86_64-linux-gnu/pkcs11/p11-kit-trust.so"):
+            self.assertNotRegex(path, pattern)
+
     def test_lab_runner_has_no_distroless_only_gates(self):
         """Finding 1: lab-runner must not have no-sanitizers, no-locale-archive,
         or no-debug-symbols. The old recipe ran none of these in its
@@ -68,6 +82,7 @@ class GateDerivationTests(unittest.TestCase):
         self.assertNotIn("no-sanitizers", gates["forbid"])
         self.assertNotIn("no-locale-archive", gates["forbid"])
         self.assertNotIn("no-debug-symbols", gates["forbid"])
+        self.assertNotIn("no-base-userland", gates["forbid"])
 
     def test_lab_runner_has_no_ca_any_paths(self):
         """Finding 2: the old recipe applied no CA gate to lab-runner."""
