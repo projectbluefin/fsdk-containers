@@ -47,10 +47,9 @@ jobs:
           set -euo pipefail
           ISSUE_NUM=$(gh issue list \
             --repo "${{ github.repository }}" \
-            --state all \
-            --limit 30 \
-            --json number,title \
-            --jq '.[] | select(.title == "[CI] Build images failed on main") | .number' \
+            --search 'in:title "[CI] Build images failed on main"' \
+            --json number \
+            --jq '.[0].number' \
             | head -1)
           echo "issue_number=${ISSUE_NUM:-}" >> "$GITHUB_OUTPUT"
 
