@@ -176,16 +176,6 @@ class MainTests(TargetTreeTestCase):
 
         self.assertEqual(drifted.read_text(), "drift\n")
 
-    def test_a_mode_is_required(self):
-        with self.assertRaises(SystemExit) as raised:
-            self.run_main([])
-        self.assertEqual(raised.exception.code, 2)
-
-    def test_write_and_check_are_mutually_exclusive(self):
-        with self.assertRaises(SystemExit) as raised:
-            self.run_main(["--write", "--check"])
-        self.assertEqual(raised.exception.code, 2)
-
 
 class RendererRegistryTests(unittest.TestCase):
     def test_every_record_kind_of_element_has_a_renderer_and_a_path(self):

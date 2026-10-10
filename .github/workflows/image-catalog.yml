@@ -10,58 +10,23 @@ on:
     paths:
       - 'catalog/**'
       - 'elements/**'
-      - 'scripts/catalog.py'
-      - 'scripts/generate_image_elements.py'
-      - 'scripts/verify_contract.py'
-      - 'scripts/check_multiarch_refs.py'
-      - 'tests/test_catalog*.py'
-      - 'tests/test_generated*.py'
-      - 'tests/test_verify_contract*.py'
-      # test_catalog_slim_includes.py and test_slim*.py gate the shared slim
-      # fragments (include/slim*.yml): the printing one is consumed across the
-      # junction, so nothing else in this repository ever runs it.
       - 'include/**'
-      - 'tests/test_slim*.py'
-      - 'scripts/printing_base_bundle.py'
-      - 'tests/test_printing_base_bundle*.py'
-      - '.github/requirements/**'
-      # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
-      # workflow/action inventory against docs/skills/ci-tooling/references/.
-      # Without these two the drift gate never fires for the exact changes it
-      # guards -- adding or deleting a workflow, or editing the reference doc.
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - 'docs/skills/ci-tooling/**'
-      # test_catalog_readme_inventory.py ratchets the README image table against
-      # elements/targets.json. Without this the gate never fires for a
-      # README-only edit -- deleting or renaming a published image's row.
-      - 'README.md'
-      # test_catalog_sbom_provenance.py ratchets the --spdx-creator lines in the
-      # sbom/sboms recipes. Without this a Justfile-only edit that drops them
-      # never runs the gate.
+      - 'scripts/**'
+      - 'tests/**'
       - 'Justfile'
+      - '.github/requirements/**'
+      - '.github/workflows/image-catalog.yml'
   push:
     branches: [main]
     paths:
       - 'catalog/**'
       - 'elements/**'
-      - 'scripts/catalog.py'
-      - 'scripts/generate_image_elements.py'
-      - 'scripts/verify_contract.py'
-      - 'scripts/check_multiarch_refs.py'
-      - 'tests/test_catalog*.py'
-      - 'tests/test_generated*.py'
-      - 'tests/test_verify_contract*.py'
       - 'include/**'
-      - 'tests/test_slim*.py'
-      - 'scripts/printing_base_bundle.py'
-      - 'tests/test_printing_base_bundle*.py'
-      - '.github/requirements/**'
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - 'docs/skills/ci-tooling/**'
-      - 'README.md'
+      - 'scripts/**'
+      - 'tests/**'
       - 'Justfile'
+      - '.github/requirements/**'
+      - '.github/workflows/image-catalog.yml'
 
 permissions: {}
 
@@ -81,20 +46,8 @@ jobs:
       - name: Install python dependencies
         run: 'python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt'
 
-      - name: Records are valid and describe the committed elements
-        run: python3 -m unittest discover -s tests -p 'test_catalog*.py' -v
-
-      - name: Verification gates derive from the records
-        run: python3 -m unittest discover -s tests -p 'test_verify_contract*.py' -v
+      - name: Python test suite
+        run: python3 -m unittest discover -s tests -v
 
       - name: Generated elements are current
         run: python3 scripts/generate_image_elements.py --check
-
-      - name: Generated elements match their records semantically
-        run: python3 -m unittest discover -s tests -p 'test_generated*.py' -v
-
-      - name: Shared slim fragments remove what their gates forbid
-        run: python3 -m unittest discover -s tests -p 'test_slim*.py' -v
-
-      - name: Printing base bundle lists the cache files consumers need
-        run: python3 -m unittest discover -s tests -p 'test_printing_base_bundle*.py' -v

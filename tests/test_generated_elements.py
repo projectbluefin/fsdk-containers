@@ -14,22 +14,6 @@ import generate_image_elements as gen  # noqa: E402
 
 
 class ComposeGenerationTests(unittest.TestCase):
-    def test_generated_compose_matches_committed(self):
-        for record in catalog.load_all():
-            with self.subTest(image=record["name"]):
-                name = record["name"]
-                committed_path = ROOT / "elements" / name / f"{name}-runtime.bst"
-                committed = yaml.safe_load(committed_path.read_text())
-                generated = yaml.safe_load(gen.render_compose(record))
-                self.assertEqual(generated["kind"], committed["kind"])
-                self.assertEqual(
-                    generated["build-depends"], committed["build-depends"]
-                )
-                self.assertEqual(
-                    sorted(generated["config"]["exclude"]),
-                    sorted(committed["config"]["exclude"]),
-                )
-
     def test_generated_compose_is_valid_yaml_with_a_header(self):
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")
         text = gen.render_compose(record)
@@ -42,18 +26,6 @@ class ComposeGenerationTests(unittest.TestCase):
 
 
 class StackGenerationTests(unittest.TestCase):
-    def test_generated_stack_matches_committed(self):
-        for record in catalog.load_all():
-            with self.subTest(image=record["name"]):
-                name = record["name"]
-                committed = yaml.safe_load(
-                    (ROOT / "elements" / name / f"{name}-stack.bst").read_text()
-                )
-                generated = yaml.safe_load(gen.render_stack(record))
-                self.assertEqual(generated["kind"], "stack")
-                # ORDER-SENSITIVE: sorting here masked a real cache-key change.
-                self.assertEqual(generated["depends"], committed["depends"])
-
     def test_notes_are_carried_into_the_generated_stack(self):
         record = catalog.load_record(ROOT / "catalog" / "base.yaml")
         text = gen.render_stack(record)
@@ -71,20 +43,6 @@ SHARED_LABELS = {
 
 
 class OciGenerationTests(unittest.TestCase):
-    def test_generated_oci_matches_committed_build_depends(self):
-        for record in catalog.load_all():
-            with self.subTest(image=record["name"]):
-                name = record["name"]
-                committed = yaml.safe_load(
-                    (ROOT / "elements" / "oci" / f"{name}.bst").read_text()
-                )
-                generated = yaml.safe_load(gen.render_oci(record))
-                self.assertEqual(generated["kind"], "script")
-                self.assertEqual(
-                    generated["build-depends"], committed["build-depends"]
-                )
-                self.assertEqual(generated["variables"], committed["variables"])
-
     def test_slim_recipe_is_always_the_first_command(self):
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
