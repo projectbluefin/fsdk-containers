@@ -67,10 +67,15 @@ Junction changes are covered by `shared_paths`.
   `io.artifacthub.package.keywords` label varies across images (and
   `lab-runner` omits `distroless`); do not derive it.
 - `export_description` is the published `org.opencontainers.image.description`
-  that `just export` applies to the squashed image. It defaults to
+  that `just export` applies to the published image. It defaults to
   `description`; set it only when the published string must differ from the
   element-level one. It is never rendered into a BuildStream element, so it
   cannot move a cache key.
+- A `distroless` record whose `stack.depends` includes `base/base-stack.bst`
+  is generated on top of `oci/base.bst`: the image ships base's layer
+  unchanged plus one diff layer, so pulls share base. Its slim recipe must
+  only remove files base does not ship; deleting a base file would add a
+  whiteout to the diff layer.
 - Descriptions, entrypoints, and keywords are interpolated into single-quoted
   YAML scalars by the generator, which escapes `'` as `''`. Apostrophes are
   safe; do not pre-quote or pre-escape values in the record.

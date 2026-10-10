@@ -271,7 +271,7 @@ build:
     just export
 
 # ── Export ────────────────────────────────────────────────────────────
-# Checkout the built OCI image and squash into a single layer in podman.
+# Checkout the built OCI image into podman and apply the dynamic labels.
 [group('build')]
 export:
     #!/usr/bin/env bash
@@ -302,9 +302,11 @@ export:
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.version={{fsdk_version}}")
     LABEL_ARGS+=(--label "io.projectbluefin.fsdk.ref={{fsdk_ref}}")
 
-    # Squash to a single layer and apply dynamic labels.
+    # Apply dynamic labels. No --squash-all: images built on oci/base.bst keep
+    # base's layer as their first layer so pulls share it; a label-only build
+    # adds no layer.
     printf 'FROM %s\n' "$IMAGE_ID" \
-      | {{sudo_cmd}} podman build --pull=never --squash-all "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
+      | {{sudo_cmd}} podman build --pull=never "${LABEL_ARGS[@]}" -t "${FINAL_REF}" -f - .
     echo "==> Built ${FINAL_REF}"
 
 # Push the locally built image under all derived tags to a given repo ref.
