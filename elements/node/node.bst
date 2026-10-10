@@ -62,6 +62,14 @@ variables:
     - arch == "aarch64":
         hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
+# Job count via a nocache env var (FSDK's linux.bst/nss.bst pattern): an
+# inline %{max-jobs} enters the cache key, so hosts with different core
+# counts would never share the node artifact.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
     # gyp's ninja generator bakes CPPFLAGS/CFLAGS/CXXFLAGS from the
@@ -86,7 +94,7 @@ config:
       # --without-npm/--without-corepack: this is a distroless runtime image,
       #   not a dev environment (same shape as gcr.io/distroless/nodejs).
       # --ninja: gyp emits build.ninja; `make` stays the driver and forwards
-      #   -j%{max-jobs} to ninja via MAKEFLAGS.
+      #   -j${MAXJOBS} to ninja via MAKEFLAGS.
       ./configure \
         --prefix=/usr \
         --shared-openssl \
@@ -100,7 +108,7 @@ config:
         --ninja
 
   build-commands:
-    - make -j%{max-jobs}
+    - make -j"${MAXJOBS}"
 
   install-commands:
     - make install DESTDIR="%{install-root}"

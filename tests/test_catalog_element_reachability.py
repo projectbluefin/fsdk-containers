@@ -35,9 +35,8 @@ ELEMENTS = ROOT / "elements"
 # ``elements/``. A spike file graduating to a real image must be removed
 # from this registry in the same PR that wires it into a published target —
 # and only that file: ``node/node.bst`` and ``node/node-stack.bst``
-# graduated into ``review-runtime`` while ``node/node-runtime.bst``, the
-# distroless chisel for a standalone ``oci/node.bst`` that does not exist
-# yet, is still inert.
+# graduated into ``review-runtime`` before ``node/node-runtime.bst`` did
+# with the standalone ``oci/node.bst``.
 SPIKE_ELEMENTS = {
     "curl/curl-runtime.bst": "#146",
     "curl/curl-stack.bst": "#146",
@@ -56,7 +55,6 @@ SPIKE_ELEMENTS = {
     "nginx/nginx-runtime.bst": "#146",
     "nginx/nginx-stack.bst": "#146",
     "nginx/nginx.bst": "#146",
-    "node/node-runtime.bst": "#146",
     "postgres/postgres-runtime.bst": "#146",
     "postgres/postgres-stack.bst": "#146",
     "postgres/postgres.bst": "#146",

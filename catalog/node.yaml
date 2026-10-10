@@ -1,0 +1,19 @@
+name: node
+kind: distroless
+description: Distroless Node.js image built from source on freedesktop-sdk
+export_description: Minimal distroless Node.js LTS runtime built on freedesktop-sdk
+keywords: distroless,freedesktop-sdk,bluefin,node,nodejs
+entrypoint: ["/usr/bin/node"]
+smoke:
+  # Exercise real runtime pieces (OpenSSL, zlib, ICU) linked from FSDK, not
+  # just --version.
+  args: ["-e", "require('crypto').createHash('sha256');require('zlib').gzipSync('x');console.log(new Intl.DateTimeFormat('en',{timeZone:'UTC'}).format(0),process.version)"]
+stack:
+  depends:
+    - base/base-stack.bst
+    - node/node.bst
+gates:
+  require_binaries:
+    - node
+  require_paths:
+    - usr/share/zoneinfo/UTC

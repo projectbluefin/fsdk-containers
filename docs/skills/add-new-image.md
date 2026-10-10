@@ -99,9 +99,9 @@ reachable; leave them in `SPIKE_ELEMENTS` and the gate goes red.
 
 Graduation is per *file*, not per directory. A spike directory can graduate
 partway: `review-runtime` depends on `node/node-stack.bst`, so that file and
-`node/node.bst` left the registry, while `node/node-runtime.bst` — the
-distroless chisel for a standalone `oci/node.bst` that does not exist yet — is
-still inert and still registered. Remove exactly the files your change wired in.
+`node/node.bst` left the registry first, while `node/node-runtime.bst` stayed
+registered until the standalone `node` image wired it in. Remove exactly the
+files your change wired in.
 
 If you add a publication lane that is not an OCI image in `targets.json`, add
 its root element to the hardcoded root set in that module's `setUpClass`.
