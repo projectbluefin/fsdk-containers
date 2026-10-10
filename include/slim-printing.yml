@@ -17,8 +17,9 @@
 # purpose: the printer appliances are NOT distroless (the entrypoint is bash,
 # pyppd PPD archives are Python executables), so slim-distroless-commands
 # cannot be reused as-is, and one file is what a consumer pins and reviews.
-# The OS-layer part mirrors slim.yml minus the shell removal; keep the two in
-# step when slim.yml changes.
+# The OS-layer part mirrors slim.yml minus the shell removal, the base
+# userland removal and the en_US.utf8 removal (all kept here, see below); keep
+# the rest in step when slim.yml changes.
 #
 # Scope rule: remove only what no printer application can reach at runtime.
 # Every removal below is either build-only tooling or outside the NEEDED
