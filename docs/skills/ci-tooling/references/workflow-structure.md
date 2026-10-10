@@ -25,7 +25,7 @@ Supporting workflows, none of which touch publication:
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
 | `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, and keeps the newest 5 tagged `printing-base-devel` bundles per arch |
-| `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
+| `ci-alert.yml` | completed `Build images` push on `main` | on failure reopens one CI alert issue listing `failure`/`cancelled`/`timed_out`/`skipped` jobs; on success closes the same issue (only if the green run is current `main` HEAD) with a link to the run |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
 | `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*` and `test_printing_base_bundle*` suites. The only workflow that runs the Python tests |
@@ -75,12 +75,22 @@ same caution applies to the VM guest's publish step: it only runs on
 
 ### Main build alerts
 
-`ci-alert.yml` listens for failed `Build images` push runs on `main`. It records
-failed and skipped job links in one canonical `[CI] Build images failed on main`
-issue, reopening it when a later failure occurs. Keep the workflow-level
-concurrency group: without it, simultaneous failed runs can each observe no
-open issue and create duplicates. It searches all issue states and reapplies
-the `area/ci` and `priority/p1` labels whenever it reopens the issue.
+`ci-alert.yml` listens for completed `Build images` push runs on `main`
+(success *or* failure — a green run is what closes the alert). On failure it
+records `failure`, `cancelled`, `timed_out`, and `skipped` job links in one
+canonical `[CI] Build images failed on main` issue, reopening it when a later
+failure occurs; `cancelled`/`timed_out` are included because a cancelled
+matrix, summary, or guest-contract job is the common shape of a stuck run and
+the old `failure`+`skipped` filter only listed the downstream jobs that were
+skipped because of it. On success it closes the same issue (if open) with a
+comment linking the green run, but only when the run's `head_sha` is still
+the current `main` HEAD — a re-run or late finish of an older commit must
+not close an alert a newer commit raised (#413). The guard reads
+`/commits/main` via the GitHub API and skips the close step when the
+`head_sha` differs. Keep the workflow-level concurrency group:
+without it, simultaneous failed runs can each observe no open issue and create
+duplicates. It searches all issue states and reapplies the `area/ci` and
+`priority/p1` labels whenever it reopens the issue.
 
 ### Per-image OCI fan-out
 
