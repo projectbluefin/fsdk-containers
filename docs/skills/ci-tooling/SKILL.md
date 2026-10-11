@@ -284,7 +284,8 @@ exports `BST_FLAGS=--config /src/.casd/buildstream.conf`, which the `just bst`
 wrapper forwards. That adds `https://cache.projectbluefin.io:11002` (mTLS) as a
 global artifact and source remote — `push: true` only for `push`/`workflow_dispatch`
 on `refs/heads/main`, pull-only everywhere else (`repository_dispatch`, other refs).
-FSDK elements (`linux.bst`) are covered too. Without both values — forks,
+Global remotes add to project remotes, so junctioned FSDK elements (`linux.bst`)
+are covered too. Without both values — forks,
 or before provisioning — the action is a no-op and CI behaves as before.
 `project.conf` stays pull-only: anonymous pulls use port 11001 of the same
 CAS.
