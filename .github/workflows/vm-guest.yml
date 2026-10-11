@@ -20,6 +20,10 @@ on:
         description: Git ref to check out (supports repository_dispatch client_payload.ref).
         required: true
         type: string
+    secrets:
+      CASD_CLIENT_KEY:
+        required: false
+        description: Client TLS private key for the Dakota BuildStream remote CAS.
 
 permissions: {}
 
