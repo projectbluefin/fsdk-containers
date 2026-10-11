@@ -274,14 +274,16 @@ pending run per group). In a reusable workflow `github.event_name` is the
 caller's event, so `oci-images.yml` uses the same expression.
 
 **Opt-in artifact push.** `.github/actions/bst-cache-config` (a port of
-projectbluefin/dakota's `generate-bst-ci-config`) runs before every
-BuildStream job. When the repository variable `CASD_CLIENT_CERT` and secret
-`CASD_CLIENT_KEY` are both set it writes `.casd/buildstream.conf` and exports
-`BST_FLAGS=--config /src/.casd/buildstream.conf`, which the `just bst` wrapper
-forwards. That adds `https://cache.projectbluefin.io:11002` (mTLS) as a global
-artifact and source remote — `push: true` only for `push`/`workflow_dispatch`
-on `refs/heads/main`, pull-only everywhere else (PRs, other refs,
-`repository_dispatch`). Global remotes add to project remotes, so junctioned
+projectbluefin/dakota's `generate-bst-ci-config`) runs before non-PR BuildStream
+jobs (`oci-images.yml` and `vm-guest.yml`). Pull-request jobs do not invoke it;
+they pull anonymously via `project.conf` over port 11001 so the mTLS private
+key is never materialised on PR branches. `printing-base.yml` is also excluded
+(it builds a clean-cache bundle). When the repository variable `CASD_CLIENT_CERT`
+and secret `CASD_CLIENT_KEY` are both set it writes `.casd/buildstream.conf` and
+exports `BST_FLAGS=--config /src/.casd/buildstream.conf`, which the `just bst`
+wrapper forwards. That adds `https://cache.projectbluefin.io:11002` (mTLS) as a
+global artifact and source remote — `push: true` only for `push`/`workflow_dispatch`
+on `refs/heads/main`, pull-only everywhere else (`repository_dispatch`, other refs).
 FSDK elements (`linux.bst`) are covered too. Without both values — forks,
 or before provisioning — the action is a no-op and CI behaves as before.
 `project.conf` stays pull-only: anonymous pulls use port 11001 of the same
