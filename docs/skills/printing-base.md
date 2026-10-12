@@ -149,14 +149,12 @@ as `ghcr.io/projectbluefin/printing-runtime-layer`:
 - `<arch>-<full-key>` and `<arch>-latest` plus a multi-arch `:latest` index,
   from `main` only. Any other ref pushes `<arch>-test-<run_id>` plus a
   `:test-<run_id>` index.
-- Every run, including the nightly schedule, also pushes
-  `<arch>-run-<run_id>`: the immutable same-run refs the index is assembled
-  from.
+- Every run, including the nightly schedule, also pushes `<arch>-run-<run_id>`:
+  the immutable same-run refs the index is assembled from.
 - Keyless cosign signature on every per-arch and index digest (GitHub OIDC).
-- Retention: `<arch>-<full-key>` tags are what consumers pin and must never
-  be pruned. `ghcr-cleanup.yml` does not cover this package yet, so
-  `<arch>-run-<run_id>` and branch-dispatch `test` tags accumulate until
-  removed by hand.
+- Retention: consumers pin `<arch>-<full-key>` tags; never prune them.
+  `ghcr-cleanup.yml` does not cover this package yet, so `<arch>-run-<run_id>`
+  and branch-dispatch `test` tags accumulate until removed by hand.
 
 The runtime build uses the bundle recipe's source-cache stall workarounds.
 Publisher inspection reuses the login's Docker auth file; credentials stay
@@ -211,8 +209,8 @@ skopeo inspect --raw docker://ghcr.io/projectbluefin/printing-runtime-layer:x86_
 skopeo inspect --raw docker://<child-image>:<child-tag> | jq -r '.layers[0].digest'
 ```
 
-**Rule: the shared layer's digest only moves when this repo's printing
-runtime bumps** (stack, compose, slim recipe, patches, or FSDK junction).
+**Rule: the shared layer's digest only moves when this repo's printing runtime
+bumps** (stack, compose, slim recipe, patches, or FSDK junction).
 
 ## Consumer contract
 
