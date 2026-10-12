@@ -53,6 +53,7 @@ Distroless images (all except `lab-runner`):
 | **Gate 3** | Timezone data | Keeps `usr/share/zoneinfo/UTC` so runtimes do not crash. |
 | **Gate 4** | Sanitizer/fortran bloat removed | No `libasan`, `libtsan`, `libgfortran` and friends. |
 | **Gate 5** | Locale/build-tool bloat removed | No `locale-archive`, charmaps, `ldconfig`, `pcre2` tooling. |
+| **Gate 6** | No base userland (`no-base-userland`) | No coreutils, glibc tools, SELinux/acl CLIs, ncurses tools, or p11-kit/ca-trust CLIs in `usr/bin`/`usr/libexec`. |
 
 `lab-runner` is the documented shell-enabled exception and is verified against an
 inverted contract instead — bash present, the `argo`/`just`/`kubectl`/`skopeo` CLI

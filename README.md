@@ -12,14 +12,14 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 
 ## Images
 
-| Image | Size | Description |
+| Image | Size (gzip, amd64) | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/base` | ~40 MB | Distroless base: glibc, CA certificates, timezone data, terminfo. No shell, no userland executables, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
-| `ghcr.io/projectbluefin/static` | ~40 MB | **Deprecated — currently identical to `base`.** Intended as a libc-free tier for `CGO_ENABLED=0` binaries, but it ships full glibc and differs from `base` by two files. Use `base` instead. See [#116](https://github.com/projectbluefin/fsdk-containers/issues/116). |
-| `ghcr.io/projectbluefin/python` | ~45 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
-| `ghcr.io/projectbluefin/skopeo` | — | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
-| `ghcr.io/projectbluefin/buildah` | ~70 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
-| `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/base` | ~10 MB | Distroless base: glibc, CA certificates, timezone data, terminfo. No shell, no userland executables, no package manager. Multi-arch: linux/amd64, linux/arm64. [¹](#base-contract) |
+| `ghcr.io/projectbluefin/static` | ~10 MB | **Deprecated — currently identical to `base`.** Intended as a libc-free tier for `CGO_ENABLED=0` binaries, but it ships full glibc and differs from `base` by two files. Use `base` instead. See [#116](https://github.com/projectbluefin/fsdk-containers/issues/116). |
+| `ghcr.io/projectbluefin/python` | ~34 MB | Distroless Python 3: Python runtime + pip, with dev/testing bloat pruned. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/skopeo` | ~28 MB | Distroless Skopeo OCI image utility. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/buildah` | ~43 MB | Distroless Buildah: static Go binary compiled from source, linked against FSDK gpgme/libseccomp. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/qemu-img` | ~20 MB | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/review-runtime` | — | Review-appliance runtime: python3, node, git, curl plus the POSIX text tools (diff, find, gawk, gzip, less, sed, tar). Multi-arch: linux/amd64, linux/arm64. |
 

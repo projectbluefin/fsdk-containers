@@ -135,6 +135,29 @@ class ValidateTests(LoadRecordTestCase):
         self.assertIn("gates.require_binaries names bash", str(raised.exception))
         self.assertIn("kind: distroless strips the shell", str(raised.exception))
 
+    def test_distroless_image_cannot_require_stripped_base_userland(self):
+        record = dict(self.record)
+        record["kind"] = "distroless"
+        record["gates"] = {"require_binaries": ["python3", "env", "getent"]}
+
+        with self.assertRaises(catalog.CatalogError) as raised:
+            catalog.validate(record)
+
+        self.assertIn("gates.require_binaries names env, getent", str(raised.exception))
+        self.assertIn("include/slim.yml", str(raised.exception))
+
+    def test_stripped_binaries_are_read_from_the_slim_recipe(self):
+        stripped = set(catalog.DISTROLESS_STRIPPED_BINARIES)
+        # Shell, leaked build tools, and one representative per base-userland
+        # package (the no-base-userland gate's set) must all be covered.
+        for name in ("bash", "sh", "localedef", "ldconfig", "pcre2grep",
+                     "[", "env", "ls", "getent", "setenforce", "getfacl",
+                     "infocmp", "tput", "p11-kit", "update-ca-trust"):
+            self.assertIn(name, stripped)
+        # Payload binaries distroless records legitimately require.
+        for name in ("python3", "node", "git", "curl", "diff", "find", "tar"):
+            self.assertNotIn(name, stripped)
+
     def test_validate_returns_the_record_it_accepted(self):
         self.assertIs(catalog.validate(self.record), self.record)
 
