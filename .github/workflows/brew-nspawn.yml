@@ -1,12 +1,22 @@
 name: Verify brew nspawn image
 
-# The brew image is a deliberate non-distroless machine-image lane. It is
-# expensive and unrelated to OCI image publication, so verify it weekly and
-# on demand rather than on every pull request.
+# Non-distroless machine lane, separate from OCI publication. Contract tests
+# run for relevant pull requests; native artifact/boot checks stay weekly/on demand.
 on:
   schedule:
     - cron: "30 4 * * 1"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'elements/brew/**'
+      - 'elements/oci/brew-nspawn.bst'
+      - 'plugins/sources/ghcr_tar.py'
+      - 'scripts/verify_brew.py'
+      - 'tests/test_brew*.py'
+      - 'tests/brew-boot.sh'
+      - 'Justfile'
+      - 'project.conf'
+      - '.github/workflows/brew-nspawn.yml'
 
 concurrency:
   group: brew-nspawn-${{ github.ref }}
@@ -16,8 +26,23 @@ permissions:
   contents: read
 
 jobs:
-  verify-brew:
+  brew-contract:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Exercise seed and authenticated source contracts
+        run: python3 -m unittest discover -s tests -p 'test_brew*.py' -v
+  verify-brew:
+    if: github.event_name != 'pull_request'
+    needs: brew-contract
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,8 +53,14 @@ jobs:
         with:
           tool: just
 
-      - name: Verify brew nspawn machine image
-        run: just verify-brew
+      - name: Install consumer inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes erofs-utils binutils zstd systemd-container
+          sudo modprobe erofs
+
+      - name: Verify tar and raw contracts and offline guest user scopes
+        run: just verify-brew-boot
 
       - name: Summarize exported artifacts
         if: always()

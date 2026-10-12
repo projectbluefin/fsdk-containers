@@ -12,9 +12,14 @@ depends:
 
   # Init so `machinectl start` works and the container can run long-lived.
   - freedesktop-sdk.bst:components/systemd.bst
+  # Shipped systemd TPM helpers declare these as required dlopen dependencies.
+  - freedesktop-sdk.bst:components/tpm2-tss.bst
+  # A real D-Bus provider is required for logind and guest user managers.
+  - freedesktop-sdk.bst:components/dbus.bst
+  - freedesktop-sdk.bst:components/linux-pam.bst
 
   # Brew's own runtime requirements.
-  - freedesktop-sdk.bst:components/ruby.bst            # brew is written in Ruby
+  # Brew uses its version-matched portable Ruby, not FSDK's unrelated Ruby.
   - freedesktop-sdk.bst:components/git.bst             # taps + self-update
   - freedesktop-sdk.bst:components/curl.bst            # bottle downloads
   - freedesktop-sdk.bst:components/gcc.bst             # source builds / compiler
