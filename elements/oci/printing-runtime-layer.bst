@@ -54,5 +54,5 @@ config:
             'io.artifacthub.package.keywords': 'printing,cups,freedesktop-sdk,bluefin'
             'io.artifacthub.package.category': 'integration-delivery'
         index-annotations:
-          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/printing-runtime-layer:%{fsdk-version}'
+          'org.opencontainers.image.ref.name': 'ghcr.io/projectbluefin/printing-runtime-layer:latest'
       EOF

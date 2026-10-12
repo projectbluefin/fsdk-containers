@@ -21,6 +21,15 @@ WORKFLOW_DIR = ROOT / ".github" / "workflows"
 JUSTFILE = ROOT / "Justfile"
 
 
+def _job(name):
+    doc = yaml.safe_load((WORKFLOW_DIR / "printing-runtime-layer.yml").read_text())
+    return doc["jobs"][name]
+
+
+def _step_script(job, step):
+    return next(s["run"] for s in _job(job)["steps"] if s.get("name") == step)
+
+
 class PrintingRuntimeLayerContractTests(unittest.TestCase):
     """Contracts for printing runtime layer workflow and recipes."""
 
@@ -125,12 +134,31 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
 
     def test_manifest_assembles_from_immutable_same_run_refs(self):
         """manifest job must assemble index from run-specific tags, not mutable aliases."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        content = path.read_text()
-        self.assertIn("x86_64-run-${RUN_ID}", content,
-                      "manifest job must reference immutable x86_64 same-run tag")
-        self.assertIn("aarch64-run-${RUN_ID}", content,
-                      "manifest job must reference immutable aarch64 same-run tag")
+        calls = self._run_script(_step_script(
+            "manifest", "Assemble multi-arch index, sign, and verify"))
+        creates = [call for call in calls if call[:3] == ["docker", "buildx", "imagetools"]]
+        self.assertTrue(creates)
+        for call in creates:
+            self.assertEqual(call[-2:], [
+                "example.invalid/printing:x86_64-run-42",
+                "example.invalid/printing:aarch64-run-42",
+            ])
+
+    def test_build_pushes_same_run_tag_on_main_and_proof_refs(self):
+        """build job must publish the <arch>-run-<run_id> tag the manifest consumes."""
+        step = next(s for s in _job("build")["steps"] if s.get("id") == "tags")
+        for ref in ("refs/heads/main", "refs/heads/producer-proof"):
+            with self.subTest(ref=ref), tempfile.TemporaryDirectory() as directory:
+                out = Path(directory) / "out"
+                out.touch()
+                script = step["run"].replace('"$(just printing-runtime-layer-key)"', '"' + "b" * 64 + '"')
+                subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", script], check=True, capture_output=True,
+                    env=dict(os.environ, REF=ref, RUN_ID="42", ARCH="x86_64", GITHUB_OUTPUT=str(out)),
+                )
+                outputs = dict(line.split("=", 1) for line in out.read_text().splitlines())
+                self.assertEqual(outputs["run_tag"], "x86_64-run-42")
+                self.assertIn("x86_64-run-42", outputs["tags"].split())
 
     def test_build_and_manifest_jobs_have_id_token_permission(self):
         """Both jobs must declare id-token: write for Sigstore keyless signing."""
@@ -143,11 +171,11 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                              f"Job '{job_name}' must declare id-token: write")
 
     def test_docker_compat_auth_file_configured_for_cosign(self):
-        """Build job must configure ~/.docker/config.json via --compat-auth-file."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        content = path.read_text()
-        self.assertIn("--compat-auth-file ~/.docker/config.json", content,
-                      "build login must write ~/.docker/config.json for cosign")
+        """Both publishing jobs must write ~/.docker/config.json via --compat-auth-file."""
+        for job_name in ("build", "manifest"):
+            with self.subTest(job=job_name):
+                login = next(s for s in _job(job_name)["steps"] if s.get("name") == "Log in to ghcr")
+                self.assertIn("--compat-auth-file ~/.docker/config.json", login["run"])
 
     def test_justfile_build_recipe_refuses_arbitrary_rm(self):
         """build-printing-runtime-layer must not accept an arbitrary DIR to rm -rf."""
