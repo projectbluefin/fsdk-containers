@@ -35,12 +35,62 @@ CANONICAL_EXCLUDE = [
 
 class CatalogError(Exception):
     """A record is missing, malformed, or contradicts its filename."""
+SLIM_PATH = REPO_ROOT / "include" / "slim.yml"
+
 # include/slim.yml's slim-distroless-commands unconditionally deletes these from
 # the shipped layer of every kind: distroless image. A distroless record that
 # also names one in gates.require_binaries can never pass verification: the
-# no-shell forbid gate and the require-binary gate assert opposite things about
-# the same path, so the image is red no matter what it builds.
+# forbid gates (no-shell, no-base-userland) and the require-binary gate assert
+# opposite things about the same path, so the image is red no matter what it
+# builds.
 SHELL_BINARIES = ("bash", "sh")
+
+
+def _slim_stripped_usr_bin() -> tuple[str, ...]:
+    """Names slim-distroless-commands removes from usr/bin by explicit rm.
+
+    Read from the recipe itself so the guard cannot drift from it: both the
+    absolute `rm -f "$L"/usr/bin/<name>` lines and the bare names removed inside
+    the `cd "$L"/usr/bin` subshell (the base-userland list).
+    """
+    script = yaml.safe_load(SLIM_PATH.read_text())["slim-distroless-commands"]
+    names: set[str] = set()
+    in_usr_bin = False
+    in_rm = False
+    for raw in script.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            in_rm = False
+            continue
+        if line == 'cd "$L"/usr/bin':
+            in_usr_bin = True
+            continue
+        if line == ")":
+            in_usr_bin = False
+            continue
+        if line.startswith("rm "):
+            in_rm = True
+        if not in_rm:
+            continue
+        for tok in line.split():
+            if tok in ("rm", "\\") or tok.startswith("-"):
+                continue
+            tok = tok.replace('"$L"', "$L").strip("'\"")
+            if tok.startswith("$L/usr/bin/"):
+                name = tok.rsplit("/", 1)[1]
+                if name and "*" not in name:
+                    names.add(name)
+            elif in_usr_bin and "/" not in tok and "*" not in tok:
+                names.add(tok)
+        in_rm = line.endswith("\\")
+    return tuple(sorted(names))
+
+
+# Every usr/bin name a distroless image can never ship: the shell plus the base
+# userland and leaked build tools stripped by the same recipe.
+DISTROLESS_STRIPPED_BINARIES = tuple(
+    sorted(set(SHELL_BINARIES) | set(_slim_stripped_usr_bin()))
+)
 
 
 
@@ -65,12 +115,17 @@ def validate(record: dict) -> dict:
         )
     if record["kind"] != "shell-enabled":
         required = record.get("gates", {}).get("require_binaries", []) or []
-        conflicting = [b for b in required if b in SHELL_BINARIES]
+        conflicting = [b for b in required if b in DISTROLESS_STRIPPED_BINARIES]
         if conflicting:
+            what = (
+                "the shell"
+                if all(b in SHELL_BINARIES for b in conflicting)
+                else "them (include/slim.yml slim-distroless-commands)"
+            )
             raise CatalogError(
                 f"{record['name']}: gates.require_binaries names "
-                f"{', '.join(conflicting)}, but kind: distroless strips the "
-                f"shell; these gates contradict each other"
+                f"{', '.join(conflicting)}, but kind: distroless strips "
+                f"{what}; these gates contradict each other"
             )
     return record
 
