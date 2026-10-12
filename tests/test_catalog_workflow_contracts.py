@@ -2,7 +2,8 @@
 
 Validates safety invariants in .github/workflows/ and Justfile:
 - printing-runtime-layer.yml: needs.build.result == 'success' requirement,
-  same-run immutable index assembly, per-arch signing on all refs,
+  same-run immutable index assembly, per-arch signing on all refs (including
+  removal-of-signing mutations),
   compat-auth-file login for cosign, and safe Justfile cleanup.
 """
 
@@ -48,14 +49,29 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                 "from pathlib import Path\n"
                 "name = Path(sys.argv[0]).name\n"
                 "args = sys.argv[1:]\n"
-                "with open(os.environ['CALLS'], 'a') as stream:\n"
+                "log = Path(os.environ['CALLS'])\n"
+                "prior = [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []\n"
+                "with open(log, 'a') as stream:\n"
                 "    stream.write(json.dumps([name, *args]) + '\\n')\n"
+                "def tags():\n"
+                "    out = set(os.environ.get('PUBLISHED', '').split())\n"
+                "    for c in prior:\n"
+                "        if c[:2] == ['podman', 'push'] or c[:2] == ['skopeo', 'copy']:\n"
+                "            out.add(c[-1].rsplit(':', 1)[-1])\n"
+                "        elif c[:3] == ['docker', 'buildx', 'imagetools']:\n"
+                "            out.add(c[c.index('-t') + 1].rsplit(':', 1)[-1])\n"
+                "    return out\n"
                 "if name == 'podman' and args[0] == 'pull':\n"
                 "    print('fixture-image')\n"
-                "elif name == 'skopeo':\n"
-                "    if '--authfile' in args:\n"
-                "        json.loads(Path(args[args.index('--authfile') + 1]).read_text())\n"
+                "elif name == 'skopeo' and args[0] == 'inspect':\n"
+                "    json.loads(Path(args[args.index('--authfile') + 1]).read_text())\n"
+                "    ref = args[-1]\n"
+                "    if '@' not in ref and ref.rsplit(':', 1)[-1] not in tags():\n"
+                "        sys.exit(1)\n"
                 "    print(json.dumps({'Digest': 'sha256:' + 'a' * 64}))\n"
+                "elif name == 'cosign' and args[0] == 'verify':\n"
+                "    if not (os.environ.get('SIGNED') or any(c[:2] == ['cosign', 'sign'] for c in prior)):\n"
+                "        sys.exit(1)\n"
             )
             stub.chmod(0o755)
             for command in ("podman", "docker", "cosign", "skopeo", "just"):
@@ -89,6 +105,21 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                         calls,
                     )
                     self.assertTrue(any(call[:2] == ["cosign", "verify"] for call in calls))
+
+    def test_publish_scripts_fail_when_signing_is_removed(self):
+        """Dropping `cosign sign` must make verification, and the job, fail."""
+        for job, step in (
+            ("build", "Push architecture image and sign"),
+            ("manifest", "Assemble multi-arch index, sign, and verify"),
+        ):
+            script = _step_script(job, step)
+            mutated = re.sub(r"cosign sign\b[^\n]*", "true", script)
+            self.assertNotEqual(mutated, script)
+            with self.subTest(job=job):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    self._run_script(mutated, "refs/heads/main")
+                self.assertNotIn("syntax error", failure.exception.stderr)
+                self._run_script(script, "refs/heads/main")
 
     def test_publish_scripts_keep_credentials_off_skopeo_argv(self):
         doc = yaml.safe_load((WORKFLOW_DIR / "printing-runtime-layer.yml").read_text())
