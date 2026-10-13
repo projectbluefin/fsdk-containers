@@ -45,6 +45,15 @@
       },
       "description": "Absolute paths. Element 0 must exist and execute in the built image. OPTIONAL: omit it for images that genuinely have no entrypoint today (base, static). Generation must not invent one -- adding an Entrypoint to an image that lacks one is a behaviour change, which this plan forbids."
     },
+    "env": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*="
+      },
+      "description": "OCI config Env entries (KEY=VALUE). OPTIONAL: emitted only when present, so records without it keep their generated element and BST cache key unchanged."
+    },
     "smoke": {
       "description": "How to prove this image runs. Either a smoke-test block, or the literal string \"none\" for images that genuinely have no smoke test in the Justfile today (base, static). Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
       "oneOf": [

@@ -1,0 +1,53 @@
+name: BuildStream cache config
+description: >-
+  Point `just bst` at the mTLS cache.projectbluefin.io:11002 CAS when the
+  CASD_CLIENT_CERT / CASD_CLIENT_KEY step env is set: push on push and
+  workflow_dispatch to main, pull-only everywhere else. Without both values
+  (forks, unprovisioned repos) it does nothing and project.conf's pull-only
+  remotes apply unchanged. Mirrors projectbluefin/dakota's
+  generate-bst-ci-config; see docs/skills/ci-tooling/SKILL.md.
+
+runs:
+  using: composite
+  steps:
+    - name: Write BuildStream user config
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+        REF: ${{ github.ref }}
+      run: |
+        set -euo pipefail
+        if [[ -z "${CASD_CLIENT_CERT:-}" || -z "${CASD_CLIENT_KEY:-}" ]]; then
+          echo "CASD credentials not provisioned: project.conf pull-only remotes only"
+          exit 0
+        fi
+        # Never push from a pull request (fork safety) or a non-main ref.
+        PUSH=false
+        if [[ "${EVENT}" == push || "${EVENT}" == workflow_dispatch ]] && [[ "${REF}" == refs/heads/main ]]; then
+          PUSH=true
+        fi
+        # Under the checkout, which `just bst` mounts at /src; gitignored.
+        dir="${GITHUB_WORKSPACE}/.casd"
+        mkdir -p "${dir}"
+        (
+          umask 077
+          printf '%s\n' "${CASD_CLIENT_CERT}" > "${dir}/client.crt"
+          printf '%s\n' "${CASD_CLIENT_KEY}" > "${dir}/client.key"
+        )
+        SERVER="  servers:
+          - url: https://cache.projectbluefin.io:11002
+            push: ${PUSH}
+            connection-config:
+              keepalive-time: 180
+              retry-limit: 5
+              retry-delay: 1000
+              request-timeout: 180
+            auth:
+              client-cert: /src/.casd/client.crt
+              client-key: /src/.casd/client.key"
+        # Global user-config remotes are added to, not replace, every
+        # project's own (override-project-caches defaults to false), so
+        # junctioned FSDK elements such as linux.bst are pushed and pulled too.
+        printf 'artifacts:\n%s\nsource-caches:\n%s\n' "${SERVER}" "${SERVER}" > "${dir}/buildstream.conf"
+        echo "BST_FLAGS=--config /src/.casd/buildstream.conf" >> "${GITHUB_ENV}"
+        echo "cache.projectbluefin.io:11002 configured, push=${PUSH}"
