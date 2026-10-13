@@ -27,6 +27,16 @@ depends:
 - freedesktop-sdk.bst:components/libgpg-error.bst
 - freedesktop-sdk.bst:components/libseccomp.bst
 - freedesktop-sdk.bst:components/glib.bst
+# mount_program for the overlay driver (storage.conf below): native overlay
+# needs CAP_SYS_ADMIN, which a buildah container normally lacks.
+- freedesktop-sdk.bst:components/fuse-overlayfs.bst
+# buildah resolves its network backend on every working-container command
+# (`from`, `commit`, ...) and errors out unless the netavark binary exists.
+- freedesktop-sdk.bst:components/netavark.bst
+# OCI runtime for `buildah run` / RUN steps under oci isolation
+# (BUILDAH_ISOLATION=oci, needs --privileged and --network=host|none: the
+# default bridge network would also need pasta and nftables).
+- freedesktop-sdk.bst:components/crun.bst
 
 variables:
   strip-binaries: ""
@@ -35,8 +45,8 @@ sources:
 - kind: git_repo
   url: github:containers/buildah.git
   # renovate: datasource=github-tags depName=containers/buildah
-  track: v1.45.1
-  ref: v1.45.1-0-gc8ac1936bb2e956c1d8790eba1bb3829a1241369
+  track: v1.45.2
+  ref: v1.45.2-0-ge6fe86e627dc3af52637e26e42f2cb26b92b8758
 
 config:
   build-commands:
@@ -46,3 +56,15 @@ config:
   install-commands:
   - |
     install -D -m 755 bin/buildah "%{install-root}/usr/bin/buildah"
+  # Default to overlay like quay.io/buildah/stable. The containers-common
+  # storage.conf leaves the driver unset, so buildah auto-detected vfs.
+  - |
+    mkdir -p "%{install-root}/etc/containers"
+    cat > "%{install-root}/etc/containers/storage.conf" <<'EOF'
+    [storage]
+    driver = "overlay"
+
+    [storage.options.overlay]
+    mount_program = "/usr/bin/fuse-overlayfs"
+    mountopt = "nodev,fsync=0"
+    EOF
