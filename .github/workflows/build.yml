@@ -24,8 +24,11 @@ on:
 concurrency:
   # A targeted manual run must not cancel an unrelated image's targeted run.
   # oci-images.yml independently serializes publication for the same image.
+  # Only pull requests cancel superseded runs: a main run spends ~2h on
+  # node.bst, and cancelling it on every push left 67 of the last 100 main
+  # runs unfinished. See docs/skills/ci-tooling/SKILL.md.
   group: build-${{ github.event.client_payload.ref || github.ref }}-${{ github.event.inputs.image || 'all' }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Ceiling permissions for the whole run. Reusable-workflow calling jobs
 # (oci-images, vm-guest) cannot be granted more than this; each restricts
@@ -276,6 +279,8 @@ jobs:
       id-token: write
     with:
       ref: ${{ github.event.client_payload.ref || github.ref }}
+    secrets:
+      CASD_CLIENT_KEY: ${{ secrets.CASD_CLIENT_KEY }}
 
   # Compact status/duration summary across every target (OCI images x arch,
   # manifest assembly, and the VM guest x arch) so slow BuildStream legs are
