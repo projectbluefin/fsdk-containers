@@ -1,4 +1,9 @@
 # actionlint configuration
+paths:
+  .github/workflows/prow.yml:
+    ignore:
+      - 'has no explicit cache access limit for low-trust trigger'
+
 # https://github.com/rhysd/actionlint/blob/main/docs/config.md
 
 # actionlint does not yet know the ubuntu-26.04 runner images. Until upstream
