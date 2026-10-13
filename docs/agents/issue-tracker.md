@@ -6,9 +6,8 @@ Issues and PRDs for this repo live as GitHub issues on
 > **Scope boundary.** Only ever write to `projectbluefin/fsdk-containers`.
 > Never create, edit, label, or close issues in `ublue-os/*`.
 
-Label strings are **not** the canonical skill names — see
-[`triage-labels.md`](./triage-labels.md) for the mapping onto this repo's
-numbered lifecycle vocabulary.
+Labels and triage follow the Prow workflow — see
+[`triage-labels.md`](./triage-labels.md).
 
 ## Conventions
 

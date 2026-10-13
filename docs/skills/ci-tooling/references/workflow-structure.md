@@ -32,6 +32,7 @@ Supporting workflows, none of which touch publication:
 | `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
 | `brew-nspawn.yml` | weekly, dispatch | `just verify-brew` for the non-distroless brew machine image (detail below) |
+| `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
 
 
 | Job | Trigger | Purpose |
@@ -70,7 +71,7 @@ failed and skipped job links in one canonical `[CI] Build images failed on main`
 issue, reopening it when a later failure occurs. Keep the workflow-level
 concurrency group: without it, simultaneous failed runs can each observe no
 open issue and create duplicates. It searches all issue states and reapplies
-the `area/ci` and `priority/p1` labels whenever it reopens the issue.
+the `kind/bug` and `priority/critical-urgent` labels whenever it reopens the issue.
 
 ### Per-image OCI fan-out
 

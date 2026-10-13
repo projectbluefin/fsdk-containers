@@ -1,36 +1,25 @@
-# Triage Labels
+# Triage Labels & Prow Commands
 
-The skills speak in terms of five canonical triage roles. This file maps those
-roles to the actual label strings used in this repo's issue tracker.
+This repository follows the org-wide [Prow](https://github.com/cncf/prow-github-actions)
+workflow and label configuration from
+[`projectbluefin/.project/prow.yaml`](https://github.com/projectbluefin/.project/blob/main/prow.yaml)
+and [`projectbluefin/common`](https://github.com/projectbluefin/common/blob/main/docs/skills/label-workflow.md).
 
-This repo does **not** use the canonical label names. It inherits the numbered
-lifecycle vocabulary from
-[`projectbluefin/common`](https://github.com/projectbluefin/common/blob/main/docs/skills/label-workflow.md).
-Apply the right-hand column — never create the left-hand names as new labels.
+## Lifecycle and commands
 
-| Canonical role    | Label in our tracker | Meaning                                        |
-| ----------------- | -------------------- | ---------------------------------------------- |
-| `needs-triage`    | `1-triage`           | New work awaiting human triage                 |
-| `needs-info`      | `2-discussing`       | Requires discussion or a clarified design      |
-| `ready-for-agent` | `3-clanker-queue`    | Admitted to the agent-maintained queue         |
-| `ready-for-human` | `3-human-queue`      | Admitted to the human-maintained queue         |
-| `wontfix`         | `wontfix`            | Will not be actioned                           |
+1. **Filed:** Issue forms apply `needs-human` and a kind (`kind/bug`, `kind/feature`, `kind/cleanup`).
+2. **Triage:** Maintainers/triagers set kind (`/kind ...`), area (`/area ...`), or priority (`/priority ...`).
+3. **Accepted:** When scope is accepted and ready, comment `/triage accepted`.
+4. **Agent pickup:** Maintainers remove `needs-human`. Hive assigns work only when `triage/accepted` is present and neither `needs-human` nor `blocked` is set.
+5. **Blocked:** `/label blocked` / `/remove-label blocked`.
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the
-corresponding label string from this table.
+## PR review and merge
 
-## Related labels not in the canonical set
-
-These exist in the tracker and carry meaning the five roles don't cover. Leave
-them alone unless a skill's intent clearly matches:
-
-- `4-review` — a pull request is awaiting review
-- `blocked` — blocked on human input or an external dependency
-- `hold` — intentionally paused
-- `agent/contributor` — work done by the contributor agent
-
+- Reviewers comment `/lgtm` (pushing new commits clears `lgtm`).
+- Approvers in [`OWNERS`](../../OWNERS) comment `/approve`.
+- Merges are processed on `lgtm` + `approved` + green checks (via Prow Tide / merge queue where enabled).
+- `/hold` / `/hold cancel` blocks or unblocks merge.
 ## Ownership boundary
 
-Humans triage and approve; agents claim `3-clanker-queue` issues. Clankers is
-authenticated Hive transport only, not merge authority. Never apply labels to or
-open issues in `ublue-os/*`.
+Humans triage and approve via `/triage accepted`, `/lgtm`, and `/approve`.
+Clankers transports Hive assignments. Never write to `ublue-os/*`.
