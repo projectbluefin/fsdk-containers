@@ -20,6 +20,10 @@ on:
         description: Git ref to check out (supports repository_dispatch client_payload.ref).
         required: true
         type: string
+    secrets:
+      CASD_CLIENT_KEY:
+        required: false
+        description: Client TLS private key for the Dakota BuildStream remote CAS.
 
 permissions: {}
 
@@ -70,6 +74,12 @@ jobs:
       - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2
         with:
           tool: just
+      # Pushes built artifacts (notably aarch64 linux.bst) to the shared
+      # cache on main only.
+      - uses: ./.github/actions/bst-cache-config
+        env:
+          CASD_CLIENT_CERT: ${{ vars.CASD_CLIENT_CERT }}
+          CASD_CLIENT_KEY: ${{ secrets.CASD_CLIENT_KEY }}
 
       - name: Install qemu-img (raw -> QCOW2 conversion) and zstd (asset compression)
         run: |

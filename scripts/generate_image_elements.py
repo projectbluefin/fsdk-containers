@@ -203,6 +203,9 @@ def render_oci(record: dict) -> str:
         # text must be byte-for-byte identical to avoid changing the BST cache key.
         ep = ", ".join(yaml_single_quote(p) for p in record["entrypoint"])
         lines.append(f"          Entrypoint: [{ep}]")
+    if record.get("env"):
+        env = ", ".join(yaml_single_quote(e) for e in record["env"])
+        lines.append(f"          Env: [{env}]")
     lines.append("          Labels:")
     lines.append(f"            'org.opencontainers.image.title': '{name}'")
     lines.append(
