@@ -75,8 +75,8 @@ jobs:
             gh issue reopen "${EXISTING}" --repo "${{ github.repository }}"
             gh issue edit "${EXISTING}" \
               --repo "${{ github.repository }}" \
-              --add-label 'area/ci' \
-              --add-label 'priority/p1' \
+              --add-label 'kind/bug' \
+              --add-label 'priority/critical-urgent' \
               --body "## CI alert: Build images failed on \`${BRANCH}\`
 
           Workflow run: ${RUN_LINK}
@@ -92,7 +92,7 @@ jobs:
             gh issue create \
               --repo "${{ github.repository }}" \
               --title "[CI] Build images failed on main" \
-              --label 'area/ci,priority/p1' \
+              --label 'kind/bug,priority/critical-urgent' \
               --body "## CI alert: Build images failed on \`${BRANCH}\`
 
           Workflow run: ${RUN_LINK}

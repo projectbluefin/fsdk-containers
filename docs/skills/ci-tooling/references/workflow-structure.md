@@ -84,8 +84,8 @@ goes red, so check that run when an alert unexpectedly stays open. Recovery
 comments use the run's `html_url`; the `workflow_run` payload has no
 `head_url`. Keep the concurrency group:
 without it, simultaneous failed runs can each observe no open issue and create
-duplicates. It searches all issue states and reapplies the `area/ci` and
-`priority/p1` labels whenever it reopens the issue.
+duplicates. It searches all issue states and reapplies the `kind/bug` and
+`priority/critical-urgent` labels whenever it reopens the issue.
 
 The canonical alert lookup paginates the repository Issues API with `state=all`
 and matches the full title exactly, excluding pull requests. Do not take the
