@@ -5,9 +5,11 @@ Detail referenced from [`../SKILL.md`](../SKILL.md). Read the skill first.
 Do not assume every upstream Go binary is already stripped, or that changing
 versions will make it smaller. Inspect and measure each release artifact with
 `file` and `stat`, then smoke-test the stripped copy before changing its element.
-Measured on Argo v4.0.8 (current pin: v4.1.1): the release contains debug data,
-and GNU `strip --strip-unneeded` reduced the amd64 CLI from 190,044,513 to
-142,699,000 bytes while preserving its command surface. Argo v3.7.17 was nearly
+Measured on Argo v4.0.8: the release contains debug data, and GNU
+`strip --strip-unneeded` reduced the amd64 CLI from 190,044,513 to
+142,699,000 bytes while preserving its command surface. The current pin in
+`elements/lab-runner/argo.bst:argo_version` is updated by Renovate; the
+strip-in-place step in that element must keep pace. Argo v3.7.17 was nearly
 the same size as v4 before and after stripping, so downgrading does not recover
 space. kubectl v1.36.3 is already stripped and does not benefit from another pass.
 
