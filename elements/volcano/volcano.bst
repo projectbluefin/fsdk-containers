@@ -92,7 +92,7 @@ sources:
   - kind: git_repo
     url: github:volcano-sh/volcano.git
     # renovate: datasource=github-tags depName=volcano-sh/volcano
-    track: v1.15.3
+    track: v1.16.0
     ref: v1.15.3-0-gd2dd7024f4af3070f9d99d68a78973893908a743
   # Authoritative vendor manifest from `go mod vendor` at the pinned tag
   # (handles the 37 replace directives the go_module plugin cannot
