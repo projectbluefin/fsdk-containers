@@ -138,6 +138,7 @@ class YamlSingleQuoteTests(unittest.TestCase):
         record["description"] = "It's a \"quoted\": description"
         record["entrypoint"] = ["/usr/bin/it'tool"]
         record["keywords"] = "a,b: c"
+        record["env"] = ["K=it's"]
         text = gen.render_oci(record)
         # The element file itself must still parse...
         self.assertIsInstance(yaml.safe_load(text), dict)
@@ -145,6 +146,7 @@ class YamlSingleQuoteTests(unittest.TestCase):
         self.assertIn("'It''s a \"quoted\": description'", text)
         self.assertIn("Entrypoint: ['/usr/bin/it''tool']", text)
         self.assertIn("'a,b: c'", text)
+        self.assertIn("Env: ['K=it''s']", text)
 
     def test_escaping_is_a_noop_for_every_committed_record(self):
         # No current record value contains an apostrophe, so the generated
