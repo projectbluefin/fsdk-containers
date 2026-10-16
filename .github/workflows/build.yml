@@ -54,6 +54,8 @@ jobs:
           tool: just
       - name: Resolve element graph
         run: just validate
+      - name: Validate OCI publish smoke contract
+        run: tests/oci-publish-smoke-contract.sh
 
   # Pull-request build gate. `just validate` only resolves the graph, so
   # before this job existed a PR could be green while main went red on the

@@ -34,6 +34,16 @@ Supporting workflows, none of which touch publication:
 | `brew-nspawn.yml` | weekly, dispatch | `just verify-brew` for the non-distroless brew machine image (detail below) |
 | `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
 
+Both tables above are a gated inventory, not a summary.
+`tests/test_catalog_ci_inventory.py` fails if a file in
+`.github/workflows/` or a composite action in `.github/actions/` is not named
+here, and fails if this document names a workflow file that no longer exists.
+Adding a workflow means adding its row in the same change.
+
+Caveat, tracked by #279: `image-catalog.yml`'s `paths:` filter does not yet
+list `.github/**` or `docs/skills/ci-tooling/**`, so a pull request that *only*
+adds a workflow does not trigger the job that runs this gate. Until that filter
+is widened, run `just catalog-check` locally when you add one.
 
 | Job | Trigger | Purpose |
 |---|---|---|
@@ -144,6 +154,26 @@ They are separate jobs with `permissions: contents: read` and no login, tag,
 push, sign, attest, or release step anywhere in them. Gating publication with
 an `if:` inside a shared job means one edit away from a fork PR publishing to
 GHCR; gating it by *not having the code path* does not. Keep it that way.
+
+### Test-gate coverage counts `run: just <recipe>`
+
+`tests/test_catalog_gate_coverage.py` proves every `tests/test_*.py` is really
+executed somewhere. A workflow reaches the Python suite in two ways and both
+count: spelling the `unittest discover` invocation itself, as
+`image-catalog.yml` and `skill-catalog.yml` do, or `run: just <recipe>` and
+letting the recipe spell it, as `pr-guest-contract` does with
+`just podman-vm-check`. Recipe names are resolved against the `Justfile`
+transitively across recipe dependencies, so adding a `run: just` step is a
+legitimate way to close a coverage hole — not only a literal discovery step.
+
+That model reads workflow *text* and does not evaluate a job's `if:`, so a
+recipe invoked only from a conditional job still scores as covered. Close that
+gap in `elements/targets.json` rather than in the model: `vm_guest_paths` lists
+`tests/test_donate_clanker_bootstrap.py` itself, because `pr-guest-contract` is
+the only job that runs it and that job is skipped unless `vm_guest` is
+selected. A new test module reachable only from a path-gated job needs the same
+entry, and `test_vm_guest_paths_select_every_module_its_job_runs` fails if it
+is missing.
 
 ### Automation tokens — everything that writes uses Mergeraptor
 
