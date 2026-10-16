@@ -1,7 +1,7 @@
 ---
 name: custom-builds-and-caching
-version: "1.0"
-last_updated: 2026-08-20
+version: "1.1"
+last_updated: 2026-10-16
 id: custom-builds-and-caching
 one_line_purpose: Configure custom BuildStream builds and CAS cache servers for forks and CI.
 entry_point: docs/skills/custom-builds-and-caching.md
@@ -27,6 +27,14 @@ BuildStream 2 is designed with a strong cache-sharing model. In `project.conf`, 
 - **Project Bluefin Cache:** `https://cache.projectbluefin.io:11001` (provides pre-built base and runtime elements for fsdk-containers)
 
 Because these are pre-configured in `project.conf`, any local build or GitHub Actions workflow automatically pulls pre-built layers. You do not need to rebuild the entire Freedesktop SDK from scratch.
+
+Adding a pull cache is a trust-policy change, not only a performance tweak.
+Extending the FSDK junction's artifact remotes trusts that cache's writers for
+the entire toolchain (including gcc, glibc and OpenSSL), not just this project's
+images. Require explicit maintainer approval for that broader trust boundary;
+green image builds and general backlog authorization do not establish it.
+Read-only PR jobs also cannot prove push coverage: inspect the trusted runner's
+user configuration for each project before claiming junction artifacts are shared.
 
 ---
 
