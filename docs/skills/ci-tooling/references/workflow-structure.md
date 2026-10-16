@@ -41,11 +41,6 @@ Both tables above are a gated inventory, not a summary.
 here, and fails if this document names a workflow file that no longer exists.
 Adding a workflow means adding its row in the same change.
 
-Caveat, tracked by #279: `image-catalog.yml`'s `paths:` filter does not yet
-list `.github/**` or `docs/skills/ci-tooling/**`, so a pull request that *only*
-adds a workflow does not trigger the job that runs this gate. Until that filter
-is widened, run `just catalog-check` locally when you add one.
-
 | Job | Trigger | Purpose |
 |---|---|---|
 | `validate` (`build.yml`) | `pull_request` only | `bst show` element graph resolution, no build |
