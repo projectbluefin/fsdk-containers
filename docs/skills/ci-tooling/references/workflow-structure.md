@@ -14,7 +14,7 @@ other in the Actions UI:
 | `oci-images.yml` | `build.yml` via `workflow_call`, `image` input | `build` + `manifest` jobs for exactly one OCI distroless image |
 | `vm-guest.yml` | `build.yml` via `workflow_call` | `guest-contract` job gating a `build` job (matrix arch) for the podman-vm guest disk lane |
 | `printing-base.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `printing/base.bst` per arch from a clean cache and publishes its artifact closure as the signed `printing-base-devel` CAS bundle ([printing-base.md](../../printing-base.md)) |
-| `printing-runtime-layer.yml` | push to `main`, nightly, dispatch (never `pull_request`) | builds `oci/printing-runtime-layer.bst` per arch, pushes and signs it as the shared, pullable `printing-runtime-layer` OCI base layer ([printing-base.md](../../printing-base.md)) |
+| `printing-runtime-layer.yml` | PR, push to `main`, nightly, dispatch | unprivileged native PR build/smoke; other events publish and sign the shared `printing-runtime-layer` OCI base ([printing-base.md](../../printing-base.md)) |
 | `.github/actions/vm-boot-test` | `vm-guest.yml` and `build.yml` | composite action: install QEMU + UEFI firmware for one arch and run `tests/vm-boot.sh`, so the PR gate cannot drift from the release check |
 | `.github/actions/bst-cache-config` | `oci-images.yml` and `vm-guest.yml` | composite action: when `CASD_CLIENT_CERT`/`CASD_CLIENT_KEY` are set, adds `cache.projectbluefin.io:11002` via `BST_FLAGS=--config`; push only on main push/dispatch, else pull; no-op without them; excluded from PR jobs to keep mTLS key off PR runners (see SKILL.md "Slow elements, main-run concurrency, and the shared cache") |
 
@@ -30,7 +30,7 @@ Supporting workflows, none of which touch publication:
 | `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
-| `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*` and `test_printing_base_bundle*` suites. The only workflow that runs the Python tests |
+| `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*`, `test_printing_base_bundle*` and `test_printing_runtime_layer*` suites. The only workflow that runs the Python tests |
 | `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
 | `brew-nspawn.yml` | weekly, dispatch | `just verify-brew` for the non-distroless brew machine image (detail below) |

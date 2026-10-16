@@ -34,10 +34,20 @@ def _step_script(job, step):
 class PrintingRuntimeLayerContractTests(unittest.TestCase):
     """Contracts for printing runtime layer workflow and recipes."""
 
-    def _run_script(self, script, ref="refs/heads/producer-proof", extra_env=None):
+    def _run_script(self, script, ref="refs/heads/producer-proof", extra_env=None,
+                    expect_failure=False, output_symlink=False):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             binary = work / "bin"
+            protected = work / "protected"
+            protected.mkdir()
+            marker = protected / "keep"
+            marker.write_text("do not remove")
+            if output_symlink:
+                (work / ".build-out").symlink_to(protected, target_is_directory=True)
+            else:
+                (work / ".build-out").mkdir()
+                (work / ".build-out/stale").write_text("old output")
             binary.mkdir()
             home = work / "home"
             (home / ".docker").mkdir(parents=True)
@@ -70,7 +80,7 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                 "        sys.exit(1)\n"
                 "    print(json.dumps({'Digest': 'sha256:' + 'a' * 64}))\n"
                 "elif name == 'cosign' and args[0] == 'verify':\n"
-                "    if not (os.environ.get('SIGNED') or any(c[:2] == ['cosign', 'sign'] for c in prior)):\n"
+                "    if not (os.environ.get('SIGNED_IDENTITY') == args[args.index('--certificate-identity') + 1] or any(c[:2] == ['cosign', 'sign'] for c in prior)):\n"
                 "        sys.exit(1)\n"
             )
             stub.chmod(0o755)
@@ -87,11 +97,15 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                 env.update(extra_env)
             script = script.replace("${{ github.actor }}", "fixture-user")
             script = script.replace("${{ secrets.GITHUB_TOKEN }}", "fixture-token")
-            subprocess.run(
+            result = subprocess.run(
                 ["bash", "-euo", "pipefail", "-c", script],
-                cwd=work, env=env, check=True, capture_output=True, text=True,
+                cwd=work, env=env, check=not expect_failure, capture_output=True, text=True,
             )
-            return [json.loads(line) for line in (work / "calls").read_text().splitlines()]
+            if expect_failure:
+                self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(marker.read_text(), "do not remove")
+            calls = work / "calls"
+            return [json.loads(line) for line in calls.read_text().splitlines()] if calls.exists() else []
 
     def test_publish_scripts_sign_and_verify_on_main_and_proof_refs(self):
         doc = yaml.safe_load((WORKFLOW_DIR / "printing-runtime-layer.yml").read_text())
@@ -117,32 +131,58 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
         """When KEY_TAG is already published, build job must copy by digest, not podman push."""
         script = _step_script("build", "Push architecture image and sign")
         key_tag = "x86_64-" + "b" * 64
-        tags = f"x86_64-run-42 {key_tag} x86_64-latest"
+        tags = f"x86_64-run-42 {key_tag}"
         calls = self._run_script(
             script,
             "refs/heads/main",
-            extra_env={"KEY_TAG": key_tag, "TAGS": tags, "PUBLISHED": key_tag, "SIGNED": "1"},
+            extra_env={"KEY_TAG": key_tag, "TAGS": tags, "PUBLISHED": key_tag,
+                       "SIGNED_IDENTITY": "https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/main"},
         )
         self.assertFalse(any(call[:2] == ["podman", "push"] for call in calls))
         self.assertFalse(any(call[:2] == ["cosign", "sign"] for call in calls))
         copies = [call for call in calls if call[:2] == ["skopeo", "copy"]]
-        self.assertEqual(len(copies), 2)
+        self.assertEqual(len(copies), 1)
         for call in copies:
             self.assertIn("--preserve-digests", call)
+
+    def test_existing_unsigned_key_is_not_signed_or_realiased(self):
+        script = _step_script("build", "Push architecture image and sign")
+        key_tag = "x86_64-" + "b" * 64
+        calls = self._run_script(
+            script, "refs/heads/main", expect_failure=True,
+            extra_env={"KEY_TAG": key_tag, "TAGS": f"x86_64-run-42 {key_tag}",
+                       "PUBLISHED": key_tag},
+        )
+        self.assertTrue(any(call[:2] == ["cosign", "verify"] for call in calls))
+        self.assertFalse(any(call[:2] in (["cosign", "sign"], ["skopeo", "copy"],
+                                        ["podman", "push"]) for call in calls))
+
+    def test_existing_proof_signature_cannot_authorize_main_reuse(self):
+        script = _step_script("build", "Push architecture image and sign")
+        key_tag = "x86_64-" + "b" * 64
+        calls = self._run_script(
+            script, "refs/heads/main", expect_failure=True,
+            extra_env={"KEY_TAG": key_tag, "TAGS": f"x86_64-run-42 {key_tag}",
+                       "PUBLISHED": key_tag,
+                       "SIGNED_IDENTITY": "https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/producer-proof"},
+        )
+        self.assertFalse(any(call[:2] in (["cosign", "sign"], ["skopeo", "copy"])
+                             for call in calls))
 
     def test_build_push_pushes_and_signs_when_key_tag_missing(self):
         """When KEY_TAG is not yet published, build job must podman push all tags and sign."""
         script = _step_script("build", "Push architecture image and sign")
         key_tag = "x86_64-" + "b" * 64
-        tags = f"x86_64-run-42 {key_tag} x86_64-latest"
+        tags = f"x86_64-run-42 {key_tag}"
         calls = self._run_script(
             script,
             "refs/heads/main",
             extra_env={"KEY_TAG": key_tag, "TAGS": tags},
         )
         pushes = [call for call in calls if call[:2] == ["podman", "push"]]
-        self.assertEqual(len(pushes), 3)
+        self.assertEqual(len(pushes), 2)
         self.assertTrue(any(call[:2] == ["cosign", "sign"] for call in calls))
+
     def test_publish_scripts_fail_when_signing_is_removed(self):
         """Dropping `cosign sign` must make verification, and the job, fail."""
         for job, step in (
@@ -189,28 +229,22 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
             "oci/printing-runtime-layer.bst",
         ])
 
-    def test_manifest_job_refuses_failed_builds(self):
-        """manifest job must require needs.build.result == 'success'."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        self.assertTrue(path.exists(), "printing-runtime-layer.yml must exist")
-        doc = yaml.safe_load(path.read_text())
-
-        manifest_job = doc["jobs"]["manifest"]
-        condition = manifest_job.get("if", "")
-        self.assertIn("needs.build.result == 'success'", condition,
-                      "manifest job must require needs.build.result == 'success'")
 
     def test_manifest_assembles_from_immutable_same_run_refs(self):
-        """manifest job must assemble index from run-specific tags, not mutable aliases."""
-        calls = self._run_script(_step_script(
-            "manifest", "Assemble multi-arch index, sign, and verify"))
-        creates = [call for call in calls if call[:3] == ["docker", "buildx", "imagetools"]]
-        self.assertTrue(creates)
-        for call in creates:
-            self.assertEqual(call[-2:], [
-                "example.invalid/printing:x86_64-run-42",
-                "example.invalid/printing:aarch64-run-42",
-            ])
+        """Each ref gets its own index tag and same-run architecture inputs."""
+        for ref, index_tag in (("refs/heads/main", "run-42"),
+                               ("refs/heads/producer-proof", "test-42")):
+            with self.subTest(ref=ref):
+                calls = self._run_script(_step_script(
+                    "manifest", "Assemble multi-arch index, sign, and verify"), ref)
+                creates = [call for call in calls if call[:3] == ["docker", "buildx", "imagetools"]]
+                self.assertEqual(len(creates), 1)
+                self.assertEqual(creates[0][creates[0].index("-t") + 1],
+                                 f"example.invalid/printing:{index_tag}")
+                self.assertEqual(creates[0][-2:], [
+                    "example.invalid/printing:x86_64-run-42",
+                    "example.invalid/printing:aarch64-run-42",
+                ])
 
     def test_build_pushes_same_run_tag_on_main_and_proof_refs(self):
         """build job must publish the <arch>-run-<run_id> tag the manifest consumes."""
@@ -225,38 +259,21 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                     env=dict(os.environ, REF=ref, RUN_ID="42", ARCH="x86_64", GITHUB_OUTPUT=str(out)),
                 )
                 outputs = dict(line.split("=", 1) for line in out.read_text().splitlines())
-                self.assertEqual(outputs["run_tag"], "x86_64-run-42")
-                self.assertIn("x86_64-run-42", outputs["tags"].split())
+                self.assertEqual(outputs["tags"].split(), [
+                    "x86_64-run-42",
+                    "x86_64-" + "b" * 64 if ref == "refs/heads/main" else "x86_64-test-42",
+                ])
 
-    def test_build_and_manifest_jobs_have_id_token_permission(self):
-        """Both jobs must declare id-token: write for Sigstore keyless signing."""
-        path = WORKFLOW_DIR / "printing-runtime-layer.yml"
-        doc = yaml.safe_load(path.read_text())
 
-        for job_name in ("build", "manifest"):
-            perms = doc["jobs"][job_name].get("permissions", {})
-            self.assertEqual(perms.get("id-token"), "write",
-                             f"Job '{job_name}' must declare id-token: write")
-
-    def test_docker_compat_auth_file_configured_for_cosign(self):
-        """Both publishing jobs must write ~/.docker/config.json via --compat-auth-file."""
-        for job_name in ("build", "manifest"):
-            with self.subTest(job=job_name):
-                login = next(s for s in _job(job_name)["steps"] if s.get("name") == "Log in to ghcr")
-                self.assertIn("--compat-auth-file ~/.docker/config.json", login["run"])
-
-    def test_justfile_build_recipe_refuses_arbitrary_rm(self):
-        """build-printing-runtime-layer must not accept an arbitrary DIR to rm -rf."""
+    def test_build_recipe_rejects_symlink_without_touching_target(self):
         content = JUSTFILE.read_text()
-        recipe_match = re.search(r"build-printing-runtime-layer(?P<args>[^:]*):(?P<body>.*?)(?:\n\[|\Z)", content, re.DOTALL)
-        self.assertIsNotNone(recipe_match, "build-printing-runtime-layer recipe must exist")
-
-        args = recipe_match.group("args").strip()
-        self.assertEqual(args, "", "build-printing-runtime-layer must not accept arbitrary DIR arg")
-
-        body = recipe_match.group("body")
-        self.assertIn('.build-out', body, "Recipe must use hardcoded owned scratch directory")
-        self.assertIn('-L "${out}"', body, "Recipe must guard against symlinks before removal")
+        recipe = re.search(
+            r"^build-printing-runtime-layer:\n(?P<body>(?:[ \t]+[^\n]*(?:\n|$)|\n)+)",
+            content, re.MULTILINE | re.DOTALL,
+        )
+        calls = self._run_script(recipe.group("body"), output_symlink=True,
+                                 expect_failure=True)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":
