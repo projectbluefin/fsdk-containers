@@ -72,13 +72,15 @@ config:
       # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2/brotli
       #   instead of node's vendored copies. libuv/llhttp/ada/simdjson stay
       #   bundled — FSDK ships no components for them.
-      # --with-intl=system-icu: the configure default (full-icu) downloads
-      #   ICU at build time, which the network-less sandbox blocks. FSDK's
-      #   icu 78.3 (verified at junction ref 45dfca2b / 26.08beta.2) satisfies
-      #   node's minimum_icu=73 (tools/icu/icu_versions.json) and keeps full
-      #   Intl parity with official node images. Size lever: switching to
-      #   small-icu drops the icu runtime dep (~30 MB) at the cost of
-      #   English-only Intl — a Wave 4 decision.
+      # --with-intl=system-icu: links FSDK's CVE-patched icu 78.3 (node's
+      #   minimum_icu=73, tools/icu/icu_versions.json) with full Intl parity
+      #   with official node images. Alternatives measured 2026-10-09:
+      #   small-icu (bundled, root+en data) drops the ~39 MB icu runtime dep
+      #   but strips break-iterator data, so `new Intl.Segmenter().segment()`
+      #   SEGFAULTs (nodejs/node#51752, open; reproduced on Fedora's
+      #   small-icu node 22 / ICU 78.2). The configure default full-icu builds
+      #   offline from the tarball's deps/icu-small (full data) but embeds the
+      #   same ~32 MB of data in node and forfeits FSDK's icu patching.
       # GRID NOTE 2026-08-09: ghost BuildBarn worker caches were poisoned
       # (empty-blob digest staged as brew's subuid content via
       # write-through-hardlink); fixed by truncating/deleting the corrupt

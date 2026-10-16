@@ -43,7 +43,7 @@ sources:
   url: https://nginx.org/download/nginx-%{nginx_version}.tar.gz
     # sha256 verified live 2026-08-09:
     # curl -sL https://nginx.org/download/nginx-1.31.3.tar.gz | sha256sum
-  ref: 974ed5298a5e398e008704ed5db284e655fc270c596493dbccada452448fc9f1
+  ref: 89ea8a3dc171511f7325043b50e4c036248d9fad5feb7ec809c0b82d5df42c65
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -82,7 +82,7 @@ depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
-  nginx_version: 1.31.6
+  nginx_version: 1.31.7
   hardening-flags: ""
   (?):
   - arch == "x86_64":
