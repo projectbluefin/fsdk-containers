@@ -1,7 +1,7 @@
 ---
 name: nspawn-machine-image
-version: "1.2"
-last_updated: 2026-10-11
+version: "1.3"
+last_updated: 2026-10-16
 id: nspawn-machine-image
 one_line_purpose: Build a non-distroless systemd-nspawn machine image rootfs from FSDK.
 entry_point: docs/skills/nspawn-machine-image.md
@@ -37,10 +37,10 @@ exception does not expand that lane. Do not rebuild upstream-maintained OCI tool
 
 `oci/brew-nspawn.bst` exports three files:
 
-- `homebrew-env-7.0.8.raw.zst`: a plain, single-filesystem **EROFS** machine,
+- `homebrew-env-7.0.9.raw.zst`: a plain, single-filesystem **EROFS** machine,
   not a GPT disk, with the immutable prefix seed at
   `/usr/share/bluefin/homebrew-seed`. `/home/linuxbrew/.linuxbrew` is empty.
-- `homebrew-env-7.0.8.tar.zst`: the existing complete rootfs, with its prefix
+- `homebrew-env-7.0.9.tar.zst`: the existing complete rootfs, with its prefix
   directly at `/home/linuxbrew/.linuxbrew`, for `machinectl import-tar`.
 - `SHA256SUMS`: covers both compressed outputs.
 
@@ -92,9 +92,16 @@ digests **from that same commit**. Preserve architecture parity; never pick a
 floating interpreter or a convenient older GitHub release. The transport is
 restricted to Homebrew's portable-ruby repository and needs Python >=3.12 in bst2.
 
+On a Brew source-pin conflict, retain the new release's `track`/`ref`, the seed
+source `directory` and local assembly source, and align both output-version
+variables. Read all three vendor files at that exact upstream commit before
+changing the bottle pins: 7.0.9 still requires 4.0.7 with the same two digests.
+Neither green seed unit tests nor an older release's boot run validates the new
+producer; dispatch native artifact/boot verification on the resolved branch.
+
 ### Offline boot versus normal package management
 
-Brew 7.0.8 fetches its package API before Ruby commands such as `brew config`.
+Brew 7.0.9 fetches its package API before Ruby commands such as `brew config`.
 The producer bundles the matching Ruby interpreter, not a package API snapshot.
 Verify Ruby and the shell-level `brew --prefix` without network; exercise normal
 `brew config`, installs and updates on a networked consumer. Preserve upstream API

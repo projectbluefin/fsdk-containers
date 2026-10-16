@@ -1,6 +1,6 @@
 kind: import
 description: |
-  Homebrew 7.0.8's matching upstream portable Ruby 4.0.7 bottle. Fetch through
+  Homebrew 7.0.9's matching upstream portable Ruby 4.0.7 bottle. Fetch through
   GHCR's anonymous token exchange before entering the offline build sandbox.
   Digests come from the pinned brew vendor/portable-ruby-{x86_64,arm64}-linux.
 
