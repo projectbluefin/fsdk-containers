@@ -129,10 +129,10 @@ def require_any_paths_for(record: dict) -> list[str]:
 def smoke_argv(record: dict) -> list[str]:
     """Arguments to append to `podman run --rm <ref>` for the smoke test.
 
-    Returns [] for an image whose smoke is "none" (base, static) -- every
-    record must say so explicitly now, there is no longer a silent-omission
-    case. The Justfile/CI fall back to the plain runnability probe then,
-    matching today's behaviour.
+    Returns [] for an image whose smoke is "none" or "no-exec" -- every
+    record must say so explicitly now, there is no longer a
+    silent-omission case. Post-publish CI falls back to a /usr/bin/true
+    runnability probe for "none" and runs nothing for "no-exec" (NO_EXEC=1).
     """
     smoke = record.get("smoke")
     if not isinstance(smoke, dict):
@@ -195,6 +195,8 @@ def main() -> int:
     smoke = record.get("smoke")
     shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
+    # Images without executables cannot run even the /usr/bin/true fallback.
+    print(f"NO_EXEC={1 if record.get('smoke') == 'no-exec' else 0}")
     return 0
 
 

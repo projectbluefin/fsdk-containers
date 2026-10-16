@@ -20,8 +20,10 @@ on:
   workflow_dispatch:
 
 concurrency:
+  # Never cancel on main (13 of the last 40 runs were): a cancelled run can
+  # leave a pinned commit's keyed tag unpublished. Other refs still cancel.
   group: printing-base-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions: {}
 
@@ -56,7 +58,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2
         with:
           tool: just
       - name: Install host requirements
