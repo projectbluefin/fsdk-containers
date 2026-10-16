@@ -140,7 +140,7 @@ def render_oci(record: dict) -> str:
     # several images downloads base once. The child rootfs is a superset of
     # base's (same stack, same slim-distroless recipe), so the diff carries no
     # whiteouts for base files.
-    layered = record["name"] != "base" and record["kind"] == "distroless" and (
+    layered = record["kind"] == "distroless" and (
         "base/base-stack.bst" in record["stack"]["depends"]
     )
     lines = [_header(name, "oci")]

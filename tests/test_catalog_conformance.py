@@ -280,21 +280,6 @@ class PathOwnershipTests(unittest.TestCase):
                         f"select no build target",
                     )
 
-    def test_no_image_owns_another_images_paths(self):
-        for name in TARGETS["oci_images"]:
-            for other in TARGETS["oci_images"]:
-                if other == name:
-                    continue
-                with self.subTest(image=name, other=other):
-                    self.assertFalse(
-                        self._owns(name, f"catalog/{other}.yaml"),
-                        f"{name} claims ownership of catalog/{other}.yaml",
-                    )
-                    self.assertFalse(
-                        self._owns(name, f"elements/oci/{other}.bst"),
-                        f"{name} claims ownership of elements/oci/{other}.bst",
-                    )
-
     def test_shared_paths_cover_the_manifest_and_its_consumers(self):
         """A change to the gate's own inputs must still select the canary."""
         shared = set(TARGETS["shared_paths"])

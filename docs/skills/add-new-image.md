@@ -1,7 +1,7 @@
 ---
 name: add-new-image
-version: "1.1"
-last_updated: 2026-09-18
+version: "1.2"
+last_updated: 2026-10-16
 id: add-new-image
 one_line_purpose: Add a distroless OCI image by declaring one catalog record.
 entry_point: docs/skills/add-new-image.md
@@ -59,6 +59,12 @@ image's stack you depend on (e.g. `lab-runner` → `skopeo/skopeo-stack.bst`) ne
 its directory listed too; otherwise a change there builds only the owning image.
 Junction changes are covered by `shared_paths`.
 
+Layered children also own the exact paths `elements/oci/base.bst` and
+`catalog/base.yaml`: both can change their generated OCI parent dependency.
+Do not broaden these to `elements/base/` or other shared paths; those keep
+the canary policy above. Exercise `just changed-targets` with separate
+base-record-only and base-OCI-only diffs when changing this ownership.
+
 ## Catalog conventions
 
 - `stack.depends` is an ordered list. Its order is load-bearing because it
@@ -76,6 +82,8 @@ Junction changes are covered by `shared_paths`.
   unchanged plus one diff layer, so pulls share base. Its slim recipe must
   only remove files base does not ship; deleting a base file would add a
   whiteout to the diff layer.
+  The base record itself lists FSDK components rather than its own stack, so
+  the dependency rule needs no image-name exception.
 - Descriptions, entrypoints, `env` entries, and keywords are interpolated into
   single-quoted YAML scalars by the generator, which escapes `'` as `''`.
   Apostrophes are safe; do not pre-quote or pre-escape values in the record.
