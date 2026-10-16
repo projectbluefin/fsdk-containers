@@ -146,7 +146,7 @@ The stripped tree transfers cheaper under zstd than gzip. Measured on the
 stripped Python/JVM trees: **zstd-19 ≈ 128 MB vs gzip ≈ 158.6 MB** — a further
 ~19% off transfer size, with no functional risk. Today every `elements/oci/*.bst`
 sets `gzip: disabled` in `build-oci`, so the OCI output uses the oci-builder
-default. zstd:chunked *can* be pushed with podman `--compression-format zstd:chunked`, but
+default. zstd:chunked *can* be pushed (`just push-quay` already does), but
 end-to-end support — registry, podman pull, and Kubernetes runtimes decompressing
 zstd:chunked at startup — is not uniformly guaranteed, and the pull-latency win
 at the kubelet is the unmeasured variable. **This is a maintainer decision, not

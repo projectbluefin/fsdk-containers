@@ -40,8 +40,8 @@ jobs:
         run: 'python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt'
 
       # Exercises the generator's guard rails: missing front matter, missing
-      # required keys, an entry_point that disagrees with its own path, and
-      # validate_catalog error reporting.
+      # required keys, an entry_point that disagrees with its own path, the
+      # pin_unchanged_generated_at logic, and validate_catalog error reporting.
       - name: Generator guard rails hold
         run: python3 -m unittest discover -s tests -p 'test_skill_index*.py' -v
 

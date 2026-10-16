@@ -7,7 +7,8 @@ element, and the junctions named in ``project.conf``. The walk is static
 BuildStream environment — unlike ``just validate``, which needs ``bst``.
 
 Elements that are intentionally inert — fleet-batch spikes tracked in
-issues #146/#144 —
+issues #146/#144, see
+``docs/superpowers/specs/2026-08-20-fleet-batch-improvement-design.md`` —
 must be declared in SPIKE_ELEMENTS below. The registry is keyed by element
 *file*, not by directory, because graduation happens per file: a spike
 directory can have its stack wired into a published image while its
