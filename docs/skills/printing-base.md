@@ -193,7 +193,7 @@ the parent differently, breaking blob digest equality. To preserve Layer 0 ident
    ```sh
    ref=ghcr.io/projectbluefin/printing-runtime-layer:x86_64-<full-key>
    cosign verify \
-     --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
+     --certificate-identity https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/main \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com "${ref}"
    skopeo copy --preserve-digests "docker://${ref}" oci:/parent:layer
    ```
