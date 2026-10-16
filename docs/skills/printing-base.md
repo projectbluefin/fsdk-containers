@@ -1,7 +1,7 @@
 ---
 name: printing-base
-version: "1.4"
-last_updated: 2026-09-27
+version: "1.5"
+last_updated: 2026-10-16
 id: printing-base
 one_line_purpose: Build, publish, and consume the shared printing base (printing/base.bst) for the printer applications.
 entry_point: docs/skills/printing-base.md
@@ -137,80 +137,71 @@ has no catalog record.
 
 ## Shared printing runtime layer (the base layer, #342)
 
-`printing-base-devel` above is a devel-time cache fragment; it is never a
-runnable image and never a base layer. `oci/printing-runtime-layer.bst` is
-the runtime-only, slimmed, single-layer OCI image built from
-`printing/runtime-stack.bst` (`printing/base.bst` plus OS runtime pieces:
-`runtime-gnu`, `runtime-minimal`, `ca-certificates`, `tzdata`, `python3`)
-via `printing/runtime-layer.bst` and `include/slim-printing.yml`.
-`.github/workflows/printing-runtime-layer.yml` builds, pushes and signs it
-as `ghcr.io/projectbluefin/printing-runtime-layer`:
+`printing-base-devel` is a devel-time cache fragment, never a runtime base.
+`oci/printing-runtime-layer.bst` instead publishes the slimmed runtime from
+`printing/runtime-stack.bst`: `printing/base.bst`, OS runtime, Python, catatonit
+and D-Bus. The compose excludes devel/debug domains; `include/slim-printing.yml`
+applies its removals and filesystem gate before OCI assembly.
 
-- `<arch>-<full-key>` and `<arch>-latest` plus a multi-arch `:latest` index,
-  from `main` only. Any other ref pushes `<arch>-test-<run_id>` plus a
-  `:test-<run_id>` index.
-- Every run, including the nightly schedule, also pushes `<arch>-run-<run_id>`:
-  the immutable same-run refs the index is assembled from.
-- Keyless cosign signature on every per-arch and index digest (GitHub OIDC).
-- Retention: consumers pin `<arch>-<full-key>` tags; never prune them.
-  `ghcr-cleanup.yml` does not cover this package yet, so `<arch>-run-<run_id>`
-  and branch-dispatch `test` tags accumulate until removed by hand.
+`.github/workflows/printing-runtime-layer.yml` builds and smoke-tests pull requests
+on both native architectures with only `contents: read`: no login, push, signing
+or OIDC. Other events publish `ghcr.io/projectbluefin/printing-runtime-layer`:
+- Main publishes `<arch>-<full-key>` and the multi-arch `run-<run_id>` index.
+- Other dispatched refs publish `<arch>-test-<run_id>` and `test-<run_id>`.
+- Every publication also creates `<arch>-run-<run_id>` for same-run index inputs.
+  The index requires both architecture jobs to succeed; main runs never cancel.
+- No `latest` aliases. Per-arch and index digests have keyless cosign signatures.
+- Consumers pin keyed tags, then resolve and verify by digest. Existing keyed
+  digests must already verify against this exact workflow/ref **before** copying
+  aliases; never bless an unsigned registry image with a new workflow signature.
+  Only freshly built/pushed content is eligible for new signing.
+- Key tags must be retained. Cleanup of run/test tags is tracked in #376;
+  `ghcr-cleanup.yml` does not cover this package yet.
 
-The runtime build uses the bundle recipe's source-cache stall workarounds.
-Publisher inspection reuses the login's Docker auth file; credentials stay
-off Skopeo's command line. Shell-executed contract tests cover both signing
-jobs on main and proof refs, including removal-of-signing mutations.
+`just printing-runtime-layer-key` prints the host-arch key;
+`just build-printing-runtime-layer` builds and checks out to `.build-out`, refusing
+symlink outputs. It uses the devel bundle's source-cache stall workarounds.
 
-**Consumer wiring & diff mechanics.** In `build-oci`, `parent.image` (/parent)
-declares the lower layer and `layer:` (/layer) contains the **full final rootfs**
-(not an app-only subset). The diff builder (`layer_builder.py:create_layer`)
-skips identical files and emits whiteouts for removals (e.g. 700 locale deletions
-in Gutenprint #65), producing an app-only delta overlay in Layer 1.
+**Consumer wiring.** `parent.image` is a verified OCI layout; `layer` is the
+**full final rootfs**, not an app-only subset. FSDK's `build-oci` diff builder skips
+identical files and emits whiteouts for removals. Use `gzip: gzip`, not `disabled`
+(and not `enabled`): the pinned [OCI builder](https://gitlab.com/freedesktop-sdk/freedesktop-sdk/-/blob/32c5fea70e827885fc805d38a9dc5716c39ed173/files/oci/oci_builder/image_builder.py)
+copies a gzip-compressed parent blob byte-for-byte only in gzip mode.
 
 ```yaml
-config:
-  commands:
-    - |
-      cd "%{install-root}"
-      build-oci <<EOF
-      mode: oci
-      gzip: disabled
-      images:
-      - os: linux
-        architecture: "%{go-arch}"
-        parent:
-          image: /parent                          # staged verified OCI layout
-        layer: /layer                              # full final rootfs (diff-built)
-        config: {...}
-      EOF
+mode: oci
+gzip: gzip
+images:
+- os: linux
+  architecture: "%{go-arch}"
+  parent:
+    image: /parent
+  layer: /layer
 ```
 
-**Publication boundary & blob preservation.** Local `build-oci` with `gzip: disabled`
-outputs uncompressed tar DiffIDs. Pushing through container storage recompresses
-the parent differently, breaking blob digest equality. To preserve Layer 0 identity:
-1. Verify, then seed the parent from the pinned per-arch tag (or its digest):
-
-   ```sh
-   ref=ghcr.io/projectbluefin/printing-runtime-layer:x86_64-<full-key>
-   cosign verify \
-     --certificate-identity https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/main \
-     --certificate-oidc-issuer https://token.actions.githubusercontent.com "${ref}"
-   skopeo copy --preserve-digests "docker://${ref}" oci:/parent:layer
-   ```
-2. Carry the original verified compressed parent descriptor and blob into the child
-   OCI layout, leaving child Layer 1 and config untouched.
-3. Publish with `skopeo copy --preserve-digests` directly to the registry.
-
-A child published this way must reuse the producer's compressed Layer 0
-blob byte for byte. Compare the first layer digest of both manifests:
-
+Resolve once, verify and copy the **same digest**; abort on any failed command:
 ```sh
-skopeo inspect --raw docker://ghcr.io/projectbluefin/printing-runtime-layer:x86_64-<full-key> | jq -r '.layers[0].digest'
-skopeo inspect --raw docker://<child-image>:<child-tag> | jq -r '.layers[0].digest'
+set -eu
+repo=ghcr.io/projectbluefin/printing-runtime-layer
+tag='x86_64-<full-key>'
+digest="$(skopeo inspect --format '{{.Digest}}' "docker://${repo}:${tag}")"
+ref="${repo}@${digest}"
+cosign verify \
+  --certificate-identity https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com "${ref}"
+skopeo copy --preserve-digests "docker://${ref}" oci:/parent:layer
 ```
 
-**Rule: the shared layer's digest only moves when this repo's printing runtime
-bumps** (stack, compose, slim recipe, patches, or FSDK junction).
+Build the child with the configuration above, then publish its OCI layout directly
+with `skopeo copy --preserve-digests oci:<child-layout> docker://<child-image>:<tag>`.
+Do not round-trip it through container storage, which may recompress Layer 0.
+Compare `skopeo inspect --raw docker://<ref> | jq -r '.layers[0].digest'` for parent
+and child: they must match. Four-family adoption and pull-time dedup remain #342's
+consumer-side acceptance criteria; a producer build alone does not complete them.
+
+**Rule:** the keyed shared-layer digest only moves on a printing runtime bump
+(stack, compose, slim recipe, patches, or FSDK junction); already-signed keyed
+images are reused without re-pushing, independent of runner compressor changes.
 
 ## Consumer contract
 

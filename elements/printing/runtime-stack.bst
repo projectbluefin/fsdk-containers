@@ -5,8 +5,8 @@ description: Shared printing runtime stack for the projectbluefin printer applic
 # need at runtime and nowhere else: the printing/base.bst devel stack (CUPS,
 # cups-filters, libcupsfilters, libppd, ghostscript, avahi-printing, PAPPL,
 # pappl-retrofit) plus the OS runtime every one of them also depends on
-# (bash entrypoint, python3 for pyppd PPD archives and HPLIP, CA certs,
-# tzdata). printing/runtime-layer.bst chisels this down to runtime-only and
+# (bash entrypoint, python3 for pyppd PPD archives and HPLIP, catatonit,
+# D-Bus, CA certs, tzdata). printing/runtime-layer.bst chisels this down to runtime-only and
 # printing/runtime-layer's OCI script publishes it as the shared base layer
 # every printer-app image is built on top of (#342).
 #
@@ -22,6 +22,8 @@ depends:
 - freedesktop-sdk.bst:components/ca-certificates.bst
 - freedesktop-sdk.bst:components/tzdata.bst
 - freedesktop-sdk.bst:components/python3.bst
+- freedesktop-sdk.bst:components/catatonit.bst
+- freedesktop-sdk.bst:components/dbus.bst
 - freedesktop-sdk.bst:integration/extra-fs.bst
 - freedesktop-sdk.bst:integration/ldconfig.bst
 - printing/base.bst
