@@ -16,11 +16,13 @@ build-depends:
 variables:
   (@):
     - include/slim.yml
+    - include/slim-git.yml
     - include/fsdk-version.yml
 
 config:
   commands:
     - "%{slim-distroless-commands}"
+    - "%{slim-git-commands}"
     - |
       if [ -d /initial_scripts ]; then
         for i in /initial_scripts/*; do

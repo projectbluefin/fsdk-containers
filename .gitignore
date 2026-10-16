@@ -14,3 +14,4 @@ tests/artifacts/
 .worktrees/
 include/fsdk-version.yml
 .superpowers/
+.casd/

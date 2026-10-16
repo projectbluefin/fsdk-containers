@@ -5,7 +5,26 @@ export_description: Distroless review appliance runtime built on freedesktop-sdk
 keywords: distroless,freedesktop-sdk,bluefin,review
 entrypoint: ["/usr/bin/python3"]
 smoke:
-  args: ["--version"]
+  # Exercise what the appliance is for, not just --version: perl stays gone
+  # (include/slim-git.yml), git still commits, clones, diffs and logs without
+  # it, and node has full-ICU Intl (German month name) plus Intl.Segmenter,
+  # which segfaults under node's small-icu (nodejs/node#51752). The clone is
+  # from a bundle because a local-path clone execs git-upload-pack through
+  # /bin/sh, which a distroless image does not have.
+  args:
+    - -c
+    - >-
+      import os, subprocess as s, tempfile; d = tempfile.mkdtemp();
+      assert not os.path.exists('/usr/lib/perl5') and not os.path.exists('/usr/bin/perl');
+      run = lambda *a: s.run(a, check=True, capture_output=True, text=True).stdout;
+      git = lambda *a: run('git', '-C', d, '-c', 'user.name=smoke', '-c', 'user.email=smoke@localhost', *a);
+      git('init', '-q', 'a'); open(d + '/a/f', 'w').write('x\n');
+      git('-C', 'a', 'add', 'f'); git('-C', 'a', 'commit', '-qm', 'one');
+      git('-C', 'a', 'bundle', 'create', '-q', '../a.bundle', '--all'); git('clone', '-q', 'a.bundle', 'b');
+      open(d + '/b/f', 'w').write('y\n'); assert '+y' in git('-C', 'b', 'diff');
+      assert 'one' in git('-C', 'b', 'log', '--oneline');
+      assert run('node', '-p', 'new Intl.DateTimeFormat(`de`, {month: `long`}).format(9e8) + [...new Intl.Segmenter().segment(`e\u0301`)].length') == 'Januar1\n';
+      print(run('python3', '--version'), run('node', '--version'))
 
 stack:
   depends:
@@ -37,3 +56,7 @@ gates:
     - tar
   require_paths:
     - usr/share/zoneinfo/UTC
+slim:
+  # Drops perl (~60 MB unpacked), which rides in only as git's dependency.
+  # See include/slim-git.yml.
+  includes: [slim-git.yml]
