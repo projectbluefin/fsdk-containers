@@ -1503,6 +1503,10 @@ config:
     # vendor/modules.txt with the authoritative `go mod vendor` one.
     - |
       mv -vf modules.txt vendor/modules.txt
+      # A local go.mod replacement is part of the main source, not a
+      # go_module download, but -mod=vendor still requires its vendor tree.
+      mkdir -p vendor/volcano.sh
+      cp -a staging/src/volcano.sh/apis vendor/volcano.sh/apis
     - |
       ldflags="-X 'volcano.sh/volcano/pkg/version.GitSHA=%{volcano-git-sha}' -X 'volcano.sh/volcano/pkg/version.Version=%{volcano-version}'"
       for cmd in scheduler controller-manager webhook-manager; do

@@ -154,6 +154,9 @@ added or removed module sources:
    lines changed. Locally-replaced modules (`=> ./staging/...`) have no
    `go_module` source of their own, but they **do** carry a version on
    their `modules.txt` header line.
+   A local replacement still needs a tree under `vendor/<module>` when using
+   `-mod=vendor`. Copy its pinned in-repository directory into vendor before
+   building; a matching manifest alone does not make Go read `./staging/...`.
 3. **ldflags version stamps** — element `variables:` like
    `volcano-version` / `volcano-git-sha` are baked in via `-X` and are
    invisible to both Renovate and `bst source track`; a correctly
