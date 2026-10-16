@@ -122,6 +122,18 @@ SHARED_LABELS = [
 # affects the build-oci heredoc text and therefore the BST cache key.
 
 
+def is_layered(record: dict) -> bool:
+    """Whether the image is built on top of oci/base.bst (shares base's layer).
+
+    elements/targets.json image_paths must give exactly these images ownership
+    of elements/oci/base.bst and catalog/base.yaml; the conformance tests
+    enforce that from this rule.
+    """
+    return record["kind"] == "distroless" and (
+        "base/base-stack.bst" in record["stack"]["depends"]
+    )
+
+
 def render_oci(record: dict) -> str:
     """The script element that slims the layer and builds the OCI image."""
     name = record["name"]
@@ -140,9 +152,7 @@ def render_oci(record: dict) -> str:
     # several images downloads base once. The child rootfs is a superset of
     # base's (same stack, same slim-distroless recipe), so the diff carries no
     # whiteouts for base files.
-    layered = record["kind"] == "distroless" and (
-        "base/base-stack.bst" in record["stack"]["depends"]
-    )
+    layered = is_layered(record)
     lines = [_header(name, "oci")]
     lines.append("kind: script")
     lines.append("")

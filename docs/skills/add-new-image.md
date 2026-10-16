@@ -62,8 +62,10 @@ Junction changes are covered by `shared_paths`.
 Layered children also own the exact paths `elements/oci/base.bst` and
 `catalog/base.yaml`: both can change their generated OCI parent dependency.
 Do not broaden these to `elements/base/` or other shared paths; those keep
-the canary policy above. Exercise `just changed-targets` with separate
-base-record-only and base-OCI-only diffs when changing this ownership.
+the canary policy above. A record is layered exactly when
+`generate_image_elements.is_layered` is true (distroless and depends on
+`base/base-stack.bst`); `test_cross_image_ownership_matches_the_layering_rule`
+fails if `image_paths` grants or omits these two paths out of step with it.
 
 ## Catalog conventions
 
