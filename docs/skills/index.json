@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-27",
+  "generated_at": "2026-10-16",
   "schema_version": "1.0",
   "skills": [
     {
@@ -223,8 +223,8 @@
         "catalog"
       ],
       "description": "The proven recipe for the buildstream-plugins-community go_module source plugin: YAML shape, bst source track workflow, the modules.txt/replace trap, sandboxed Go environment, and vanity-import workarounds. Use when adding any Go-based catalog element.",
-      "version": "1.1",
-      "last_updated": "2026-08-24",
+      "version": "1.2",
+      "last_updated": "2026-10-16",
       "doc_type": "procedure"
     },
     {
