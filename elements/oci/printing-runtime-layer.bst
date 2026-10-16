@@ -6,9 +6,9 @@ description: Build the shared printing runtime as a single, reproducible OCI lay
 # pinned to the same fsdk-containers ref produces this exact layer, so
 # consumers use it as a `parent:` layer (build-oci's `parent.image` /
 # `parent.index`) ahead of their own app-specific layer. Digest stability:
-# `gzip: disabled` and no `created`/timestamp fields in the build-oci config,
-# so two builds of the same pinned tree produce a byte-identical layer tar
-# and the same digest. Consumer contract: docs/skills/printing-base.md.
+# `gzip: disabled` and BuildStream's pinned `SOURCE_DATE_EPOCH` in the
+# build-oci config, so two builds of the same pinned tree produce a
+# byte-identical layer tar and the same digest. Consumer contract: docs/skills/printing-base.md.
 build-depends:
   - freedesktop-sdk.bst:bootstrap/bash.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst

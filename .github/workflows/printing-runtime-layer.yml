@@ -22,6 +22,7 @@ permissions: {}
 
 env:
   LAYER_REPO: ghcr.io/${{ github.repository_owner }}/printing-runtime-layer
+  SIGNER: https://github.com/${{ github.repository }}/.github/workflows/printing-runtime-layer.yml@${{ github.ref }}
 
 jobs:
   build:
@@ -40,16 +41,13 @@ jobs:
       contents: read
       packages: write
       id-token: write # Required for Sigstore keyless signing
-    outputs:
-      key: ${{ steps.tags.outputs.key }}
-      run_tag: ${{ steps.tags.outputs.run_tag }}
     env:
       ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2
         with:
           tool: just
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -73,12 +71,15 @@ jobs:
           # Immutable same-run tag prevents assembling index from stale previous runs
           RUN_TAG="${ARCH}-run-${RUN_ID}"
           if [[ "${REF}" == refs/heads/main ]]; then
-            TAGS="${RUN_TAG} ${ARCH}-${KEY} ${ARCH}-latest"
+            KEY_TAG="${ARCH}-${KEY}"
+            TAGS="${RUN_TAG} ${KEY_TAG} ${ARCH}-latest"
           else
+            KEY_TAG=""
             TAGS="${RUN_TAG} ${ARCH}-test-${RUN_ID}"
           fi
           {
             echo "key=${KEY}"
+            echo "key_tag=${KEY_TAG}"
             echo "run_tag=${RUN_TAG}"
             echo "tags=${TAGS}"
           } >> "$GITHUB_OUTPUT"
@@ -99,25 +100,39 @@ jobs:
 
       - name: Push architecture image and sign
         env:
+          KEY_TAG: ${{ steps.tags.outputs.key_tag }}
           TAGS: ${{ steps.tags.outputs.tags }}
         run: |
           set -euo pipefail
-          IMAGE_ID="$(podman pull -q oci:.build-out)"
-          FIRST_TAG=""
-          for tag in ${TAGS}; do
-            podman push "${IMAGE_ID}" "${LAYER_REPO}:${tag}"
-            echo "==> pushed ${LAYER_REPO}:${tag}"
-            if [[ -z "${FIRST_TAG}" ]]; then
-              FIRST_TAG="${tag}"
-            fi
-          done
-          # Authenticate skopeo using Docker config created at login
-          DIGEST="$(skopeo inspect --authfile "${HOME}/.docker/config.json" "docker://${LAYER_REPO}:${FIRST_TAG}" | jq -r '.Digest')"
-          # Always sign per-arch image digest (both main and dev proof tags)
-          cosign sign -y "${LAYER_REPO}@${DIGEST}"
+          AUTH="${HOME}/.docker/config.json"
+          if [[ -n "${KEY_TAG}" ]] && EXISTING="$(skopeo inspect --authfile "${AUTH}" --no-tags "docker://${LAYER_REPO}:${KEY_TAG}" 2>/dev/null)"; then
+            DIGEST="$(jq -r '.Digest' <<< "${EXISTING}")"
+            echo "==> ${LAYER_REPO}:${KEY_TAG} already published at ${DIGEST}; reusing without re-push"
+            for tag in ${TAGS}; do
+              if [[ "${tag}" == "${KEY_TAG}" ]]; then
+                continue
+              fi
+              skopeo copy --authfile "${AUTH}" --preserve-digests "docker://${LAYER_REPO}@${DIGEST}" "docker://${LAYER_REPO}:${tag}"
+              echo "==> copied ${LAYER_REPO}@${DIGEST} -> ${LAYER_REPO}:${tag}"
+            done
+          else
+            IMAGE_ID="$(podman pull -q oci:.build-out)"
+            FIRST_TAG=""
+            for tag in ${TAGS}; do
+              podman push "${IMAGE_ID}" "${LAYER_REPO}:${tag}"
+              echo "==> pushed ${LAYER_REPO}:${tag}"
+              if [[ -z "${FIRST_TAG}" ]]; then
+                FIRST_TAG="${tag}"
+              fi
+            done
+            DIGEST="$(skopeo inspect --authfile "${AUTH}" "docker://${LAYER_REPO}:${FIRST_TAG}" | jq -r '.Digest')"
+          fi
+          if ! cosign verify --certificate-identity "${SIGNER}" --certificate-oidc-issuer https://token.actions.githubusercontent.com "${LAYER_REPO}@${DIGEST}" >/dev/null 2>&1; then
+            cosign sign -y "${LAYER_REPO}@${DIGEST}"
+          fi
           for tag in ${TAGS}; do
             cosign verify \
-              --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
+              --certificate-identity "${SIGNER}" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               "${LAYER_REPO}:${tag}" >/dev/null
             echo "==> verified signature on ${LAYER_REPO}:${tag}"
@@ -177,7 +192,7 @@ jobs:
           cosign sign -y "${LAYER_REPO}@${DIGEST}"
           for tag in ${TAGS}; do
             cosign verify \
-              --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
+              --certificate-identity "${SIGNER}" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               "${LAYER_REPO}:${tag}" >/dev/null
             echo "==> verified signature on ${LAYER_REPO}:${tag}"

@@ -34,7 +34,7 @@ def _step_script(job, step):
 class PrintingRuntimeLayerContractTests(unittest.TestCase):
     """Contracts for printing runtime layer workflow and recipes."""
 
-    def _run_script(self, script, ref="refs/heads/producer-proof"):
+    def _run_script(self, script, ref="refs/heads/producer-proof", extra_env=None):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             binary = work / "bin"
@@ -79,9 +79,12 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
             env = dict(
                 os.environ, PATH=f"{binary}:{os.environ['PATH']}", HOME=str(home),
                 CALLS=str(work / "calls"), REF=ref, RUN_ID="42",
-                TAGS="x86_64-run-42", LAYER_REPO="example.invalid/printing",
+                KEY_TAG="", TAGS="x86_64-run-42", LAYER_REPO="example.invalid/printing",
+                SIGNER=f"https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@{ref}",
                 GITHUB_STEP_SUMMARY=str(work / "summary"),
             )
+            if extra_env:
+                env.update(extra_env)
             script = script.replace("${{ github.actor }}", "fixture-user")
             script = script.replace("${{ secrets.GITHUB_TOKEN }}", "fixture-token")
             subprocess.run(
@@ -104,8 +107,42 @@ class PrintingRuntimeLayerContractTests(unittest.TestCase):
                         ["cosign", "sign", "-y", "example.invalid/printing@sha256:" + "a" * 64],
                         calls,
                     )
-                    self.assertTrue(any(call[:2] == ["cosign", "verify"] for call in calls))
+                    verifies = [call for call in calls if call[:2] == ["cosign", "verify"]]
+                    self.assertTrue(verifies)
+                    for call in verifies:
+                        self.assertIn("--certificate-identity", call)
+                        self.assertNotIn("--certificate-identity-regexp", call)
 
+    def test_build_push_reuses_existing_key_tag_without_repushing(self):
+        """When KEY_TAG is already published, build job must copy by digest, not podman push."""
+        script = _step_script("build", "Push architecture image and sign")
+        key_tag = "x86_64-" + "b" * 64
+        tags = f"x86_64-run-42 {key_tag} x86_64-latest"
+        calls = self._run_script(
+            script,
+            "refs/heads/main",
+            extra_env={"KEY_TAG": key_tag, "TAGS": tags, "PUBLISHED": key_tag, "SIGNED": "1"},
+        )
+        self.assertFalse(any(call[:2] == ["podman", "push"] for call in calls))
+        self.assertFalse(any(call[:2] == ["cosign", "sign"] for call in calls))
+        copies = [call for call in calls if call[:2] == ["skopeo", "copy"]]
+        self.assertEqual(len(copies), 2)
+        for call in copies:
+            self.assertIn("--preserve-digests", call)
+
+    def test_build_push_pushes_and_signs_when_key_tag_missing(self):
+        """When KEY_TAG is not yet published, build job must podman push all tags and sign."""
+        script = _step_script("build", "Push architecture image and sign")
+        key_tag = "x86_64-" + "b" * 64
+        tags = f"x86_64-run-42 {key_tag} x86_64-latest"
+        calls = self._run_script(
+            script,
+            "refs/heads/main",
+            extra_env={"KEY_TAG": key_tag, "TAGS": tags},
+        )
+        pushes = [call for call in calls if call[:2] == ["podman", "push"]]
+        self.assertEqual(len(pushes), 3)
+        self.assertTrue(any(call[:2] == ["cosign", "sign"] for call in calls))
     def test_publish_scripts_fail_when_signing_is_removed(self):
         """Dropping `cosign sign` must make verification, and the job, fail."""
         for job, step in (
