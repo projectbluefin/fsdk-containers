@@ -874,7 +874,7 @@ build-printing-runtime-layer:
 # NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
 # machinectl import-tar (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "7.0.8"
+brew_version := "7.0.9"
 
 # Build the brew nspawn machine image (rootfs tarball, not OCI).
 [group('brew')]

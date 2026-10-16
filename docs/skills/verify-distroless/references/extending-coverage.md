@@ -14,15 +14,38 @@ extend coverage:
    ```
    just bst show freedesktop-sdk.bst:components/<name>.bst
    ```
-2. **Add a binary smoke test.** In the `verify` recipe, add a branch that executes
-   the primary binary directly (e.g.
-   `podman run --rm "$REF" nginx -v >/dev/null`). Distroless images have no shell,
-   and `ldd` inside BuildStream's sandbox does not replicate the stripped container
-   rootfs — execution is the only way to prove all dynamic dependencies survived
-   `compose`. (Today the local smoke branches cover skopeo, python, buildah,
-   qemu-img, and lab-runner; `base`/`static` only get their `/usr/bin/true`
-   smoke in the post-publish `publish-smoke` job — add a local branch when the
-   image gains a real binary.)
+2. **Declare the smoke test in the catalog.** The `verify` recipe no longer
+   carries per-image smoke branches — it derives both the podman options and the
+   command arguments from each record's `smoke:` block
+   (`scripts/verify_contract.py:smoke_argv`; the recipe reads
+   them at `Justfile:359`). For the common case where the image's entrypoint
+   already is the binary you want to exercise, set `args` to the arguments you
+   want appended:
+   ```yaml
+   smoke:
+     args: ["--version"]
+   ```
+   `catalog/buildah.yaml`, `catalog/qemu-img.yaml`, `catalog/python.yaml`, and
+   `catalog/review-runtime.yaml` all use this form. An image with no declared
+   entrypoint puts the binary first instead — `catalog/skopeo.yaml` uses
+   `args: ["skopeo", "--version"]`.
+   If the primary binary is not the entrypoint, override it so `podman run`
+   reaches the binary the same way a user would:
+   ```yaml
+   smoke:
+     entrypoint_override: ["/usr/bin/argo"]
+     args: ["version", "--short"]
+   ```
+   `catalog/lab-runner.yaml` is the only record that needs this — bash is its
+   declared entrypoint, but `argo` is what the smoke test actually exercises.
+   For an image that ships no executable surface worth smoke-testing (today:
+   `base`, `static`, declared as `smoke: none`), the recipe falls back to the
+   plain runnability probe; `publish-smoke`'s post-publish `/usr/bin/true` probe
+   covers those. Distroless images have no shell, and `ldd` inside BuildStream's
+   sandbox does not replicate the stripped container rootfs — execution is the
+   only way to prove all dynamic dependencies survived `compose`, so every
+   non-`none` image carries one (and the python probe deliberately goes past
+   `--version` to exercise stdlib — see the comment in `catalog/python.yaml`).
 3. **Record the image size.** Measure uncompressed Podman size on both
    architectures and include it in the PR so future growth can be reviewed.
 4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the
