@@ -45,6 +45,11 @@ new head's required checks and applicable runtime verification, then obtain a
 fresh independent approval. Pin the merge to the reviewed head SHA; do not use
 an administrator bypass to work around stale checks or missing approval.
 
+A green, approved workflow PR can still fail to merge when the OAuth credential
+lacks `workflow` scope. Read the API error rather than treating the CLI's generic
+policy message as a CI failure. Obtain explicitly authorized workflow-capable
+credentials or merge through GitHub's UI; do not bypass repository protections.
+
 ### Action pins — always use SHA, never mutable tags
 
 Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
