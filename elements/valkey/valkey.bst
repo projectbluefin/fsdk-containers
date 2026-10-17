@@ -54,6 +54,13 @@ variables:
   - arch == "aarch64":
       hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   build-commands:
     # deps/ vendors jemalloc, libvalkey (hiredis fork), lua, linenoise,
@@ -64,7 +71,7 @@ config:
     # upstream Linux default (fragmentation resistance for a long-running
     # cache process); keep it explicit so a future bump of upstream defaults
     # cannot silently change the allocator.
-  - make -j%{max-jobs} MALLOC=jemalloc CFLAGS="%{hardening-flags}"
+  - make -j"${MAXJOBS}" MALLOC=jemalloc CFLAGS="%{hardening-flags}"
 
   install-commands:
     # make install honours PREFIX; binaries land in PREFIX/bin (merged-usr:

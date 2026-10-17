@@ -95,6 +95,13 @@ variables:
   - arch == "aarch64":
       hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
     # Empty INSTALL_MYSQLTESTDIR / INSTALL_SQLBENCHDIR are load-bearing:
@@ -161,7 +168,7 @@ config:
       -DCMAKE_CXX_FLAGS="%{hardening-flags}"
 
   build-commands:
-  - ninja -C build -j%{max-jobs}
+  - ninja -C build -j"${MAXJOBS}"
 
   install-commands:
   - DESTDIR="%{install-root}" ninja -C build install
