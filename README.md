@@ -22,6 +22,7 @@ These containers are maintained for projectbluefin/fsdk usage for cluster ops, e
 | `ghcr.io/projectbluefin/qemu-img` | — | Distroless qemu-img disk image utility, compiled with OpenSSF-hardened flags. No shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/lab-runner` | — | **Deliberately shell-enabled** CI/CD utility container (bash, curl, git, jq, yq, python3 + PyYAML, kubectl) for Project Bluefin lab workflows. The one scoped exception to the no-shell rule among the OCI images. Multi-arch: linux/amd64, linux/arm64. |
 | `ghcr.io/projectbluefin/review-runtime` | — | Review-appliance runtime: python3, node, git, curl plus the POSIX text tools (diff, find, gawk, gzip, less, sed, tar). Multi-arch: linux/amd64, linux/arm64. |
+| `ghcr.io/projectbluefin/node` | — | Distroless Node.js LTS built from source against FSDK openssl/zlib/icu. No npm, no shell, no package manager. Multi-arch: linux/amd64, linux/arm64. |
 
 <a name="base-contract"></a> **¹ Base image contract:** The base image is intentionally
 shell-less but keeps coreutils. In FSDK 25.08, `runtime-minimal` still bundles bash
