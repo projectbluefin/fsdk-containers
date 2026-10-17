@@ -895,6 +895,17 @@ brew-check:
 # Build both Brew machine formats (not OCI).
 [group('brew')]
 build-brew:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Fetching gnome-build-meta junction..."
+    for attempt in 1 2 3 4 5; do
+        if just bst source fetch gnome-build-meta.bst; then
+            break
+        fi
+        echo "bst source fetch failed (attempt ${attempt}/5)" >&2
+        if [[ "$attempt" -eq 5 ]]; then exit 1; fi
+        sleep 15
+    done
     just bst build oci/brew-nspawn.bst
 
 # Export raw EROFS + the existing rootfs tar + SHA256SUMS to dist/.

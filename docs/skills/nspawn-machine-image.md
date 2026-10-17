@@ -160,6 +160,10 @@ x86_64/aarch64 artifact+offline boot checks run weekly/on demand. Keep these
 separate: adding a boot-only job must not remove the existing PR artifact gate.
 Nothing publishes these machine files through the OCI image matrix.
 
+`build-brew` uses the same bounded GNOME junction source-fetch retry as the OCI
+build recipe. Only fetching is retried; the actual producer build runs once,
+so deterministic build failures are not hidden behind repeated builds.
+
 The PR paths filter covers brew sources and shared build inputs: the base stack,
 FSDK and GNOME/plugin junctions, `include/**`, `patches/**`, `project.conf`,
 Justfile, and the workflow itself. Include the authenticated source plugin,
