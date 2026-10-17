@@ -90,6 +90,13 @@ variables:
   - arch == "aarch64":
       hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
   - |
@@ -121,7 +128,7 @@ config:
       --without-http_userid_module
 
   build-commands:
-  - make -j%{max-jobs}
+  - make -j"${MAXJOBS}"
 
   install-commands:
   - make install DESTDIR="%{install-root}"

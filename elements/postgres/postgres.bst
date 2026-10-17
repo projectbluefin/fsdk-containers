@@ -129,6 +129,13 @@ variables:
     - arch == "aarch64":
         hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
+# Nocache job count: an inline %{max-jobs} would put the host's core count
+# in the cache key.
+environment:
+  MAXJOBS: "%{max-jobs}"
+environment-nocache:
+- MAXJOBS
+
 config:
   configure-commands:
     # Everything upstream installs lands under /usr/bin, /usr/lib and
@@ -156,7 +163,7 @@ config:
         --with-system-tzdata=/usr/share/zoneinfo
 
   build-commands:
-    - make -j%{max-jobs}
+    - make -j"${MAXJOBS}"
 
   install-commands:
     - make install DESTDIR="%{install-root}"
