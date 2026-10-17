@@ -68,6 +68,14 @@ rm -rf _sizecheck
 Add a regression assertion to `just verify` (the slim gates) for anything you
 cut that must stay gone, so it fails the build if it creeps back.
 
+For per-image removals in `slim.extra` that the shared SLIM recipe does not
+cover, declare the path in the record's `gates.forbid_paths` (or
+`gates.forbid_binaries` for the basename-only shorthand) so the merge gate
+proves the file is absent (issue #421). The shared recipe's `no-shell` /
+`no-sanitizers` / `no-locale-archive` / `no-debug-symbols` regex gates are
+unconditional for distroless images; `forbid_paths` is the per-image equivalent
+for CLIs the binary's closure pulls in but the binary never executes.
+
 ## Common Rationalizations
 
 - “The binary ran once locally.” A one-time check does not protect the next

@@ -45,13 +45,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ISSUE_NUM=$(gh issue list \
-            --repo "${{ github.repository }}" \
-            --state all \
-            --limit 30 \
-            --json number,title \
-            --jq '.[] | select(.title == "[CI] Build images failed on main") | .number' \
-            | head -1)
+          ISSUE_NUM=$(gh api --paginate --slurp \
+            "repos/${{ github.repository }}/issues?state=all&per_page=100" \
+            | jq -r '[.[][] | select(.pull_request == null and .title == "[CI] Build images failed on main")]
+                  | if length > 1 then error("Multiple CI alert issues match; refusing to select one")
+                    else .[0].number // empty end')
           echo "issue_number=${ISSUE_NUM:-}" >> "$GITHUB_OUTPUT"
 
       - name: Create or reopen alert issue
