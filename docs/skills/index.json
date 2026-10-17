@@ -258,8 +258,8 @@
         "rootfs",
         "brew"
       ],
-      "description": "Build a non-distroless systemd-nspawn machine image (a rootfs .tar.zst for machinectl import-tar) from FSDK. Use when adding a full dev-environment container (like brew) instead of an OCI distroless image.",
-      "version": "1.1",
+      "description": "Use when building or consuming FSDK Brew nspawn machines: EROFS/tar output, genuine Git seeds, offline portable Ruby, and guest user scopes.",
+      "version": "1.4",
       "last_updated": "2026-10-16",
       "doc_type": "procedure"
     },
