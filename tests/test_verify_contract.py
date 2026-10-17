@@ -3,11 +3,15 @@
 import contextlib
 import io
 from pathlib import Path
+import re
+import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
+
+import yaml
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -93,6 +97,32 @@ class GateDerivationTests(unittest.TestCase):
         self.assertNotIn("--entrypoint", argv)
         self.assertEqual(argv, ["skopeo", "--version"])
 
+    def test_static_forbids_libc_and_executables(self):
+        """#116: static shipped full glibc while claiming 'no libc'. Its
+        record-level gates must catch any shared object or binary dir."""
+        record = catalog.load_record(ROOT / "catalog" / "static.yaml")
+        forbid = vc.gates_for(record)["forbid"]
+        self.assertIn("no-shell", forbid)  # built-ins kept
+        leaks = [
+            "usr/lib/x86_64-linux-gnu/libc.so.6",
+            "usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+            "usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1",
+            "usr/bin/true",
+        ]
+        for path in leaks:
+            with self.subTest(path=path):
+                self.assertTrue(any(re.search(p, path) for p in forbid.values()))
+        for path in ("etc/ssl/certs", "usr/share/zoneinfo/UTC", "etc/passwd"):
+            with self.subTest(path=path):
+                self.assertFalse(any(re.search(p, path) for p in forbid.values()))
+
+    def test_record_forbid_cannot_redefine_a_builtin_gate(self):
+        record = catalog.load_record(ROOT / "catalog" / "static.yaml")
+        record["gates"]["forbid"] = {"no-shell": "^nothing$"}
+        with self.assertRaises(ValueError):
+            vc.gates_for(record)
+
+
 
 class SmokeSplitTests(unittest.TestCase):
     """smoke_split separates podman options (before the image ref) from the
@@ -136,7 +166,8 @@ class SmokeArgBoundaryTests(unittest.TestCase):
     multi-word argument or a glob character survives as exactly one argument.
     """
 
-    def _env_output(self, record: dict) -> str:
+    @staticmethod
+    def _env_output(record: dict) -> str:
         """The --env text verify_contract emits for a synthetic record."""
         with mock.patch.object(vc.catalog, "load_record", return_value=record):
             argv = sys.argv
@@ -216,6 +247,50 @@ class SmokeArgBoundaryTests(unittest.TestCase):
         opts, args = self._bash_roundtrip(env, cwd=str(ROOT))
         self.assertEqual(opts, [])
         self.assertEqual(args, [])
+
+
+class PublishSmokeTests(unittest.TestCase):
+    """Exercise the actual workflow shell with controlled registry/runtime calls."""
+
+    def run_publish(self, smoke):
+        record = {"name": "synthetic", "kind": "distroless", "smoke": smoke}
+        contract = SmokeArgBoundaryTests._env_output(record)
+        workflow = yaml.safe_load((ROOT / ".github/workflows/oci-images.yml").read_text())
+        step = next(
+            step for step in workflow["jobs"]["publish-smoke"]["steps"]
+            if step.get("name") == "Pull and run published architecture image"
+        )
+        script = re.sub(r"\$\{\{.*?\}\}", "synthetic", step["run"])
+        setup = """
+set -euo pipefail
+REPO=example.invalid/synthetic
+TAG=test
+TAG_ARCH=x86_64
+PLATFORM_ARCH=amd64
+skopeo() { printf '{"Digest":"sha256:test"}\\n'; }
+podman() {
+    case "$1" in
+        image) printf 'amd64\\n' ;;
+        run) printf 'RUN'; printf ' <%s>' "$@"; printf '\\n' ;;
+    esac
+}
+"""
+        setup += "python3() { printf '%s\\n' " + shlex.quote(contract) + "; }\n"
+        result = subprocess.run(
+            ["bash", "-c", setup + script], text=True, capture_output=True,
+            cwd=ROOT,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
+
+    def test_no_exec_pulls_without_running_a_missing_binary(self):
+        self.assertNotIn("RUN", self.run_publish("no-exec"))
+
+    def test_none_retains_the_runnability_probe(self):
+        self.assertIn("</usr/bin/true>", self.run_publish("none"))
+
+    def test_payload_smoke_still_executes_its_arguments(self):
+        self.assertIn("<--version>", self.run_publish({"args": ["--version"]}))
 
 
 if __name__ == "__main__":
