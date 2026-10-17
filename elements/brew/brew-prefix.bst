@@ -1,10 +1,9 @@
 kind: manual
 description: |
-  Stage the Homebrew file tree into the linuxbrew prefix without running
-  install.sh (which needs network, unavailable in the BST sandbox). Homebrew
-  supports an "untar in place" install: the brew.git checkout IS the install.
-  Creates the prefix skeleton brew expects on first run; Cellar/opt/lib stay
-  empty until the user installs formulas at runtime.
+  Stage the real Homebrew Git checkout and version-matched portable Ruby as
+  /usr/share/bluefin/homebrew-seed. Consumers copy this immutable seed to the
+  single-owner writable canonical Linuxbrew prefix before running brew.
+  The build is offline; no install.sh, interpreter download, or formulae.
 
 sources:
 - kind: git_repo
@@ -12,12 +11,20 @@ sources:
     # renovate: datasource=github-tags depName=Homebrew/brew
   track: 7.0.9
   ref: 7.0.9-0-gcdc1ca503231b9a96da64526774915d913c3ec9f
+  directory: brew-src
+- kind: local
+  path: elements/brew/files
+  directory: assembly
 
 depends:
   # coreutils + bash to run the install-commands. FSDK 26.08 removed both from
   # runtime-minimal, so name the shell stack that still provides them.
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
 - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
+- filename: freedesktop-sdk.bst:components/git.bst
+  type: build
+- filename: brew/portable-ruby.bst
+  type: build
 
 variables:
   # Brew ships ruby/bash/perl scripts; nothing to strip and stripping can
@@ -26,11 +33,4 @@ variables:
 
 config:
   install-commands:
-  - |
-    prefix="%{install-root}/home/linuxbrew/.linuxbrew"
-    mkdir -p "$prefix/Homebrew" "$prefix/bin" "$prefix/etc" "$prefix/share" \
-             "$prefix/Cellar" "$prefix/opt" "$prefix/lib" "$prefix/var/homebrew"
-    # The git_repo source is checked out at the build root; it is the brew tree.
-    cp -a . "$prefix/Homebrew/"
-    # Canonical entrypoint symlink: <prefix>/bin/brew -> <prefix>/Homebrew/bin/brew
-    ln -sf ../Homebrew/bin/brew "$prefix/bin/brew"
+  - bash assembly/prepare-seed.sh brew-src / "%{install-root}"

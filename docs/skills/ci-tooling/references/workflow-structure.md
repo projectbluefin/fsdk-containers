@@ -29,10 +29,10 @@ Supporting workflows, none of which touch publication:
 | `ci-alert.yml` | failed `Build images` push on `main` | reopens one CI alert issue with failed and skipped job links |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
-| `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*` and `test_printing_base_bundle*` suites. The only workflow that runs the Python tests |
+| `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*` and `test_printing_base_bundle*` suites |
 | `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
-| `brew-nspawn.yml` | weekly, dispatch, PR touching brew/shared build inputs | `just verify-brew` for the non-distroless brew machine image (detail below) |
+| `brew-nspawn.yml` | relevant brew/shared-input PRs, weekly, dispatch | PR source/seed behavioral tests and native artifact inspection; native x86_64/aarch64 `just verify-brew-boot` (both formats and offline user scopes) weekly/on demand |
 
 Both tables above are a gated inventory, not a summary.
 `tests/test_catalog_ci_inventory.py` fails if a file in
@@ -131,12 +131,15 @@ reusable workflow](https://docs.github.com/en/actions/how-tos/reuse-automations/
 and [Control concurrency of workflows and
 jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
-`brew-nspawn` (machine tarball) is verified weekly, on demand, and on PRs
-changing brew or its shared build inputs by `.github/workflows/brew-nspawn.yml`;
-it runs `just verify-brew` without requiring a systemd host. Its independent
-paths filter covers the base stack, junctions, plugins, includes, patches,
-project configuration, Justfile, and workflow; unrelated OCI-only edits skip it.
-See [nspawn-machine-image](../../nspawn-machine-image.md) for filter maintenance. `podman-vm` (bootable VM disk) is
+`brew-nspawn` (raw EROFS machine + compatible rootfs tar) is verified by
+`.github/workflows/brew-nspawn.yml`: behavioral unit tests and native artifact
+inspection for relevant PRs, plus two-architecture artifact and offline boot
+checks weekly/on demand. Its paths filter covers brew sources, the base stack,
+junctions, plugins, includes, patches, verification scripts/tests, project
+configuration, Justfile, and workflow; unrelated OCI-only edits skip it.
+Artifact inspection does not need a systemd host; the boot check requires
+systemd/root. See [nspawn-machine-image](../../nspawn-machine-image.md) for filter
+maintenance. `podman-vm` (bootable VM disk) is
 deliberately excluded from the OCI publishing matrix — see
 [vm-podman-guest](../../vm-podman-guest/SKILL.md) for the VM guest's own build/test/publish
 pipeline.

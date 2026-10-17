@@ -881,59 +881,80 @@ printing-base-bundle TAG: printing-base-check
     echo "bundle_bytes=$(stat -c %s "${work}/ctx/bundle.tar")"
 
 # -- Homebrew nspawn machine image -------------------------------------------
-# NOT distroless: a full dev-environment rootfs tarball for systemd-nspawn /
-# machinectl import-tar (see docs/skills/nspawn-machine-image.md).
+# NOT distroless: a full dev-environment raw EROFS machine plus the compatible
+# machinectl import-tar rootfs (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
 brew_version := "7.0.9"
+brew_commit := `grep '^  ref:' elements/brew/brew-prefix.bst | cut -d g -f 2`
 
-# Build the brew nspawn machine image (rootfs tarball, not OCI).
+# Consumer/source behavior tests only; no image build.
+[group('brew')]
+brew-check:
+    python3 -m unittest discover -s tests -p 'test_brew*.py' -v
+
+# Build both Brew machine formats (not OCI).
 [group('brew')]
 build-brew:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Fetching gnome-build-meta junction..."
+    for attempt in 1 2 3 4 5; do
+        if just bst source fetch gnome-build-meta.bst; then
+            break
+        fi
+        echo "bst source fetch failed (attempt ${attempt}/5)" >&2
+        if [[ "$attempt" -eq 5 ]]; then exit 1; fi
+        sleep 15
+    done
     just bst build oci/brew-nspawn.bst
 
-# Export the rootfs tarball + SHA256SUMS to dist/.
+# Export raw EROFS + the existing rootfs tar + SHA256SUMS to dist/.
 [group('brew')]
 export-brew: build-brew
     rm -rf dist
     just bst artifact checkout oci/brew-nspawn.bst --directory dist
     @echo "==> wrote:" && ls -lh dist/
 
-# Verify the tarball is a machinectl-shaped rootfs with the required contents.
+# Verify actual rootfs symlink targets, Git identity, Ruby and ELF closure in both.
 [group('brew')]
 verify-brew: export-brew
-    #!/usr/bin/env bash
-    set -euo pipefail
-    T="dist/homebrew-env-{{brew_version}}.tar.zst"
-    [ -f "$T" ] || { echo "FAIL: $T not found"; exit 1; }
-    L="$(mktemp)"
-    tar --zstd -tf "$T" > "$L"
-    fail=0
-    # usr-merge: /bin and /sbin are symlinks to usr/bin, so check the real paths.
-    # Run smoke checks inside the brew machine container.
-    for p in ./usr/bin/bash ./usr/bin/ruby ./usr/bin/git ./usr/bin/curl \
-             ./usr/bin/patchelf \
-             ./usr/lib/systemd/systemd ./usr/bin/init \
-             ./home/linuxbrew/.linuxbrew/bin/brew \
-             ./home/linuxbrew/.linuxbrew/Homebrew/bin/brew \
-             ./etc/passwd ./etc/machine-id ./etc/locale.conf \
-             ./etc/subuid ./etc/subgid; do
-        if grep -qxF "$p" "$L"; then echo "OK   $p"; else echo "MISS $p"; fail=1; fi
-    done
-    # linuxbrew user must be present at uid 1001.
-    if tar --zstd -xf "$T" -O ./etc/passwd | grep -q '^linuxbrew:x:1001:1001:'; then
-        echo "OK   linuxbrew uid 1001 in /etc/passwd"
-    else
-        echo "MISS linuxbrew uid 1001 in /etc/passwd"; fail=1
-    fi
-    [ "$fail" -eq 0 ] && echo "==> verify-brew passed" || { echo "==> verify-brew FAILED"; exit 1; }
+    python3 scripts/verify_brew.py dist "{{brew_version}}" "{{brew_commit}}"
+
+# Boot the raw machine with no external network; exercise real guest user scopes.
+[group('brew')]
+verify-brew-boot: verify-brew
+    sudo tests/brew-boot.sh "dist/homebrew-env-{{brew_version}}.raw.zst"
 
 # Install and configure the local brew nspawn container (requires sudo).
 [group('brew')]
-install-brew: verify-brew
+install-brew format="raw": verify-brew
     #!/usr/bin/env bash
     set -euo pipefail
-    T="dist/homebrew-env-{{brew_version}}.tar.zst"
+    case "{{format}}" in raw|tar) ;; *) echo 'format must be raw or tar' >&2; exit 1;; esac
+    T="dist/homebrew-env-{{brew_version}}.{{format}}.zst"
     [ -f "$T" ] || { echo "FAIL: $T not found"; exit 1; }
+
+    # Seed only a pristine prefix, never overwrite the owner's installed tools.
+    sudo mkdir -p /home/linuxbrew/.linuxbrew
+    if ! sudo test -x /home/linuxbrew/.linuxbrew/bin/brew; then
+        if [[ -n $(sudo find /home/linuxbrew/.linuxbrew -mindepth 1 -print -quit) ]]; then
+            echo 'Existing nonempty Linuxbrew prefix is not initialized; refusing overwrite' >&2
+            exit 1
+        fi
+        stage=$(mktemp -d)
+        trap 'sudo rm -rf "$stage"' EXIT
+        if [[ "{{format}}" == raw ]]; then
+            zstd -dc "$T" > "$stage/machine.raw"
+            fsck.erofs --extract="$stage/root" "$stage/machine.raw"
+            seed="$stage/root/usr/share/bluefin/homebrew-seed"
+        else
+            mkdir -p "$stage/root"
+            tar --zstd --no-same-owner -xf "$T" -C "$stage/root"
+            seed="$stage/root/home/linuxbrew/.linuxbrew"
+        fi
+        sudo cp -a "$seed/." /home/linuxbrew/.linuxbrew/
+    fi
+    sudo chown -R 1001:1001 /home/linuxbrew
 
     echo "==> Importing brew container as machine 'homebrew'..."
     if sudo machinectl list-images --no-legend | grep -q "^homebrew\b"; then
@@ -941,7 +962,7 @@ install-brew: verify-brew
         sudo machinectl terminate homebrew >/dev/null 2>&1 || true
         sudo machinectl remove homebrew || true
     fi
-    sudo machinectl import-tar "$T" homebrew
+    sudo machinectl import-{{format}} "$T" homebrew
 
     echo "==> Setting up nspawn configuration at /etc/systemd/nspawn/homebrew.nspawn..."
     sudo mkdir -p /etc/systemd/nspawn
@@ -954,15 +975,14 @@ install-brew: verify-brew
         echo "NoNewPrivileges=yes"; \
         echo ""; \
         echo "[Files]"; \
+        echo "Volatile=overlay"; \
         echo "Bind=/home/linuxbrew"; \
         echo ""; \
         echo "[Network]"; \
         echo "VirtualEthernet=no"; \
     } | sudo tee /etc/systemd/nspawn/homebrew.nspawn >/dev/null
 
-    echo "==> Creating /home/linuxbrew on the host..."
-    sudo mkdir -p /home/linuxbrew
-    sudo chown 1001:1001 /home/linuxbrew
+    # The host bind supplies the single writable owner; the image stays immutable.
 
     echo "==> Starting homebrew container..."
     sudo machinectl start homebrew
@@ -973,6 +993,7 @@ install-brew: verify-brew
 
 # Run a brew command inside the imported homebrew container (e.g. just run-brew install hello).
 [group('brew')]
+[positional-arguments]
 run-brew *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -987,8 +1008,9 @@ run-brew *ARGS:
         fi
     fi
     sudo systemd-run --quiet --pipe --wait --machine=homebrew --uid=linuxbrew \
-        --setenv=HOMEBREW_NO_AUTO_UPDATE=1 --setenv=HOMEBREW_NO_INSTALL_CLEANUP=1 \
-        -- /home/linuxbrew/.linuxbrew/bin/brew {{ARGS}}
+        --expand-environment=no --working-directory=/home/linuxbrew \
+        --setenv=HOME=/home/linuxbrew --setenv=HOMEBREW_NO_INSTALL_CLEANUP=1 \
+        -- /home/linuxbrew/.linuxbrew/bin/brew "$@"
 
 # Stop and remove the homebrew container and its files (requires sudo).
 [group('brew')]
