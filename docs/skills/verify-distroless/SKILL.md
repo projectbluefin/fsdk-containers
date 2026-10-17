@@ -58,7 +58,10 @@ distroless images (everything except the shell-enabled `lab-runner`):
    declares those removals here so `just verify` asserts the file is gone. Use
    `forbid_paths` (e.g. `usr/bin/dmesg`) when the absolute path is part of the
    contract; use `forbid_binaries` (e.g. `dmesg`) when only the basename
-   matters and the binary might live in `usr/bin` or `usr/sbin`.
+   matters and the binary might live in `usr/bin` or `usr/sbin`. For a
+   pattern rather than a fixed path, use `gates.forbid` (gate name -> extended
+   regex that must match nothing in the tar listing; e.g. `static` forbids
+   `\.so` files).
 
 `lab-runner` is an explicit shell-enabled exception: it asserts that `bash` is
 present, that `argo`, `just`, `kubectl`, `shellcheck`, `hadolint`, and

@@ -14,6 +14,13 @@ description: 'Static-binary runner: CA certificates, tzdata, os-release, passwd/
 # ca-certificates cannot be composed without its p11-kit/glibc closure, so
 # the tier is assembled by keeping the produced files, not by dropping the
 # dependency.
+#
+# The generator runs slim.extra before the collected /initial_scripts, so
+# anything an initial-script wrote into /layer would survive the wipe. In
+# this closure the only initial-script is integration/extra-fs.bst, which
+# only chmods tmp, var/tmp and root (all allowlisted) and creates nothing.
+# Adding a stack dependency that carries a public.initial-script means
+# re-checking that it writes no files into the layer.
 
 depends:
   - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
