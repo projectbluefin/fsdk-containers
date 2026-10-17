@@ -1,7 +1,7 @@
 ---
 name: go-module-source
-version: "1.1"
-last_updated: 2026-08-24
+version: "1.2"
+last_updated: 2026-10-16
 id: go-module-source
 one_line_purpose: Build Go projects from source with the go_module plugin — vendored deps, no network at build time.
 entry_point: docs/skills/go-module-source.md
@@ -37,10 +37,10 @@ the plugin fails at load with
 
 ## Element shape
 
-One `git_repo` source for the project itself, then **one `go_module` source
-per vendored module** (the plugin does no transitive resolution — list every
-module from `go mod vendor` output, i.e. every module with a non-`/go.mod`
-hash line in `go.sum`):
+One `git_repo` source for the project itself, then **one source per external
+vendored module**. Generate that set from `go mod vendor` at the exact release
+commit, not from `go.sum`: checksums include modules that are no longer vendored.
+Use `go_module` unless the pinned plugin cannot track that module (see below).
 
 ```yaml
 sources:
@@ -130,19 +130,23 @@ directives, no `// indirect` requires, and (to be safe) a pre-1.14 go
 directive. `elements/go-md2man/go-md2man.bst` is the in-repo example of
 that minimal case. Default to shipping modules.txt.
 
-### Bumping a version is a three-part change, not a `track:` rewrite
+### Bumping a version is an atomic source-set change
 
-For any element that ships its own `modules.txt` **and** stamps a version
-into the binary, moving the `git_repo` `track:` tag is only step one.
-`bst source track` (and Renovate's regex manager) will not do steps 2 and
-3 — they must be hand-edited in the same commit, or the build either ships
-the wrong code or dies on go's vendor consistency check:
+For any element that ships its own `modules.txt` and stamps a version into the
+binary, moving the `git_repo` `track:` tag is only the start. Regenerate all of
+the following together; neither Renovate nor `bst source track` can discover
+added or removed module sources:
 
 1. **`ref:`** — BuildStream builds from `ref:`, never `track:`. A stale
    `ref:` still fetches cleanly, so CI goes green while building the old
    release. Resolve the tag to its **commit** (annotated tags need a second
    dereference: `gh api repos/<o>/<r>/git/ref/tags/<tag>` then
    `git/tags/<sha>`) and write it as `<tag>-0-g<40hex>`.
+   Regenerate the source list from the new `go mod vendor` manifest, deleting
+   removed modules and adding new ones. For replaced modules, resolve the
+   replacement version (the right side of `=>`), not a `v0.0.0` requirement.
+   `go.mod did not contain <module>` during refresh means the old source list
+   survived the bump; do not merely delete that first failing entry.
 2. **`files/modules.txt`** — every `# <module> <version>` line that moved
    upstream must move here too, or `-mod=vendor` fails with
    `inconsistent vendoring`. Diff upstream's `go.mod` between the two tags
@@ -150,15 +154,19 @@ the wrong code or dies on go's vendor consistency check:
    lines changed. Locally-replaced modules (`=> ./staging/...`) have no
    `go_module` source of their own, but they **do** carry a version on
    their `modules.txt` header line.
+   A local replacement still needs a tree under `vendor/<module>` when using
+   `-mod=vendor`. Copy its pinned in-repository directory into vendor before
+   building; a matching manifest alone does not make Go read `./staging/...`.
 3. **ldflags version stamps** — element `variables:` like
    `volcano-version` / `volcano-git-sha` are baked in via `-X` and are
    invisible to both Renovate and `bst source track`; a correctly
    re-tracked build will still self-report the previous version.
 
-`elements/volcano/volcano.bst` is the reference case. Note also that
-`bst source track` does not scale to its 235 `go_module` sources —
-`refresh-bst-refs.yml`'s 30-minute timeout kills the refresh job — so a
-volcano-class bump is edited by hand from upstream API data.
+`elements/volcano/volcano.bst` is the reference case. The Go module proxy's
+`<module>/@v/<version>.info` can provide `Origin.URL`, full commit `Origin.Hash`,
+tag `Origin.Ref`, and `Origin.Subdir`. Older records omit origin information;
+resolve their tags (dereferencing annotated tags) or pseudo-version commit
+suffixes against the actual repository instead of inventing a ref.
 
 ## Go build environment (mandatory)
 
@@ -187,9 +195,9 @@ miss. See `elements/go-md2man/go-md2man.bst`.
 
 `track()` resolves non-GitHub modules by fetching
 `https://<module>?go-get=1` and unpacking the meta tag into exactly
-`(base, vcs, url)`. Two failure modes, both fixed the same way —
-**hand-write the ref and comment the source out before running
-`bst source track`**:
+`(base, vcs, url)`. A temporary manual investigation can comment out a crashing
+source while tracking other modules, but restore it before committing. Never
+ship disabled dependencies or placeholder refs. A hand-written ref looks like:
 
 ```yaml
   - kind: go_module
@@ -217,6 +225,16 @@ miss. See `elements/go-md2man/go-md2man.bst`.
   clone instead of a shallow tag fetch, slightly slower but fine). Expand
   the pseudo-version's short sha via
   `https://api.github.com/repos/<owner>/<repo>/commits/<shortsha>`.
+
+For a permanent element that must survive automated tracking, use a core `tar`
+source for these exceptional modules: pin a source archive URL to the full
+commit and its SHA-256, and set `directory: vendor/<module>`. For a repository
+subdirectory, set `base-dir: "*/<subdirectory>"`; otherwise the tar default `*`
+strips the archive's top-level directory. This remains a source build, not a
+prebuilt-binary fallback. Ship the authoritative `modules.txt`, since tar sources
+do not append module metadata. Volcano uses this for go-pathrs, go-zfs and
+consistent, avoiding vanity lookups and the incompatible-version parser on
+subsequent `bst source track` runs.
 
 To find every crasher in one pass instead of discovering them one 50-minute
 track run at a time: download the project's `go.sum` and fullmatch each
