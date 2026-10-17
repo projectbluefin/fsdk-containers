@@ -55,10 +55,10 @@
       "description": "OCI config Env entries (KEY=VALUE). OPTIONAL: emitted only when present, so records without it keep their generated element and BST cache key unchanged."
     },
     "smoke": {
-      "description": "How to prove this image runs. Either a smoke-test block, or the literal string \"none\" for images that genuinely have no smoke test in the Justfile today (base, static). Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
+      "description": "How to prove this image runs. A smoke-test block; the literal string \"none\" for images with no dedicated smoke test, which get the post-publish /usr/bin/true probe; or \"no-exec\" for images with no executables, which get no run probe. Required -- unlike entrypoint, this cannot be silently omitted, so a future record cannot skip execution accidentally.",
       "oneOf": [
         {
-          "const": "none"
+          "enum": ["none", "no-exec"]
         },
         {
           "type": "object",

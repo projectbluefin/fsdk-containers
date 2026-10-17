@@ -38,14 +38,17 @@ extend coverage:
    ```
    `catalog/lab-runner.yaml` is the only record that needs this — bash is its
    declared entrypoint, but `argo` is what the smoke test actually exercises.
-   For an image that ships no executable surface worth smoke-testing (today:
-   `base`, `static`, declared as `smoke: none`), the recipe falls back to the
-   plain runnability probe; `publish-smoke`'s post-publish `/usr/bin/true` probe
-   covers those. Distroless images have no shell, and `ldd` inside BuildStream's
-   sandbox does not replicate the stripped container rootfs — execution is the
-   only way to prove all dynamic dependencies survived `compose`, so every
-   non-`none` image carries one (and the python probe deliberately goes past
-   `--version` to exercise stdlib — see the comment in `catalog/python.yaml`).
+   Images with no executables (`base`, `static`) declare `smoke: no-exec`;
+   neither local verification nor post-publish verification tries to execute
+   a missing `/usr/bin/true`. `smoke: none` is only for images that still
+   ship that fallback binary. Removing userland requires updating this
+   smoke contract too, not only the rootfs gates.
+   Distroless images have no shell, and `ldd` inside BuildStream's sandbox
+   does not replicate the stripped container rootfs — execution is the only
+   way to prove all dynamic dependencies survived `compose`. Every image
+   with a payload declares a smoke command (and the python probe deliberately
+   goes past `--version` to exercise stdlib — see `catalog/python.yaml`).
+   A new image smoke test belongs in its catalog record, not a recipe branch.
 3. **Record the image size.** Measure uncompressed Podman size on both
    architectures and include it in the PR so future growth can be reviewed.
 4. **SBOM registration is automatic.** `just sbom <name>`/`just sboms` resolve the

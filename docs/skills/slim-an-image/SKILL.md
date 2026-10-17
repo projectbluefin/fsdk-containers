@@ -1,7 +1,7 @@
 ---
 name: slim-an-image
-version: "1.4"
-last_updated: "2026-09-26"
+version: "1.5"
+last_updated: "2026-10-09"
 id: slim-an-image
 one_line_purpose: Shrink an OCI image by extending the shared SLIM recipe and proving the removal.
 entry_point: docs/skills/slim-an-image/SKILL.md

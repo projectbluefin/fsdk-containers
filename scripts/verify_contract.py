@@ -21,7 +21,7 @@ FORBIDDEN = {
     "no-shell": r"(^|/)(ba)?sh$",
     "no-sanitizers": r"/lib(asan|tsan|lsan|ubsan|hwasan|gfortran)\.so",
     "no-locale-archive": (
-        r"usr/lib(/[^/]*)?/locale/locale-archive$|usr/share/i18n/charmaps/"
+        r"usr/lib(/[^/]*)?/locale/(locale-archive$|en_US\.utf8/)|usr/share/i18n/charmaps/"
         r"|/(localedef|sln|iconvconfig|ldconfig|pcre2test|pcre2grep)$"
         r"|libpcre2-(16|32|posix)\.so"
     ),
@@ -33,6 +33,14 @@ FORBIDDEN = {
     # images only (DISTROLESS_ONLY_GATES) -- lab-runner never had this gate,
     # and adding one for it would be a new behaviour that plan forbids.
     "no-debug-symbols": r"^usr/lib/debug/",
+    # Base userland (coreutils, glibc tools, SELinux/acl/attr CLIs, ncurses
+    # tools, p11-kit/ca-trust CLIs) is removed by include/slim.yml. One
+    # representative per source package: a regression re-adds a package, not
+    # a single file.
+    "no-base-userland": (
+        r"^usr/bin/(ls|getent|setenforce|getfacl|infocmp|p11-kit|update-ca-trust)$"
+        r"|^usr/libexec/(coreutils|p11-kit)/"
+    ),
     # NOT YET ENABLED -- belongs to the Phase 3 pruning plan, which is what
     # makes it satisfiable:
     #   "no-element-names": r"\.bst($|/)",
@@ -71,6 +79,7 @@ DISTROLESS_ONLY_GATES = (
     "no-sanitizers",
     "no-locale-archive",
     "no-debug-symbols",
+    "no-base-userland",
 )
 
 
@@ -152,10 +161,10 @@ def require_any_paths_for(record: dict) -> list[str]:
 def smoke_argv(record: dict) -> list[str]:
     """Arguments to append to `podman run --rm <ref>` for the smoke test.
 
-    Returns [] for an image whose smoke is "none" (base, static) -- every
-    record must say so explicitly now, there is no longer a silent-omission
-    case. The Justfile/CI fall back to the plain runnability probe then,
-    matching today's behaviour.
+    Returns [] for an image whose smoke is "none" or "no-exec" -- every
+    record must say so explicitly now, there is no longer a
+    silent-omission case. Post-publish CI falls back to a /usr/bin/true
+    runnability probe for "none" and runs nothing for "no-exec" (NO_EXEC=1).
     """
     smoke = record.get("smoke")
     if not isinstance(smoke, dict):
@@ -224,6 +233,8 @@ def main() -> int:
     smoke = record.get("smoke")
     shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
+    # Images without executables cannot run even the /usr/bin/true fallback.
+    print(f"NO_EXEC={1 if record.get('smoke') == 'no-exec' else 0}")
     return 0
 
 
