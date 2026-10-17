@@ -280,20 +280,39 @@ class PathOwnershipTests(unittest.TestCase):
                         f"select no build target",
                     )
 
-    def test_no_image_owns_another_images_paths(self):
-        for name in TARGETS["oci_images"]:
+    def test_cross_image_ownership_matches_the_layering_rule(self):
+        """Only images layered on base may own another image's files, and
+        exactly base's OCI element and record (they change the generated
+        parent dependency). Derived from the generator so a record that gains
+        or loses base-stack cannot leave image_paths stale."""
+        import generate_image_elements as gen
+
+        for record in catalog.load_all():
+            name = record["name"]
+            expected = (
+                {"elements/oci/base.bst", "catalog/base.yaml"}
+                if gen.is_layered(record)
+                else set()
+            )
+            owned = set()
             for other in TARGETS["oci_images"]:
                 if other == name:
                     continue
-                with self.subTest(image=name, other=other):
-                    self.assertFalse(
-                        self._owns(name, f"catalog/{other}.yaml"),
-                        f"{name} claims ownership of catalog/{other}.yaml",
-                    )
-                    self.assertFalse(
-                        self._owns(name, f"elements/oci/{other}.bst"),
-                        f"{name} claims ownership of elements/oci/{other}.bst",
-                    )
+                for path in (f"catalog/{other}.yaml", f"elements/oci/{other}.bst"):
+                    if self._owns(name, path):
+                        owned.add(path)
+            with self.subTest(image=name):
+                self.assertEqual(
+                    owned,
+                    expected,
+                    f"{name} cross-image ownership does not match its "
+                    f"generated OCI parent (layered={gen.is_layered(record)})",
+                )
+                self.assertEqual(
+                    "filename: oci/base.bst" in gen.render_oci(record),
+                    gen.is_layered(record),
+                    f"{name}: render_oci disagrees with is_layered",
+                )
 
     def test_shared_paths_cover_the_manifest_and_its_consumers(self):
         """A change to the gate's own inputs must still select the canary."""

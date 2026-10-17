@@ -1,7 +1,7 @@
 ---
 name: add-new-image
-version: "1.1"
-last_updated: 2026-09-18
+version: "1.2"
+last_updated: 2026-10-16
 id: add-new-image
 one_line_purpose: Add a distroless OCI image by declaring one catalog record.
 entry_point: docs/skills/add-new-image.md
@@ -59,6 +59,14 @@ image's stack you depend on (e.g. `lab-runner` → `skopeo/skopeo-stack.bst`) ne
 its directory listed too; otherwise a change there builds only the owning image.
 Junction changes are covered by `shared_paths`.
 
+Layered children also own the exact paths `elements/oci/base.bst` and
+`catalog/base.yaml`: both can change their generated OCI parent dependency.
+Do not broaden these to `elements/base/` or other shared paths; those keep
+the canary policy above. A record is layered exactly when
+`generate_image_elements.is_layered` is true (distroless and depends on
+`base/base-stack.bst`); `test_cross_image_ownership_matches_the_layering_rule`
+fails if `image_paths` grants or omits these two paths out of step with it.
+
 ## Catalog conventions
 
 - `stack.depends` is an ordered list. Its order is load-bearing because it
@@ -67,10 +75,17 @@ Junction changes are covered by `shared_paths`.
   `io.artifacthub.package.keywords` label varies across images (and
   `lab-runner` omits `distroless`); do not derive it.
 - `export_description` is the published `org.opencontainers.image.description`
-  that `just export` applies to the squashed image. It defaults to
+  that `just export` applies to the published image. It defaults to
   `description`; set it only when the published string must differ from the
   element-level one. It is never rendered into a BuildStream element, so it
   cannot move a cache key.
+- A `distroless` record whose `stack.depends` includes `base/base-stack.bst`
+  is generated on top of `oci/base.bst`: the image ships base's layer
+  unchanged plus one diff layer, so pulls share base. Its slim recipe must
+  only remove files base does not ship; deleting a base file would add a
+  whiteout to the diff layer.
+  The base record itself lists FSDK components rather than its own stack, so
+  the dependency rule needs no image-name exception.
 - If the record's `slim.extra` removes a file the shared SLIM recipe does not
   cover, declare the path in `gates.forbid_paths` (or `gates.forbid_binaries`
   for the basename-only shorthand) so `just verify` proves the file is gone

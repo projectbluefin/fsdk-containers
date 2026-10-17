@@ -34,8 +34,8 @@
         "images"
       ],
       "description": "Add a new distroless image by declaring one catalog record and generating its BuildStream elements.",
-      "version": "1.1",
-      "last_updated": "2026-09-18",
+      "version": "1.2",
+      "last_updated": "2026-10-16",
       "doc_type": "procedure"
     },
     {
