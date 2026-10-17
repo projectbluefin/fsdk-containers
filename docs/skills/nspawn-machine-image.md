@@ -1,6 +1,6 @@
 ---
 name: nspawn-machine-image
-version: "1.3"
+version: "1.4"
 last_updated: 2026-10-16
 id: nspawn-machine-image
 one_line_purpose: Build a non-distroless systemd-nspawn machine image rootfs from FSDK.
@@ -154,9 +154,21 @@ Ruby and shell-level prefix command nonroot, checks logind/user@1001, exercises
 guest user services including exit 37, and verifies UID 1001 prefix writes.
 It requires root; `machinectl shell` is not an assertion transport.
 
-`.github/workflows/brew-nspawn.yml` runs behavioral unit tests for relevant PRs,
-and full native x86_64/aarch64 artifact+offline boot checks weekly/on demand.
+`.github/workflows/brew-nspawn.yml` runs source/seed behavioral tests and native
+`just verify-brew` artifact inspection for relevant PRs. Full native
+x86_64/aarch64 artifact+offline boot checks run weekly/on demand. Keep these
+separate: adding a boot-only job must not remove the existing PR artifact gate.
 Nothing publishes these machine files through the OCI image matrix.
+
+The PR paths filter covers brew sources and shared build inputs: the base stack,
+FSDK and GNOME/plugin junctions, `include/**`, `patches/**`, `project.conf`,
+Justfile, and the workflow itself. Include the authenticated source plugin,
+verification script, source/seed tests and boot script too. Directory patterns
+must use `/**`; unrelated OCI-only edits should skip this heavy build. Smoke-test
+matching and non-matching paths against the actual filter rather than pinning
+its wiring in permanent tests. GitHub's [workflow syntax](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetpathspaths-ignore)
+documents PR path filtering. Keep the element's `brew-version` and Justfile's
+`brew_version` synchronized; artifact verification uses the expected release pin.
 
 Before handing off a verified producer, require:
 

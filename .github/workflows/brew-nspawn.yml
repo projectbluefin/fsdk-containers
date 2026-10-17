@@ -1,7 +1,8 @@
 name: Verify brew nspawn image
 
-# Non-distroless machine lane, separate from OCI publication. Contract tests
-# run for relevant pull requests; native artifact/boot checks stay weekly/on demand.
+# Non-distroless machine lane, separate from OCI publication. Relevant PRs
+# exercise source/seed contracts and build/inspect both artifact formats;
+# native two-architecture offline boot checks stay weekly/on demand.
 on:
   schedule:
     - cron: "30 4 * * 1"
@@ -14,8 +15,15 @@ on:
       - 'scripts/verify_brew.py'
       - 'tests/test_brew*.py'
       - 'tests/brew-boot.sh'
-      - 'Justfile'
+      - 'elements/base/**'
+      - 'elements/freedesktop-sdk.bst'
+      # project.conf imports GNOME/FSDK configuration and plugin junctions.
+      - 'elements/gnome-build-meta.bst'
+      - 'elements/plugins/**'
+      - 'include/**'
+      - 'patches/**'
       - 'project.conf'
+      - 'Justfile'
       - '.github/workflows/brew-nspawn.yml'
 
 concurrency:
@@ -36,6 +44,25 @@ jobs:
       - name: Exercise seed and authenticated source contracts
         run: python3 -m unittest discover -s tests -p 'test_brew*.py' -v
   verify-brew:
+    if: github.event_name == 'pull_request'
+    needs: brew-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2
+        with:
+          tool: just
+      - name: Install artifact inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes erofs-utils binutils zstd
+      - name: Verify tar and raw artifact contracts
+        run: just verify-brew
+
+  verify-brew-boot:
     if: github.event_name != 'pull_request'
     needs: brew-contract
     strategy:
