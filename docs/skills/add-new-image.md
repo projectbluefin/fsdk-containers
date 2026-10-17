@@ -92,6 +92,9 @@ fails if `image_paths` grants or omits these two paths out of step with it.
   (issue #421). Use `forbid_paths` when the absolute path is part of the
   contract; use `forbid_binaries` when only the basename matters. An image
   with no `slim.extra` declares neither; the list is empty by default.
+  When a whole class of paths must be absent (not one fixed path), declare a
+  per-image regex gate in `gates.forbid` (gate name -> extended regex; see
+  `catalog/static.yaml`).
 - Descriptions, entrypoints, `env` entries, and keywords are interpolated into
   single-quoted YAML scalars by the generator, which escapes `'` as `''`.
   Apostrophes are safe; do not pre-quote or pre-escape values in the record.
