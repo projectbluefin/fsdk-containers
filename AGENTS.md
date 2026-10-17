@@ -106,11 +106,12 @@ add the relevant skill file. See [docs/skills/skill-improvement.md](docs/skills/
 GitHub Issues on `projectbluefin/fsdk-containers`, via the `gh` CLI.
 See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
 
-### Triage labels
+### Triage labels and Prow commands
 
-Mapped onto this repo's existing numbered label workflow (`1-triage`,
-`2-discussing`, `3-clanker-queue`, `3-human-queue`) rather than the canonical
-skill names. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+Follows the org Prow workflow and configuration from `projectbluefin/.project`.
+Humans triage with `/triage accepted`, review with `/lgtm`, and approve with
+`/approve`. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md) and
+[`label-workflow`](https://github.com/projectbluefin/common/blob/main/docs/skills/label-workflow.md).
 
 ### Domain docs
 

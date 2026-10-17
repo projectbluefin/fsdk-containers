@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.5"
-last_updated: 2026-09-25
+version: "1.6"
+last_updated: 2026-10-16
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -31,6 +31,24 @@ metadata:
 - Debugging `just verify` gate logic (see `verify-distroless/SKILL.md`)
 
 ## Org Conventions
+
+### Reviewing and merging workflow changes
+
+Keep onboarding changes separate from test-gate or documentation cleanup; a
+workflow migration must not implicitly remove existing build or smoke coverage.
+For Prow, follow the shared [label workflow](https://github.com/projectbluefin/common/blob/main/docs/skills/label-workflow.md).
+
+Before each merge, read the live branch protection and rulesets. Strict required
+checks can make an otherwise green PR stale after another PR merges, and updating
+its branch can dismiss approvals. Update against the current base, observe the
+new head's required checks and applicable runtime verification, then obtain a
+fresh independent approval. Pin the merge to the reviewed head SHA; do not use
+an administrator bypass to work around stale checks or missing approval.
+
+A green, approved workflow PR can still fail to merge when the OAuth credential
+lacks `workflow` scope. Read the API error rather than treating the CLI's generic
+policy message as a CI failure. Obtain explicitly authorized workflow-capable
+credentials or merge through GitHub's UI; do not bypass repository protections.
 
 ### Action pins — always use SHA, never mutable tags
 

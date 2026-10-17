@@ -33,17 +33,13 @@ Supporting workflows, none of which touch publication:
 | `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
 | `brew-nspawn.yml` | weekly, dispatch, PR touching brew/shared build inputs | `just verify-brew` for the non-distroless brew machine image (detail below) |
+| `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
 
 Both tables above are a gated inventory, not a summary.
 `tests/test_catalog_ci_inventory.py` fails if a file in
 `.github/workflows/` or a composite action in `.github/actions/` is not named
 here, and fails if this document names a workflow file that no longer exists.
 Adding a workflow means adding its row in the same change.
-
-Caveat, tracked by #279: `image-catalog.yml`'s `paths:` filter does not yet
-list `.github/**` or `docs/skills/ci-tooling/**`, so a pull request that *only*
-adds a workflow does not trigger the job that runs this gate. Until that filter
-is widened, run `just catalog-check` locally when you add one.
 
 | Job | Trigger | Purpose |
 |---|---|---|
@@ -81,7 +77,7 @@ failed and skipped job links in one canonical `[CI] Build images failed on main`
 issue, reopening it when a later failure occurs. Keep the workflow-level
 concurrency group: without it, simultaneous failed runs can each observe no
 open issue and create duplicates. It searches all issue states and reapplies
-the `area/ci` and `priority/p1` labels whenever it reopens the issue.
+the `kind/bug` and `priority/critical-urgent` labels whenever it reopens the issue.
 
 The canonical alert lookup paginates the repository Issues API with `state=all`
 and matches the full title exactly, excluding pull requests. Do not take the
