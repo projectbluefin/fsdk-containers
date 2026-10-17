@@ -123,6 +123,39 @@ class SchemaTests(unittest.TestCase):
             catalog.validate(record)
         self.assertIn("slim", str(ctx.exception))
 
+    def test_forbid_paths_rejects_a_non_string_entry(self):
+        """forbid_paths entries are rootfs paths; the schema rejects numbers,
+        nulls, or objects to keep the gate engine simple (grep -qxF)."""
+        record = valid_record(gates={"forbid_paths": [42]})
+        with self.assertRaises(catalog.CatalogError):
+            catalog.validate(record)
+
+    def test_forbid_binaries_rejects_a_non_string_entry(self):
+        record = valid_record(gates={"forbid_binaries": [None]})
+        with self.assertRaises(catalog.CatalogError):
+            catalog.validate(record)
+
+    def test_forbid_paths_rejects_a_leading_slash(self):
+        """The tar listing has no leading slash, so '/usr/bin/dmesg' could
+        never match and the gate would silently pass; reject it up front."""
+        record = valid_record(gates={"forbid_paths": ["/usr/bin/dmesg"]})
+        with self.assertRaises(catalog.CatalogError):
+            catalog.validate(record)
+
+    def test_forbid_paths_rejects_an_empty_entry(self):
+        record = valid_record(gates={"forbid_paths": [""]})
+        with self.assertRaises(catalog.CatalogError):
+            catalog.validate(record)
+
+    def test_forbid_binaries_rejects_a_path(self):
+        """forbid_binaries matches basenames, which never contain '/', so a
+        path entry like 'usr/bin/dmesg' would fail open; reject it."""
+        for entry in ("usr/bin/dmesg", "/dmesg", "dmesg/", ""):
+            with self.subTest(entry=entry):
+                record = valid_record(gates={"forbid_binaries": [entry]})
+                with self.assertRaises(catalog.CatalogError):
+                    catalog.validate(record)
+
 
 if __name__ == "__main__":
     unittest.main()
