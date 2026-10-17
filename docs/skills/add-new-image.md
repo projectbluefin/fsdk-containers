@@ -86,6 +86,12 @@ fails if `image_paths` grants or omits these two paths out of step with it.
   whiteout to the diff layer.
   The base record itself lists FSDK components rather than its own stack, so
   the dependency rule needs no image-name exception.
+- If the record's `slim.extra` removes a file the shared SLIM recipe does not
+  cover, declare the path in `gates.forbid_paths` (or `gates.forbid_binaries`
+  for the basename-only shorthand) so `just verify` proves the file is gone
+  (issue #421). Use `forbid_paths` when the absolute path is part of the
+  contract; use `forbid_binaries` when only the basename matters. An image
+  with no `slim.extra` declares neither; the list is empty by default.
 - Descriptions, entrypoints, `env` entries, and keywords are interpolated into
   single-quoted YAML scalars by the generator, which escapes `'` as `''`.
   Apostrophes are safe; do not pre-quote or pre-escape values in the record.
