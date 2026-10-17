@@ -138,10 +138,26 @@ config:
     # the full identity), and pass *that* as the seed instead.
     artifact_id="donate-clanker-vm-%{fsdk-version}-%{arch}"
     artifact_seed="$(uuidgen -s --namespace "%{uuidnamespace}" --name "${artifact_id}")"
+    # No --rootpasswd: FSDK's own vm/minimal/efi.bst passes `root` because it
+    # is a throwaway development VM. This disk is a published artifact whose
+    # worker runs as uid 0 holding the contributor's tokens, so a constant,
+    # offline-confirmable root password would be a default credential in
+    # every release. Nothing needs an interactive login (the worker is
+    # started by systemd and reports via /dev/kmsg to the serial console).
     prepare-image.sh \
        --sysroot /sysroot \
-       --seed "${artifact_seed}" \
-       --rootpasswd "root" > "%{build-root}/vars"
+       --seed "${artifact_seed}" > "%{build-root}/vars"
+
+  - |
+    # Lock root explicitly and prove it, regardless of what prepare-image.sh
+    # or FSDK's base files left in /etc/shadow: an empty field would allow a
+    # passwordless console login, a hash would allow a known one. `!` is
+    # unmatchable by any password. sed -i writes a new inode, so restore the
+    # 0400 that prepare-image.sh set.
+    set -e
+    sed -E -i 's|^root:[^:]*:|root:!:|' /sysroot/etc/shadow
+    chmod 0400 /sysroot/etc/shadow
+    grep -qE '^root:!:' /sysroot/etc/shadow
 
   - |
     # vm/boot/efi.bst builds the boot assets in a separate build with FSDK's

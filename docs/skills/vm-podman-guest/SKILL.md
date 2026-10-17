@@ -137,6 +137,15 @@ no-op here is what shipped an unbootable disk when 26.08 moved the cmdline
 into the UKI. Never reuse an EFI tree byte-for-byte without checking it
 against the ext4 root UUID.
 
+The guest has no interactive login by design. `podman-vm-efi.bst` calls
+`prepare-image.sh` without `--rootpasswd` and then locks `root` in
+`/sysroot/etc/shadow` (`root:!:`), failing the build if the lock did not take.
+FSDK's own `vm/minimal/efi.bst` sets the password `root`, which is fine for a
+throwaway development VM but not for a published disk whose worker runs as
+uid 0 holding contributor tokens. Debug through the serial console output the
+bootstrap mirrors to `/dev/kmsg` (captured by `tests/vm-boot.sh`), not by
+logging in.
+
 ## Verification
 
 - `just bst show --deps all podman-vm/podman-vm-efi.bst`
