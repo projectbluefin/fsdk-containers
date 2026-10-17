@@ -1,7 +1,7 @@
 ---
 name: printing-base
-version: "1.4"
-last_updated: 2026-09-27
+version: "1.5"
+last_updated: 2026-10-16
 id: printing-base
 one_line_purpose: Build, publish, and consume the shared printing base (printing/base.bst) for the printer applications.
 entry_point: docs/skills/printing-base.md
@@ -134,6 +134,74 @@ from there as usual.
 It is build-time only: it keeps every split domain, including headers, `.pc`
 files and static libs. It is never runnable and never a base layer, and it
 has no catalog record.
+
+## Shared printing runtime layer (the base layer, #342)
+
+`printing-base-devel` is a devel-time cache fragment, never a runtime base.
+`oci/printing-runtime-layer.bst` instead publishes the slimmed runtime from
+`printing/runtime-stack.bst`: `printing/base.bst`, OS runtime, Python, catatonit
+and D-Bus. The compose excludes devel/debug domains; `include/slim-printing.yml`
+applies its removals and filesystem gate before OCI assembly.
+
+`.github/workflows/printing-runtime-layer.yml` builds and smoke-tests pull requests
+on both native architectures with only `contents: read`: no login, push, signing
+or OIDC. Other events publish `ghcr.io/projectbluefin/printing-runtime-layer`:
+- Main publishes `<arch>-<full-key>` and the multi-arch `run-<run_id>` index.
+- Other dispatched refs publish `<arch>-test-<run_id>` and `test-<run_id>`.
+- Every publication also creates `<arch>-run-<run_id>` for same-run index inputs.
+  The index requires both architecture jobs to succeed; main runs never cancel.
+- No `latest` aliases. Per-arch and index digests have keyless cosign signatures.
+- Consumers pin keyed tags, then resolve and verify by digest. Existing keyed
+  digests must already verify against this exact workflow/ref **before** copying
+  aliases; never bless an unsigned registry image with a new workflow signature.
+  Only freshly built/pushed content is eligible for new signing.
+- Key tags must be retained. Cleanup of run/test tags is tracked in #376;
+  `ghcr-cleanup.yml` does not cover this package yet.
+
+`just printing-runtime-layer-key` prints the host-arch key;
+`just build-printing-runtime-layer` builds and checks out to `.build-out`, refusing
+symlink outputs. It uses the devel bundle's source-cache stall workarounds.
+
+**Consumer wiring.** `parent.image` is a verified OCI layout; `layer` is the
+**full final rootfs**, not an app-only subset. FSDK's `build-oci` diff builder skips
+identical files and emits whiteouts for removals. Use `gzip: gzip`, not `disabled`
+(and not `enabled`): the pinned [OCI builder](https://gitlab.com/freedesktop-sdk/freedesktop-sdk/-/blob/32c5fea70e827885fc805d38a9dc5716c39ed173/files/oci/oci_builder/image_builder.py)
+copies a gzip-compressed parent blob byte-for-byte only in gzip mode.
+
+```yaml
+mode: oci
+gzip: gzip
+images:
+- os: linux
+  architecture: "%{go-arch}"
+  parent:
+    image: /parent
+  layer: /layer
+```
+
+Resolve once, verify and copy the **same digest**; abort on any failed command:
+```sh
+set -eu
+repo=ghcr.io/projectbluefin/printing-runtime-layer
+tag='x86_64-<full-key>'
+digest="$(skopeo inspect --format '{{.Digest}}' "docker://${repo}:${tag}")"
+ref="${repo}@${digest}"
+cosign verify \
+  --certificate-identity https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-runtime-layer.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com "${ref}"
+skopeo copy --preserve-digests "docker://${ref}" oci:/parent:layer
+```
+
+Build the child with the configuration above, then publish its OCI layout directly
+with `skopeo copy --preserve-digests oci:<child-layout> docker://<child-image>:<tag>`.
+Do not round-trip it through container storage, which may recompress Layer 0.
+Compare `skopeo inspect --raw docker://<ref> | jq -r '.layers[0].digest'` for parent
+and child: they must match. Four-family adoption and pull-time dedup remain #342's
+consumer-side acceptance criteria; a producer build alone does not complete them.
+
+**Rule:** the keyed shared-layer digest only moves on a printing runtime bump
+(stack, compose, slim recipe, patches, or FSDK junction); already-signed keyed
+images are reused without re-pushing, independent of runner compressor changes.
 
 ## Consumer contract
 

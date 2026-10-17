@@ -24,6 +24,7 @@ on:
       - 'tests/test_slim*.py'
       - 'scripts/printing_base_bundle.py'
       - 'tests/test_printing_base_bundle*.py'
+      - 'tests/test_printing_runtime_layer*.py'
       - '.github/requirements/**'
       # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
       # workflow/action inventory against docs/skills/ci-tooling/references/.
@@ -56,6 +57,7 @@ on:
       - 'tests/test_slim*.py'
       - 'scripts/printing_base_bundle.py'
       - 'tests/test_printing_base_bundle*.py'
+      - 'tests/test_printing_runtime_layer*.py'
       - '.github/requirements/**'
       - '.github/workflows/**'
       - '.github/actions/**'
@@ -98,3 +100,6 @@ jobs:
 
       - name: Printing base bundle lists the cache files consumers need
         run: python3 -m unittest discover -s tests -p 'test_printing_base_bundle*.py' -v
+
+      - name: Printing runtime publication and cleanup behavior
+        run: python3 -m unittest discover -s tests -p 'test_printing_runtime_layer*.py' -v
