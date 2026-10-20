@@ -21,7 +21,7 @@ build-depends:
       location: /layer
 
 variables:
-  # Keep in lockstep with brew-prefix.bst's source track and Justfile.
+  # Must equal brew-prefix.bst's source track (tests/test_brew_version_pin.py).
   # renovate: datasource=github-tags depName=Homebrew/brew
   brew-version: "7.0.10"
 

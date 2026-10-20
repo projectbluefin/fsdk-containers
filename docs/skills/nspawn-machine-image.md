@@ -171,8 +171,10 @@ verification script, source/seed tests and boot script too. Directory patterns
 must use `/**`; unrelated OCI-only edits should skip this heavy build. Smoke-test
 matching and non-matching paths against the actual filter rather than pinning
 its wiring in permanent tests. GitHub's [workflow syntax](https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#onpull_requestpull_request_targetpathspaths-ignore)
-documents PR path filtering. Keep the element's `brew-version` and Justfile's
-`brew_version` synchronized; artifact verification uses the expected release pin.
+documents PR path filtering. The Homebrew release pin is `brew-prefix.bst`'s
+`track:`; the Justfile's `brew_version` is read from it, and
+`tests/test_brew_version_pin.py` fails if `brew-nspawn.bst`'s `brew-version`
+(which names the artifacts) differs.
 
 Before handing off a verified producer, require:
 
