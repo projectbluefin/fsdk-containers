@@ -884,7 +884,7 @@ printing-base-bundle TAG: printing-base-check
 # NOT distroless: a full dev-environment raw EROFS machine plus the compatible
 # machinectl import-tar rootfs (see docs/skills/nspawn-machine-image.md).
 # renovate: datasource=github-tags depName=Homebrew/brew
-brew_version := "7.0.9"
+brew_version := "7.0.10"
 brew_commit := `grep '^  ref:' elements/brew/brew-prefix.bst | cut -d g -f 2`
 
 # Consumer/source behavior tests only; no image build.

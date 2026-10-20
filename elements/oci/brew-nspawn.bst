@@ -23,7 +23,7 @@ build-depends:
 variables:
   # Keep in lockstep with brew-prefix.bst's source track and Justfile.
   # renovate: datasource=github-tags depName=Homebrew/brew
-  brew-version: "7.0.9"
+  brew-version: "7.0.10"
 
 config:
   commands:
