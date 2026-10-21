@@ -35,7 +35,7 @@ from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `ghcr.io/projectbluefin/brew` | ~410 MB | Homebrew developer environment as a **systemd-nspawn machine image** (a `.tar.zst` rootfs for `machinectl import-tar`, **not** an OCI image). Full dev env: bash, ruby, git, curl, gcc, patchelf, systemd init + the linuxbrew prefix. The distroless/slim rules do **not** apply here — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
+| `brew` (machine files, not an OCI registry image) | architecture-dependent | Homebrew developer environment as a **systemd-nspawn machine image**: immutable EROFS `.raw.zst` for `machinectl import-raw`, plus the compatible `.tar.zst` rootfs for `machinectl import-tar`. Includes bash, matched portable Ruby, git, curl, gcc, patchelf, systemd, D-Bus/logind/NSS/PAM and a real Git-backed Linuxbrew seed; no formulae. Distroless/slim rules do **not** apply — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
 
 ## How it works
 
@@ -131,7 +131,7 @@ For a full developer environment container booted by `systemd-nspawn` instead of
 
 ### 1. Build and install
 
-The build process produces a `.tar.zst` rootfs, imports it into `machinectl`, creates a dedicated `/home/linuxbrew` folder on your host, and configures the `systemd-nspawn` sandbox settings (requires `sudo`):
+The build produces both raw EROFS and tar machine files. Installation defaults to raw (`just install-brew tar` retains the tar consumer), initializes a pristine `/home/linuxbrew/.linuxbrew` host prefix from the immutable seed, imports the image into `machinectl`, and configures a writable runtime overlay and persistent home bind (requires `sudo`, `fsck.erofs`, and an EROFS-enabled systemd host):
 
     just install-brew
 

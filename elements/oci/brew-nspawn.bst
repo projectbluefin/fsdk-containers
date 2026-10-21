@@ -1,16 +1,17 @@
 kind: script
 description: |
-  Assemble the Homebrew nspawn machine image as a machinectl-compatible rootfs
-  tarball (NOT an OCI image). Stages the brew runtime rootfs and the brew prefix
-  at /layer, finalises the container-specific bits that need to live in the image
-  (linuxbrew user, init symlink, machine-id, locale), then emits
-  homebrew-env-<ver>.tar.zst + SHA256SUMS for systemd-sysupdate.
+  Assemble both the existing machinectl rootfs tar and an immutable EROFS raw
+  machine. The tar retains /home/linuxbrew/.linuxbrew; the raw places the same
+  Git-backed prefix under /usr/share/bluefin/homebrew-seed for host provisioning
+  into a persistent writable prefix. Both contain a real system and user bus,
+  PAM, logind, and the complete Homebrew runtime (no installed formulae).
 
 build-depends:
   # Root toolchain to run the assembly commands (coreutils, bash, tar, zstd).
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/tar.bst
   - freedesktop-sdk.bst:components/zstd.bst
+  - freedesktop-sdk.bst:components/erofs-utils.bst
   # The rootfs content, staged into /layer.
   - filename: brew/brew-runtime.bst
     config:
@@ -20,8 +21,7 @@ build-depends:
       location: /layer
 
 variables:
-  # Keep in lockstep with brew/brew-prefix.bst's track: — the Justfile's
-  # brew_version and verify-brew expect homebrew-env-<that version>.tar.zst.
+  # Keep in lockstep with brew-prefix.bst's source track and Justfile.
   # renovate: datasource=github-tags depName=Homebrew/brew
   brew-version: "7.0.9"
 
@@ -54,6 +54,10 @@ config:
       printf 'root:x:0:\nlinuxbrew:x:1001:\n' > "$L/etc/group"
       echo 'linuxbrew:100000:65536' > "$L/etc/subuid"
       echo 'linuxbrew:100000:65536' > "$L/etc/subgid"
+      rm -f "$L/etc/shadow" "$L/etc/nsswitch.conf"
+      printf 'root:!:1:0:99999:7:::\nlinuxbrew:!:1:0:99999:7:::\n' > "$L/etc/shadow"
+      chmod 0600 "$L/etc/shadow"
+      printf 'passwd: files systemd\ngroup: files systemd\nshadow: files\nhosts: files dns\nnetworks: files\n' > "$L/etc/nsswitch.conf"
 
       # Ownership of /home/linuxbrew is NOT set here: the bst sandbox runs in a
       # user namespace that cannot chown to uid 1001 (chown returns EINVAL). At
@@ -82,14 +86,45 @@ config:
       rm -f "$L/etc/locale.conf"
       echo 'LANG=C.UTF-8' > "$L/etc/locale.conf"
 
+      # Explicit boot/session prerequisites, rather than relying on presets
+      # from a desktop distribution. FSDK systemd already enables PAM.
+      mkdir -p "$L/etc/systemd/system/sockets.target.wants" \
+        "$L/etc/systemd/system/multi-user.target.wants" \
+        "$L/etc/systemd/user/sockets.target.wants" \
+        "$L/var/lib/systemd/linger" "$L/etc/pam.d"
+      ln -sf /usr/lib/systemd/system/dbus.socket "$L/etc/systemd/system/sockets.target.wants/dbus.socket"
+      ln -sf /usr/lib/systemd/system/dbus.service "$L/etc/systemd/system/dbus.service"
+      ln -sf /usr/lib/systemd/system/systemd-logind.service "$L/etc/systemd/system/multi-user.target.wants/systemd-logind.service"
+      ln -sf /usr/lib/systemd/user/dbus.socket "$L/etc/systemd/user/sockets.target.wants/dbus.socket"
+      ln -sf /usr/lib/systemd/user/dbus.service "$L/etc/systemd/user/dbus.service"
+      # Retain systemd's complete upstream systemd-user PAM stack (including
+      # pam_rootok for pam_setcred), not a second reduced authentication stack.
+      if [ ! -e "$L/etc/pam.d/systemd-user" ]; then
+        test -s "$L/usr/lib/pam.d/systemd-user"
+        ln -sf /usr/lib/pam.d/systemd-user "$L/etc/pam.d/systemd-user"
+      fi
+      : > "$L/var/lib/systemd/linger/linuxbrew"
+
     - |
       set -eu
       cd "%{install-root}"
       TARBALL="homebrew-env-%{brew-version}.tar.zst"
+      RAW="homebrew-env-%{brew-version}.raw"
+      SEED=/layer/usr/share/bluefin/homebrew-seed
+      PREFIX=/layer/home/linuxbrew/.linuxbrew
 
-      # machinectl import-tar wants a complete rootfs tarball with numeric owners.
-      # zstd: 3-5x faster decompression than gzip; systemd-sysupdate handles .tar.zst.
-      tar --numeric-owner --xattrs --zstd -cf "$TARBALL" -C /layer .
+      # Preserve the existing tar contract without a second copy of the seed.
+      rmdir "$PREFIX"
+      mv "$SEED" "$PREFIX"
+      ZSTD_NBTHREADS=1 tar --sort=name --mtime='@0' --format=pax \
+        --pax-option='exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime' \
+        --numeric-owner --owner=0 --group=0 --xattrs --zstd -cf "$TARBALL" -C /layer .
+      mv "$PREFIX" "$SEED"
+      mkdir -p "$PREFIX"
 
-      # Checksums for systemd-sysupdate (SHA256SUMS / SHA256SUMS.gpg alongside).
-      sha256sum --binary "$TARBALL" > SHA256SUMS
+      # Plain filesystem images are nspawn --image compatible. Fixed UUID,
+      # timestamps, and root ownership make EROFS assembly reproducible.
+      mkfs.erofs --all-root -T 0 -U 54e841c8-cf38-5ee1-9caf-466649f86612 "$RAW" /layer
+      fsck.erofs "$RAW"
+      zstd -T1 -19 --rm "$RAW"
+      sha256sum --binary "$TARBALL" "$RAW.zst" > SHA256SUMS
