@@ -151,13 +151,26 @@ has no catalog record.
    in the consumer. This was verified 2026-09-25 against a scratch consumer
    project (both arches equal).
 4. Seed the cache only from a verified digest. If verification fails, build
-   locally and never extract:
+   locally and never extract. In GitHub Actions, use the shared step instead
+   of copying the commands below; it installs cosign and never fails the job:
+
+   ```yaml
+   - name: Seed printing base
+     uses: projectbluefin/fsdk-containers/.github/actions/seed-printing-base@<commit> # pin a full SHA
+     with:
+       arch: ${{ matrix.arch }}
+   ```
+
+   It runs [`seed-printing-base/seed.sh`](../../.github/actions/seed-printing-base/seed.sh)
+   in the consumer's checkout, so `just bst` must resolve the consumer's
+   junction and `skopeo` and `jq` must be installed. Outside Actions, the
+   equivalent commands:
 
    ```bash
    REPO=ghcr.io/projectbluefin/printing-base-devel
    DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${REPO}:${ARCH}-${KEY}")"
    if cosign verify \
-        --certificate-identity-regexp '^https://github.com/projectbluefin/fsdk-containers/.github/workflows/' \
+        --certificate-identity 'https://github.com/projectbluefin/fsdk-containers/.github/workflows/printing-base.yml@refs/heads/main' \
         --certificate-oidc-issuer https://token.actions.githubusercontent.com \
         "${REPO}@${DIGEST}" >/dev/null; then
      skopeo copy "docker://${REPO}@${DIGEST}" dir:/tmp/bundle
@@ -170,7 +183,9 @@ has no catalog record.
    This never touches podman storage. `skopeo copy` by digest checks every
    blob against the signed manifest.
    BuildStream trusts `artifacts/refs` as given, so the signature is the
-   trust boundary.
+   trust boundary. Name the signer exactly: only `printing-base.yml` on
+   `main` signs the bundle, and an identity regexp over this repository's
+   workflows would also accept other workflows and other branches.
 5. Add a no-devel-content check to `just verify`. License texts under
    `/usr/share/licenses` are pruned from the check and never deleted:
 

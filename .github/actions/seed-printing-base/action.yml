@@ -1,0 +1,28 @@
+name: Seed printing base
+description: >-
+  Seed a printer application's BuildStream cache with
+  fsdk-containers.bst:printing/base.bst from the signed
+  ghcr.io/projectbluefin/printing-base-devel bundle (consumer contract rule 4,
+  docs/skills/printing-base.md). The bundle is unpacked only after cosign
+  accepts the exact signer, printing-base.yml on main, for the digest that is
+  then copied. Never fails the job: any problem is a `::warning::` and the
+  base is built locally instead. Expects `just` (with a `bst` recipe that
+  resolves the consumer's fsdk-containers.bst junction), `skopeo` and `jq` on
+  PATH; installs cosign itself.
+
+inputs:
+  arch:
+    description: BuildStream target arch (x86_64 or aarch64).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install cosign
+      continue-on-error: true
+      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+    - name: Seed printing base
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: bash "${GITHUB_ACTION_PATH}/seed.sh"
