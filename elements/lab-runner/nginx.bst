@@ -65,7 +65,7 @@ config:
       --without-http_userid_module
 
   build-commands:
-  - make -j%{max-jobs}
+  - make -j"${MAXJOBS}"
 
   install-commands:
   - make install DESTDIR="%{install-root}"
