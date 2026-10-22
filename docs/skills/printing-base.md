@@ -155,8 +155,8 @@ or OIDC. Other events publish `ghcr.io/projectbluefin/printing-runtime-layer`:
   digests must already verify against this exact workflow/ref **before** copying
   aliases; never bless an unsigned registry image with a new workflow signature.
   Only freshly built/pushed content is eligible for new signing.
-- Key tags must be retained. Cleanup of run/test tags is tracked in #376;
-  `ghcr-cleanup.yml` does not cover this package yet.
+- Key tags must be retained. `ghcr-cleanup.yml` prunes only the run-/test-
+  tags (index and per-arch) once they are older than 14 days (#376).
 
 `just printing-runtime-layer-key` prints the host-arch key;
 `just build-printing-runtime-layer` builds and checks out to `.build-out`, refusing

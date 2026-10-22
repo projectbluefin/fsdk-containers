@@ -19,6 +19,11 @@ name: GHCR cleanup
 # BuildStream cache bundle, not an image anyone pins. Its keyed
 # `<arch>-<full-key>` tags are superseded by every printing/base.bst change,
 # so the last 5 per architecture are kept and older ones pruned below.
+#
+# printing-runtime-layer (printing-runtime-layer.yml) keeps its keyed
+# `<arch>-<full-key>` tags forever, because consumers pin them
+# (docs/skills/printing-base.md). Only its transient run-/test- tags are
+# pruned below, once they are older than 14 days.
 
 on:
   schedule:
@@ -55,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] + ["printing-base-devel"] | join(",")' elements/targets.json)"
+          LIST="$(jq -r '[.oci_images[] | ., "\(.)-x86_64", "\(.)-aarch64"] + ["printing-base-devel", "printing-runtime-layer"] | join(",")' elements/targets.json)"
           echo "==> candidate packages: ${LIST}"
 
           # Probe the token's package-list permission ONCE, before the
@@ -120,6 +125,9 @@ jobs:
           echo "list=${FILTERED}" >> "$GITHUB_OUTPUT"
           if printf '%s\n' "${EXISTING[@]}" | grep -qx printing-base-devel; then
             echo "printing=true" >> "$GITHUB_OUTPUT"
+          fi
+          if printf '%s\n' "${EXISTING[@]}" | grep -qx printing-runtime-layer; then
+            echo "runtime_layer=true" >> "$GITHUB_OUTPUT"
           fi
 
       # #23 stopped publishing :latest, but the pre-#23 tags were never
@@ -195,6 +203,25 @@ jobs:
           keep-n-tagged: 5
           exclude-tags: 'aarch64-latest,x86_64-*,sha256-*'
           delete-untagged: true
+          delete-orphaned-images: true
+          dry-run: ${{ inputs.dry_run || false }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # printing-runtime-layer only (#376): every publication adds
+      # `<arch>-run-<run_id>` tags and a `run-<run_id>` index (`test-` on
+      # branch dispatches), so the package grew without bound. Consumers pin
+      # the keyed `<arch>-<full-key>` tags, which must be kept; those are
+      # pure hex, so the run-/test- patterns below can never match one. A run
+      # tag that shares a digest with a key tag is only unlinked (the action
+      # deletes an image only once all its tags are gone), and
+      # delete-orphaned-images drops cosign `sha256-*` tags whose digest went.
+      - name: Prune printing-runtime-layer run and test tags
+        if: steps.packages.outputs.runtime_layer == 'true'
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        with:
+          packages: printing-runtime-layer
+          delete-tags: 'run-*,*-run-*,test-*,*-test-*'
+          older-than: 14 days
           delete-orphaned-images: true
           dry-run: ${{ inputs.dry_run || false }}
           token: ${{ secrets.GITHUB_TOKEN }}
