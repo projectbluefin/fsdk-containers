@@ -60,7 +60,7 @@ at UID/GID 1001 and `/home/linuxbrew` host bind. No guest user should own `/usr`
 ## Core Process
 
 1. `brew-deps.bst` reuses FSDK `components/*` plus `base/base-stack.bst`.
-   Shell, compiler/headers, locales, git/curl/patchelf, init, D-Bus provider,
+   Shell, compiler/headers, locales, git/openssh/curl/patchelf, init, D-Bus provider,
    logind, NSS and PAM are prerequisites, not a second distro package set.
 2. `brew-runtime.bst` excludes only debug/doc/tests, keeping devel, locale,
    shells, sysconf, sysusers and user-service units. Never apply SLIM here.

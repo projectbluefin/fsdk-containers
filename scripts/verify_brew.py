@@ -14,7 +14,7 @@ import tempfile
 
 
 REQUIRED = (
-    "usr/bin/bash", "usr/bin/git", "usr/bin/curl", "usr/bin/patchelf",
+    "usr/bin/bash", "usr/bin/git", "usr/bin/ssh", "usr/bin/curl", "usr/bin/patchelf",
     "usr/bin/dbus-daemon", "usr/bin/systemd-run", "usr/bin/systemctl",
     "usr/lib/systemd/systemd", "usr/lib/systemd/systemd-logind",
     "usr/lib/systemd/system/dbus.service", "usr/lib/systemd/system/dbus.socket",

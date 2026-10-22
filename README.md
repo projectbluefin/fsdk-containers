@@ -35,7 +35,7 @@ from `runtime-minimal` and therefore does not include bash; shell-enabled stacks
 
 | Image | Size | Description |
 | ----- | ---- | ----------- |
-| `brew` (machine files, not an OCI registry image) | architecture-dependent | Homebrew developer environment as a **systemd-nspawn machine image**: immutable EROFS `.raw.zst` for `machinectl import-raw`, plus the compatible `.tar.zst` rootfs for `machinectl import-tar`. Includes bash, matched portable Ruby, git, curl, gcc, patchelf, systemd, D-Bus/logind/NSS/PAM and a real Git-backed Linuxbrew seed; no formulae. Distroless/slim rules do **not** apply — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
+| `brew` (machine files, not an OCI registry image) | architecture-dependent | Homebrew developer environment as a **systemd-nspawn machine image**: immutable EROFS `.raw.zst` for `machinectl import-raw`, plus the compatible `.tar.zst` rootfs for `machinectl import-tar`. Includes bash, matched portable Ruby, git, openssh client, curl, gcc, patchelf, systemd, D-Bus/logind/NSS/PAM and a real Git-backed Linuxbrew seed; no formulae. Distroless/slim rules do **not** apply — see [docs/skills/nspawn-machine-image.md](docs/skills/nspawn-machine-image.md). Built with `just export-brew`. |
 
 ## How it works
 

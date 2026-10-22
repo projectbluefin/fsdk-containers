@@ -21,6 +21,7 @@ depends:
   # Brew's own runtime requirements.
   # Brew uses its version-matched portable Ruby, not FSDK's unrelated Ruby.
   - freedesktop-sdk.bst:components/git.bst             # taps + self-update
+  - freedesktop-sdk.bst:components/openssh.bst         # git over ssh (ssh client)
   - freedesktop-sdk.bst:components/curl.bst            # bottle downloads
   - freedesktop-sdk.bst:components/gcc.bst             # source builds / compiler
   - freedesktop-sdk.bst:components/patchelf.bst        # bottle relocation on Linux
