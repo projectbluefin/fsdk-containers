@@ -34,6 +34,7 @@ Supporting workflows, none of which touch publication:
 | `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
 | `brew-nspawn.yml` | relevant brew/shared-input PRs, weekly, dispatch | PR source/seed behavioral tests and native artifact inspection; native x86_64/aarch64 `just verify-brew-boot` (both formats and offline user scopes) weekly/on demand |
+| `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
 
 Both tables above are a gated inventory, not a summary.
 `tests/test_catalog_ci_inventory.py` fails if a file in
