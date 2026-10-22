@@ -470,13 +470,9 @@ passes); in-sandbox strace and `aa-status` probes on both images.
    }
    ```
 
-   gutenprint-printer-app#52 and ps-printer-app#52 carry this rule;
-   ghostscript-printer-app and hplip-printer-app must add the same one.
+   gutenprint-printer-app#52 and ps-printer-app#52 carry this rule.
 3. Renovate does not alter `fsdk-containers` runner pins from the consumer
-   side, and this repository's `renovate.json` has no runner cap on purpose
-   (see above). Do not copy the cap here unless an element in
-   `printing/base.bst` starts executing gs during its build.
-
+   side; this repository's `renovate.json` has no runner cap on purpose.
 ### If a job has to run on ubuntu-26.04
 
 Unload the profile on the runner before the first `just bst`; it is host
@@ -495,10 +491,8 @@ install the result from `/tmp` also works, but ties the element to a
 runner quirk; prefer the pin plus the Renovate cap.
 
 The `rm: cannot remove '/buildstream/...': Read-only file system` line
-quoted in #332 is not the failure. It is BuildStream's post-command
-build-root cleanup and shows up on *successful* 26.04 builds as well (the
-verification run below prints it right before `SUCCESS ... Running
-commands`). The only 26.04-specific failure observed is the gs EACCES above.
+quoted in #332 is BuildStream's post-command build-root cleanup on
+successful 26.04 builds; the only 26.04 failure is the gs EACCES above.
 
 Verified: on ubuntu-26.04 with the `gs` profile unloaded, the unmodified
 `printer-app/runtime-files.bst` builds and caches (clubanderson fork run
