@@ -134,7 +134,8 @@ class GateDerivationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             vc.gates_for(record)
 
-    def test_no_exec_only_for_data_only_images(self):
+    def test_no_exec_only_for_executable_free_images(self):
+        """Only base and static declare smoke: no-exec (nothing to run)."""
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
                 out = io.StringIO()
