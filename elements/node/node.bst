@@ -5,13 +5,14 @@ description: |
   (corrects the batching table in projectbluefin/fsdk-containers#113).
 
 sources:
-  # Manual bump: nodejs.org publishes an authoritative SHASUMS256.txt per
-  # release. Update node_version and ref together; verify with
+  # node_version is Renovate-tracked (see variables:); refresh-bst-refs.yml
+  # recomputes this ref on Renovate PRs. For a hand bump, update node_version
+  # and ref together and verify with
   # `curl -sL https://nodejs.org/dist/vX.Y.Z/node-vX.Y.Z.tar.gz | sha256sum`
   # against https://nodejs.org/dist/vX.Y.Z/SHASUMS256.txt.
   - kind: tar
     url: https://nodejs.org/dist/v%{node_version}/node-v%{node_version}.tar.gz
-    ref: 16fe258006a6e86844fbe05b3b5e1e5623ca8d3da54e32d98d9e83234bf25b01
+    ref: 001773d9bd53fbd27a25efd42aa6a9693ebfe500998ca9bec635e9b6ee79bc91
 
 build-depends:
   - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -54,7 +55,10 @@ depends:
 
 variables:
   strip-binaries: ""
-  node_version: 24.19.0
+  # `node` versioning only proposes releases from an LTS-stable line, so this
+  # follows the LTS schedule rather than the odd-numbered Current line.
+  # renovate: datasource=node-version depName=node versioning=node
+  node_version: 24.22.1
   hardening-flags: ""
   (?):
     - arch == "x86_64":
