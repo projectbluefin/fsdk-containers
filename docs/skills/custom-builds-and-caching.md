@@ -1,7 +1,7 @@
 ---
 name: custom-builds-and-caching
-version: "1.0"
-last_updated: 2026-08-20
+version: "1.1"
+last_updated: 2026-10-16
 id: custom-builds-and-caching
 one_line_purpose: Configure custom BuildStream builds and CAS cache servers for forks and CI.
 entry_point: docs/skills/custom-builds-and-caching.md
@@ -27,6 +27,14 @@ BuildStream 2 is designed with a strong cache-sharing model. In `project.conf`, 
 - **Project Bluefin Cache:** `https://cache.projectbluefin.io:11001` (provides pre-built base and runtime elements for fsdk-containers)
 
 Because these are pre-configured in `project.conf`, any local build or GitHub Actions workflow automatically pulls pre-built layers. You do not need to rebuild the entire Freedesktop SDK from scratch.
+
+Adding a pull cache is a trust-policy change, not only a performance tweak.
+Extending the FSDK junction's artifact remotes trusts that cache's writers for
+the entire toolchain (including gcc, glibc and OpenSSL), not just this project's
+images. Require explicit maintainer approval for that broader trust boundary;
+green image builds and general backlog authorization do not establish it.
+Read-only PR jobs also cannot prove push coverage: inspect the trusted runner's
+user configuration for each project before claiming junction artifacts are shared.
 
 ---
 
@@ -54,6 +62,13 @@ projects:
           client-cert: /path/to/client.crt
           client-key: /path/to/client.key
 ```
+
+The `projects:` key matches the BuildStream project name, so this entry only
+covers `fsdk-containers` elements. Junctioned elements (`freedesktop-sdk.bst:*`,
+including patched FSDK elements such as the printing stack) belong to project
+`freedesktop-sdk` and are not pushed by it. To push those too, add the same
+`artifacts:` block under `freedesktop-sdk:` (and `gnome:` for
+gnome-build-meta elements), or use a top-level `artifacts:` block that applies to every project.
 
 If you do not have certificates (e.g. testing over localhost or a secure private network), you can omit the `auth` section or use an unencrypted server:
 
