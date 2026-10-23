@@ -141,7 +141,7 @@ class GateDerivationTests(unittest.TestCase):
                 with mock.patch.object(sys, "argv", ["vc", record["name"], "--env"]), \
                         contextlib.redirect_stdout(out):
                     vc.main()
-                want = "NO_EXEC=1" if record["name"] == "static" else "NO_EXEC=0"
+                want = "NO_EXEC=1" if record["name"] in ("base", "static") else "NO_EXEC=0"
                 self.assertIn(want, out.getvalue().splitlines())
 
 
