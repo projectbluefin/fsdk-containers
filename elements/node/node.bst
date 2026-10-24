@@ -5,13 +5,14 @@ description: |
   (corrects the batching table in projectbluefin/fsdk-containers#113).
 
 sources:
-  # Manual bump: nodejs.org publishes an authoritative SHASUMS256.txt per
-  # release. Update node_version and ref together; verify with
+  # node_version is Renovate-tracked (see variables:); refresh-bst-refs.yml
+  # recomputes this ref on Renovate PRs. For a hand bump, update node_version
+  # and ref together and verify with
   # `curl -sL https://nodejs.org/dist/vX.Y.Z/node-vX.Y.Z.tar.gz | sha256sum`
   # against https://nodejs.org/dist/vX.Y.Z/SHASUMS256.txt.
   - kind: tar
     url: https://nodejs.org/dist/v%{node_version}/node-v%{node_version}.tar.gz
-    ref: 16fe258006a6e86844fbe05b3b5e1e5623ca8d3da54e32d98d9e83234bf25b01
+    ref: 001773d9bd53fbd27a25efd42aa6a9693ebfe500998ca9bec635e9b6ee79bc91
 
 build-depends:
   - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -27,7 +28,6 @@ build-depends:
   - freedesktop-sdk.bst:components/zlib.bst
   - freedesktop-sdk.bst:components/c-ares.bst
   - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/brotli.bst
   - freedesktop-sdk.bst:components/icu.bst
   # configure, gyp and the generated build shell out to sed/grep/awk and
   # coreutils without checking for them; FSDK's sandbox has no ambient
@@ -45,16 +45,19 @@ depends:
   # node is linked against these shared libraries; declaring them here keeps
   # the runtime linkage explicit instead of relying on transitive luck.
   # All are FSDK components, so CVE patches land via the junction.
+  # brotli is deliberately absent: see the --shared-brotli note below.
   - freedesktop-sdk.bst:components/openssl.bst
   - freedesktop-sdk.bst:components/zlib.bst
   - freedesktop-sdk.bst:components/c-ares.bst
   - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/brotli.bst
   - freedesktop-sdk.bst:components/icu.bst
 
 variables:
   strip-binaries: ""
-  node_version: 24.19.0
+  # `node` versioning only proposes releases from an LTS-stable line, so this
+  # follows the LTS schedule rather than the odd-numbered Current line.
+  # renovate: datasource=node-version depName=node versioning=node
+  node_version: 24.22.1
   hardening-flags: ""
   (?):
     - arch == "x86_64":
@@ -77,9 +80,17 @@ config:
     # reads them at build time), so exporting before configure covers both.
     - export CFLAGS="%{hardening-flags}" CXXFLAGS="%{hardening-flags}"
     - |
-      # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2/brotli
+      # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2
       #   instead of node's vendored copies. libuv/llhttp/ada/simdjson stay
       #   bundled — FSDK ships no components for them.
+      # brotli stays bundled (no --shared-brotli) since node 24.22.1: its
+      #   deps/brotli carries the CVE-2026-111497 fix and src/node_zlib.cc
+      #   exports the new BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH code,
+      #   which only exists in brotli >= 1.2.1 (released 2026-10-21).
+      #   FSDK 26.08.2 pins brotli v1.2.0, so --shared-brotli fails to
+      #   compile and would also link the unfixed decoder. Re-add
+      #   --shared-brotli plus the components/brotli.bst build-depends/depends
+      #   once the junction's components/brotli.bst ref is >= v1.2.1.
       # --with-intl=system-icu: links FSDK's CVE-patched icu 78.3 (node's
       #   minimum_icu=73, tools/icu/icu_versions.json) with full Intl parity
       #   with official node images. Alternatives measured 2026-10-09:
@@ -103,7 +114,6 @@ config:
         --shared-zlib \
         --shared-cares \
         --shared-nghttp2 \
-        --shared-brotli \
         --with-intl=system-icu \
         --without-npm \
         --without-corepack \
