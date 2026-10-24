@@ -165,8 +165,8 @@ def require_any_paths_for(record: dict) -> list[str]:
 def smoke_argv(record: dict) -> list[str]:
     """Arguments to append to `podman run --rm <ref>` for the smoke test.
 
-    Returns [] for an image whose smoke is "none" (base) or "no-exec"
-    (static) -- every record must say so explicitly now, there is no longer a
+    Returns [] for an image whose smoke is "none" or "no-exec" (base,
+    static) -- every record must say so explicitly now, there is no longer a
     silent-omission case. Post-publish CI falls back to a /usr/bin/true
     runnability probe for "none" and runs nothing for "no-exec" (NO_EXEC=1).
     """
@@ -237,7 +237,7 @@ def main() -> int:
     smoke = record.get("smoke")
     shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
-    # Data-only images (static) have nothing to execute, not even /usr/bin/true.
+    # Executable-free images (base, static) have nothing to execute, not even /usr/bin/true.
     print(f"NO_EXEC={1 if record.get('smoke') == 'no-exec' else 0}")
     return 0
 
