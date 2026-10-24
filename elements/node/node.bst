@@ -28,7 +28,6 @@ build-depends:
   - freedesktop-sdk.bst:components/zlib.bst
   - freedesktop-sdk.bst:components/c-ares.bst
   - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/brotli.bst
   - freedesktop-sdk.bst:components/icu.bst
   # configure, gyp and the generated build shell out to sed/grep/awk and
   # coreutils without checking for them; FSDK's sandbox has no ambient
@@ -46,11 +45,11 @@ depends:
   # node is linked against these shared libraries; declaring them here keeps
   # the runtime linkage explicit instead of relying on transitive luck.
   # All are FSDK components, so CVE patches land via the junction.
+  # brotli is deliberately absent: see the --shared-brotli note below.
   - freedesktop-sdk.bst:components/openssl.bst
   - freedesktop-sdk.bst:components/zlib.bst
   - freedesktop-sdk.bst:components/c-ares.bst
   - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/brotli.bst
   - freedesktop-sdk.bst:components/icu.bst
 
 variables:
@@ -81,9 +80,17 @@ config:
     # reads them at build time), so exporting before configure covers both.
     - export CFLAGS="%{hardening-flags}" CXXFLAGS="%{hardening-flags}"
     - |
-      # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2/brotli
+      # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2
       #   instead of node's vendored copies. libuv/llhttp/ada/simdjson stay
       #   bundled — FSDK ships no components for them.
+      # brotli stays bundled (no --shared-brotli) since node 24.22.1: its
+      #   deps/brotli carries the CVE-2026-111497 fix and src/node_zlib.cc
+      #   exports the new BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH code,
+      #   which only exists in brotli >= 1.2.1 (released 2026-10-21).
+      #   FSDK 26.08.2 pins brotli v1.2.0, so --shared-brotli fails to
+      #   compile and would also link the unfixed decoder. Re-add
+      #   --shared-brotli plus the components/brotli.bst build-depends/depends
+      #   once the junction's components/brotli.bst ref is >= v1.2.1.
       # --with-intl=system-icu: links FSDK's CVE-patched icu 78.3 (node's
       #   minimum_icu=73, tools/icu/icu_versions.json) with full Intl parity
       #   with official node images. Alternatives measured 2026-10-09:
@@ -107,7 +114,6 @@ config:
         --shared-zlib \
         --shared-cares \
         --shared-nghttp2 \
-        --shared-brotli \
         --with-intl=system-icu \
         --without-npm \
         --without-corepack \
