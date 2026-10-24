@@ -237,7 +237,7 @@ def main() -> int:
     smoke = record.get("smoke")
     shell_probe = smoke.get("shell_probe", "") if isinstance(smoke, dict) else ""
     print(f"SHELL_PROBE={shlex.quote(shell_probe)}")
-    # Data-only images (static) have nothing to execute, not even /usr/bin/true.
+    # Executable-free images (base, static) have nothing to execute, not even /usr/bin/true.
     print(f"NO_EXEC={1 if record.get('smoke') == 'no-exec' else 0}")
     return 0
 
