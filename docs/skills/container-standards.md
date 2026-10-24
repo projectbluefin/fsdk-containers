@@ -41,8 +41,8 @@ metadata:
 
 `just verify` is the merge contract. Every OCI image must pass the gates below
 and — for images that ship a real binary — a smoke test that executes it
-(`base` gets its `/usr/bin/true` smoke only in the post-publish `publish-smoke`
-job; `static` is `smoke: no-exec` — data files only, nothing to execute).
+(`base` and `static` declare `smoke: no-exec` — data and libraries only, no userland
+executables to execute).
 
 Distroless images (all except `lab-runner`):
 

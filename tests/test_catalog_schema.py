@@ -86,10 +86,12 @@ class SchemaTests(unittest.TestCase):
         self.assertNotIn("entrypoint", record)
         catalog.validate(record)
 
-    def test_smoke_none_is_the_explicit_opt_out(self):
-        """base declares smoke: none (static: no-exec) rather than omitting smoke."""
-        record = catalog.load_record(ROOT / "catalog" / "base.yaml")
-        self.assertEqual(record["smoke"], "none")
+    def test_smoke_no_exec_is_the_explicit_opt_out(self):
+        """base and static declare smoke: no-exec rather than omitting smoke."""
+        for name in ("base", "static"):
+            with self.subTest(image=name):
+                record = catalog.load_record(ROOT / "catalog" / f"{name}.yaml")
+                self.assertEqual(record["smoke"], "no-exec")
 
     def test_smoke_cannot_be_omitted(self):
         """Every record must say what its smoke test is, even if that's none.
