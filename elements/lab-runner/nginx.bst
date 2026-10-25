@@ -4,7 +4,7 @@ description: Build nginx from source for the lab-runner utility image.
 sources:
 - kind: tar
   url: https://nginx.org/download/nginx-%{nginx_version}.tar.gz
-  ref: 89ea8a3dc171511f7325043b50e4c036248d9fad5feb7ec809c0b82d5df42c65
+  ref: 0652b760b3b772d2ec17b47c2fc15d9a95e6fe35cd5b877eadc1a62d9bc75af1
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
@@ -26,7 +26,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
-  nginx_version: 1.31.7
+  nginx_version: 1.31.8
 
 # Nocache job count: an inline %{max-jobs} would put the host's core count
 # in the cache key.
