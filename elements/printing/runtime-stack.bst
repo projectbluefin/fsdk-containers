@@ -27,3 +27,4 @@ depends:
 - freedesktop-sdk.bst:integration/extra-fs.bst
 - freedesktop-sdk.bst:integration/ldconfig.bst
 - printing/base.bst
+- printing/entrypoint-common.bst

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-22",
+  "generated_at": "2026-10-25",
   "schema_version": "1.0",
   "skills": [
     {
@@ -302,8 +302,8 @@
         "apparmor"
       ],
       "description": "The shared printing base for the printer applications: printing/base.bst, cache-key isolation of its FSDK patch, the signed printing-base-devel bundle, the consumer contract, the shared slim recipe, and the ubuntu-24.04 runner pin.",
-      "version": "1.5",
-      "last_updated": "2026-10-16",
+      "version": "1.6",
+      "last_updated": "2026-10-25",
       "doc_type": "reference"
     },
     {

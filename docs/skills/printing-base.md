@@ -1,7 +1,7 @@
 ---
 name: printing-base
-version: "1.5"
-last_updated: 2026-10-16
+version: "1.6"
+last_updated: 2026-10-25
 id: printing-base
 one_line_purpose: Build, publish, and consume the shared printing base (printing/base.bst) for the printer applications.
 entry_point: docs/skills/printing-base.md
@@ -92,25 +92,18 @@ public data and the logs. That list is tarred as the single layer of a
 selection on the host with stand-in protos; `just printing-base-check` runs
 it, and `printing-base-bundle` runs it first.
 
-`printing/foomatic-db.bst` goes in the same bundle. It is a stack of FSDK's
-`components/foomatic-db.bst`, which build-depends on the patched CUPS, so
-its key moved and no remote serves it. It is deliberately not part of
-`base.bst`: only the applications that ship PPDs (ghostscript, ps) depend on
-it. Of the 51 FSDK elements the four printer applications reference, the
-patch moves exactly cups, cups-daemon-only, cups-filters, libcupsfilters,
-libppd, ghostscript (all in `base.bst`) and foomatic-db (checked 2026-09-25
-by diffing `bst show --deps none --format '%{full-key}'` with and without
-the patch, on both arches). A consumer that starts using another FSDK element
-whose closure includes the patched stack needs a `printing/` stack for it
-here, added to the bundle's targets in `just printing-base-bundle`.
-Consumers depend on `fsdk-containers.bst:printing/foomatic-db.bst`. The tag
-carries only `base.bst`'s key. foomatic-db's key depends on the same junction
-and patch, so it moves with it, but an edit to `printing/foomatic-db.bst`
-alone does not change the tag.
+`printing/foomatic-db.bst` goes in the same bundle. Of the 51 FSDK elements
+referenced by the four apps, the patch moves exactly cups, cups-daemon-only,
+cups-filters, libcupsfilters, libppd, ghostscript and foomatic-db (checked
+2026-09-25 by comparing `bst show --deps none --format '%{full-key}'` with and
+without the patch on both arches). A consumer adding another affected FSDK
+element needs a `printing/` stack here and a bundle target in
+`just printing-base-bundle`. Consumers use
+`fsdk-containers.bst:printing/foomatic-db.bst`; the tag carries only `base.bst`'s
+key, so an isolated edit to `printing/foomatic-db.bst` does not change the tag.
 
-The bundle build ignores project source caches and fetches sources from
-`cache.projectbluefin.io` (or upstream), because the FSDK source cache
-stalls.
+The bundle bypasses the stalled FSDK source cache for `cache.projectbluefin.io`
+(or upstream).
 
 The recipe retains `--network-retries 5` for errors marked temporary, but it
 does **not** retry `git_repo` fetch failures. In the pinned
@@ -121,9 +114,8 @@ defaults that field to `False`. Do not treat this flag as protection against
 Git fetch timeouts: retrying those requires retrying the `bst build`
 invocation itself or changing the plugin's error classification.
 
-Everything else in the closure stays on the remotes (gbm.gnome.org,
-cache.freedesktop-sdk.io, cache.projectbluefin.io), and consumers pull it
-from there as usual.
+Everything else stays on gbm.gnome.org, cache.freedesktop-sdk.io and
+cache.projectbluefin.io; consumers pull it from there as usual.
 
 - `ghcr.io/projectbluefin/printing-base-devel:<arch>-<full-key>` and
   `<arch>-latest`, from `main` only. Any other ref pushes
@@ -131,9 +123,8 @@ from there as usual.
 - Keyless cosign signature on the digest (GitHub OIDC).
 - `ghcr-cleanup.yml` keeps the newest 5 tagged bundles per arch.
 
-It is build-time only: it keeps every split domain, including headers, `.pc`
-files and static libs. It is never runnable and never a base layer, and it
-has no catalog record.
+Build-time only: it keeps all split domains (headers, `.pc`, static libs).
+It is never runnable or a base layer, and has no catalog record.
 
 ## Shared printing runtime layer (the base layer, #342)
 
@@ -318,6 +309,15 @@ images are reused without re-pushing, independent of runner compressor changes.
    poppler, cups-filters, and HPLIP's pycairo), so `libX11.so*` is not forbidden
    here. Configuring Ghostscript `--without-x` removes its direct X11 link
    and drops `xorg-lib-xt` (`libXt.so*`).
+
+8. Source `/usr/libexec/printer-app/entrypoint-common.sh` from the app's bash
+   entrypoint (`set -euo pipefail`). `printing/runtime-stack.bst` ships it via
+   `printing/entrypoint-common.bst`; consumers using their own stack must add that
+   element explicitly. Keep only app-specific driver seeding, environment paths
+   (including PPD paths), and `SYSTEM_NAME` locally. See the
+   [shared startup API and example](../printing-entrypoint.md) for validation,
+   private-state handling, CUPS defaults and supervision. Adoption in the four
+   app repositories is follow-up work; do not copy the library into consumers.
 
 ## Shared slim recipe — `include/slim-printing.yml`
 
