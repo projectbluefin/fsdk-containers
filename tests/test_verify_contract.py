@@ -134,14 +134,15 @@ class GateDerivationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             vc.gates_for(record)
 
-    def test_no_exec_only_for_data_only_images(self):
+    def test_no_exec_only_for_executable_free_images(self):
+        """Only base and static declare smoke: no-exec (nothing to run)."""
         for record in catalog.load_all():
             with self.subTest(image=record["name"]):
                 out = io.StringIO()
                 with mock.patch.object(sys, "argv", ["vc", record["name"], "--env"]), \
                         contextlib.redirect_stdout(out):
                     vc.main()
-                want = "NO_EXEC=1" if record["name"] == "static" else "NO_EXEC=0"
+                want = "NO_EXEC=1" if record["name"] in ("base", "static") else "NO_EXEC=0"
                 self.assertIn(want, out.getvalue().splitlines())
 
 
