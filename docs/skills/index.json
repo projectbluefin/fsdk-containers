@@ -165,8 +165,8 @@
         "attestation"
       ],
       "description": "CI workflow conventions for fsdk-containers. Use when writing or editing .github/workflows/*.yml, debugging a failing build job, adding a new CI step, or checking a change against the org-wide CI job budget.",
-      "version": "1.6",
-      "last_updated": "2026-10-16",
+      "version": "1.7",
+      "last_updated": "2026-10-25",
       "doc_type": "reference"
     },
     {

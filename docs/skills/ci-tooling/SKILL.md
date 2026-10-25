@@ -1,7 +1,7 @@
 ---
 name: ci-tooling
-version: "1.6"
-last_updated: 2026-10-16
+version: "1.7"
+last_updated: 2026-10-25
 id: ci-tooling
 one_line_purpose: Write and debug the GitHub Actions workflows that build and publish images.
 entry_point: docs/skills/ci-tooling/SKILL.md
@@ -49,6 +49,23 @@ A green, approved workflow PR can still fail to merge when the OAuth credential
 lacks `workflow` scope. Read the API error rather than treating the CLI's generic
 policy message as a CI failure. Obtain explicitly authorized workflow-capable
 credentials or merge through GitHub's UI; do not bypass repository protections.
+
+### Prow reviewer-request failures are not build failures
+
+If `prow / prow` fails with `could not request reviewers` and HTTP 422
+(`Reviews may only be requested from collaborators`), inspect the failed run
+before changing application code. Prow's blunderbuss reviewer selection can
+choose an OWNERS candidate who lacks collaborator access. The pinned action
+requests reviewers on `opened` and `ready_for_review`, not `synchronize`, so a
+later green run does not prove the access mismatch has been repaired.
+
+`OWNERS` is generated from `projectbluefin/.project`'s `maintainers.yaml`, and
+Prow reads ownership from the base branch. Do not edit generated OWNERS on a
+feature branch, disable Prow, or remove approval requirements to clear this
+error. Ask an organization maintainer to reconcile the source roster with
+repository access, then have an eligible reviewer review the PR normally.
+Use `gh pr checks` to distinguish the latest check result from an older failed
+run; a new head must still pass its own applicable checks.
 
 ### Action pins — always use SHA, never mutable tags
 
