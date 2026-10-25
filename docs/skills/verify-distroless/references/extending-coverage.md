@@ -38,10 +38,9 @@ extend coverage:
    ```
    `catalog/lab-runner.yaml` is the only record that needs this — bash is its
    declared entrypoint, but `argo` is what the smoke test actually exercises.
-   For an image that ships no executable surface worth smoke-testing, `base`
-   declares `smoke: none` (covered by `publish-smoke`'s post-publish `/usr/bin/true`
-   probe). `static` declares `smoke: no-exec`: it has no executable, so its
-   contract is the tar-listing gates only. Distroless images have no shell, and
+   For an image that ships no executables at all, `base` and `static` declare
+   `smoke: no-exec`: they have no executables, so their contract is the
+   tar-listing gates and pull/arch checks only. Distroless images have no shell, and
    `ldd` inside BuildStream's sandbox does not replicate the stripped container
    rootfs — execution is the only way to prove all dynamic dependencies survived
    `compose`, so every non-`none`/`no-exec` image carries one (and the python probe

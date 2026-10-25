@@ -55,7 +55,7 @@
       "description": "OCI config Env entries (KEY=VALUE). OPTIONAL: emitted only when present, so records without it keep their generated element and BST cache key unchanged."
     },
     "smoke": {
-      "description": "How to prove this image runs. A smoke-test block; the literal string \"none\" for images with no smoke test of their own (base), which get only the post-publish /usr/bin/true probe; or \"no-exec\" for data-only images with nothing executable at all (static), which get no run probe. Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
+      "description": "How to prove this image runs. A smoke-test block; the literal string \"none\" for images with no smoke test of their own, which get the post-publish /usr/bin/true probe; or \"no-exec\" for data-only or executable-free images with nothing to execute (base, static), which get no run probe. Required -- unlike entrypoint, this cannot be silently omitted, so a future record can't skip it by accident and get an untested trivial probe without saying so.",
       "oneOf": [
         {
           "enum": ["none", "no-exec"]
