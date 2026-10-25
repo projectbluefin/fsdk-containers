@@ -394,9 +394,9 @@ jobs:
           # with its OCI config. The smoke command comes from the catalog
           # record — the single source of truth per elements/targets.json —
           # derived exactly the way `just verify` derives it. Adding an image
-          # never touches this job; `smoke: none` (base) gets the plain
-          # /usr/bin/true runnability probe, `smoke: no-exec` (static, data
-          # files only) has nothing to run and stops at the pull/arch check.
+          # never touches this job; `smoke: none` gets the plain
+          # /usr/bin/true runnability probe, `smoke: no-exec` (base, static,
+          # data-only or no executables) stops at the pull/arch check.
           CONTRACT_ENV=$(python3 scripts/verify_contract.py "${{ inputs.image }}" --env)
           eval "$CONTRACT_ENV"
           SMOKE_OPTS_ARR=()
