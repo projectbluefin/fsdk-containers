@@ -37,8 +37,9 @@ build-depends:
   - freedesktop-sdk.bst:components/gawk.bst
   - freedesktop-sdk.bst:bootstrap/coreutils.bst
   # strip(1) for the installed binary — an unstripped node is ~2.7 GB of V8
-  # symbols, which both blows the distroless size budget and exceeds the
-  # BuildBarn max blob size (~2.42 GiB), failing output capture.
+  # symbols, which both blows the distroless size budget and, under the retired
+  # remote-execution model, exceeded the ~2.42 GiB blob-size limit and failed
+  # output capture.
   - freedesktop-sdk.bst:components/binutils.bst
 
 depends:
@@ -100,10 +101,10 @@ config:
       #   small-icu node 22 / ICU 78.2). The configure default full-icu builds
       #   offline from the tarball's deps/icu-small (full data) but embeds the
       #   same ~32 MB of data in node and forfeits FSDK's icu patching.
-      # GRID NOTE 2026-08-09: ghost BuildBarn worker caches were poisoned
-      # (empty-blob digest staged as brew's subuid content via
-      # write-through-hardlink); fixed by truncating/deleting the corrupt
-      # entries in /var/lib/buildbarn/worker/cache on both nodes.
+      # HISTORICAL NOTE 2026-08-09 (retired remote-execution / BuildBarn grid):
+      # worker caches were poisoned (empty-blob digest staged as brew's subuid
+      # content via write-through-hardlink); fixed by truncating/deleting the
+      # corrupt cache entries. Irrelevant to the current local bst2 builds.
       # --without-npm/--without-corepack: this is a distroless runtime image,
       #   not a dev environment (same shape as gcr.io/distroless/nodejs).
       # --ninja: gyp emits build.ninja; `make` stays the driver and forwards

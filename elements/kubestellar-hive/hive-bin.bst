@@ -15,8 +15,8 @@ description: |
   The plugin reconstructs a vendor/ tree at stage time (it stages each module
   into vendor/<module> and appends vendor/modules.txt, mimicking
   `go mod vendor`), so the build itself runs fully offline with
-  GOPROXY=off -mod=vendor — mandatory on the RE grid, which has no network
-  in the build phase.
+  GOPROXY=off -mod=vendor — mandatory because the bst build sandbox has no
+  network in the build phase.
 
   PLUGIN STATUS: #145 registered `go_module` in project.conf. The 24 module
   refs below were resolved with `bst source track` from the pinned root
@@ -25,11 +25,12 @@ description: |
   graph's indirect requirements reliably.
 
   BUILD STATUS (2026-08-24): a full `BST_LOCAL=1 just bst build
-  kubestellar-hive/hive-bin.bst` succeeded offline and produced usr/bin/hive,
-  usr/bin/bd, and usr/bin/hive-backup. This is degraded local evidence only:
-  the test environment had neither the ghost-grid kubeconfig nor kubectl, so
-  the #146 grid-build criterion still needs to be rerun where the grid is
-  available.
+  kubestellar-hive/hive-bin.bst` in the bst2 container succeeded offline and
+  produced usr/bin/hive, usr/bin/bd, and usr/bin/hive-backup. Captured during
+  the #146 spike, when `just bst` defaulted to the BuildBarn grid and
+  BST_LOCAL=1 forced a local run; remote execution has since been retired and
+  the current model builds locally in the bst2 container, so no grid
+  kubeconfig is required.
 
   TWO NON-OBVIOUS WRINKLES Wave 1/4 must know:
   1. go_module.track() (BST_REQUIRES_PREVIOUS_SOURCES_STAGE) reads go.mod and
@@ -275,9 +276,9 @@ config:
     cd v2
     # GOROOT: FSDK's components/go.bst installs to %{libdir}/go, i.e. the
     # MULTIARCH TRIPLET dir (/usr/lib/x86_64-linux-gnu/go). Never reference
-    # a bare /usr/lib/go (elements/go/go-stack.bst note; mandatory on the
-    # RE grid). GOPROXY=off + -mod=vendor: the grid build phase has NO
-    # network — everything must come from the staged vendor tree.
+    # a bare /usr/lib/go (elements/go/go-stack.bst note; mandatory in the
+    # bst build sandbox). GOPROXY=off + -mod=vendor: the bst build sandbox
+    # has NO network — everything must come from the staged vendor tree.
     export GOROOT="%{libdir}/go"
     export GOPATH="$PWD/.gopath"
     export GOCACHE="$PWD/.gocache"

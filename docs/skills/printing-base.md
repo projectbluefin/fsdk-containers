@@ -156,7 +156,7 @@ symlink outputs. It uses the devel bundle's source-cache stall workarounds.
 **Consumer wiring.** `parent.image` is a verified OCI layout; `layer` is the
 **full final rootfs**, not an app-only subset. FSDK's `build-oci` diff builder skips
 identical files and emits whiteouts for removals. Use `gzip: gzip`, not `disabled`
-(and not `enabled`): the pinned [OCI builder](https://gitlab.com/freedesktop-sdk/freedesktop-sdk/-/blob/32c5fea70e827885fc805d38a9dc5716c39ed173/files/oci/oci_builder/image_builder.py)
+(and not `enabled`): the pinned [OCI builder](https://gitlab.com/freedesktop-sdk/freedesktop-sdk/-/blob/d0c0b597d58f8cc14ee26c427aec1be13c6a313e/files/oci/oci_builder/image_builder.py)
 copies a gzip-compressed parent blob byte-for-byte only in gzip mode.
 
 ```yaml

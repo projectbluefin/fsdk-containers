@@ -18,12 +18,12 @@ description: |
      page-compression providers). Runtime closure here adds only
      base-stack (glibc/libstdc++, CA certs, tzdata).
   3. Resolves: yes — `just validate` and `bst build` both resolve the
-     graph. Built on the ghost BuildBarn grid (remote execution) on
-     2026-08-21: `bst build mariadb/mariadb-stack.bst` green (ninja
-     [1320/1320], full remote log), and the composed mariadb-runtime.bst
-     smoke-tested: `mariadbd --version` runs against only the compose
-     artifact's own libs → runtime closure is complete. The first grid
-     run caught one real bug: MariaDB's install tree has no etc/, so the
+     graph. Built during the #147 spike (2026-08-21) on the now-retired
+     BuildBarn remote-execution grid: `bst build mariadb/mariadb-stack.bst`
+     green (ninja [1320/1320], full remote log), and the composed
+     mariadb-runtime.bst smoke-tested: `mariadbd --version` runs against only
+     the compose artifact's own libs → runtime closure is complete. The first
+     grid run caught one real bug: MariaDB's install tree has no etc/, so the
      my.cnf heredoc needed `mkdir -p .../etc` (fixed in mariadb.bst).
      (The grid needed a control-plane restart mid-session — wedged
      scheduler/frontend/storage silently parked every client's
