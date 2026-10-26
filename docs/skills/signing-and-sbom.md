@@ -172,7 +172,7 @@ not a scanner quirk.
 
 The same scan matrix includes the published Ghostscript, Gutenprint and HPLIP
 printer apps under `ghcr.io/projectbluefin`, independently of `oci_images`.
-These consumers always scan `:latest`, including on manual runs with an FSDK
+These consumers always scan `:stable`, the tag they publish, including on manual runs with an FSDK
 tag override. Their SBOM signatures must match each consumer's exact
 `registry-actions.yml@refs/heads/main` identity; the FSDK workflow identity
 remains unchanged for catalog images. Add `ps-printer-app` only after it publishes.
