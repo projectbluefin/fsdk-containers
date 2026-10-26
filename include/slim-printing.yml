@@ -344,7 +344,8 @@ slim-printing-forbidden-paths: |
 # stages a removed tool again, or an edit to the recipe that lost a line).
 # Runs in the same sandbox right after slim-printing-commands, so the image
 # cannot be produced without it. It also checks a small keep-list every
-# printer appliance shares (the shell, coreutils, the common charsets, the
+# printer appliance shares (the shared entrypoint library, the shell,
+# coreutils, the common charsets, the
 # CA bundle; the interpreter, its plain .pyc and lzma when python3 is staged
 # at all), so a recipe typo that deletes them is caught here, not by the
 # smoke test. Nothing a single consumer keeps on purpose is required.
@@ -375,6 +376,7 @@ slim-printing-gate-commands: |
     echo "slim-printing: required path missing: $*" >&2
     bad=1
   }
+  require usr/libexec/printer-app/entrypoint-common.sh
   require usr/bin/bash
   require usr/bin/cat
   require 'usr/lib/*/gconv/UTF-16.so'

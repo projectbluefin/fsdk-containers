@@ -51,6 +51,7 @@ _MATERIALISE = [
 # the common gconv charsets, compiled locales, gutenprint's translations,
 # tzdata, the CA bundle, terminfo, PPD archives and license texts.
 KEEP = [
+    "usr/libexec/printer-app/entrypoint-common.sh",
     "usr/bin/bash",
     "usr/bin/cat",
     "usr/bin/python3",
@@ -262,6 +263,16 @@ class GateFailsClosedTests(SlimPrintingFixture):
         result = run_in_layer(self.variables["slim-printing-gate-commands"], self.layer)
         self.assertEqual(result.returncode, 1)
         self.assertIn("required path missing: usr/lib/python3*/lzma.py", result.stderr)
+
+    def test_missing_shared_entrypoint_fails_even_without_python(self):
+        run_in_layer(self.variables["slim-printing-commands"], self.layer)
+        shutil.rmtree(self.layer / "usr/lib/python3.14")
+        (self.layer / "usr/bin/python3").unlink()
+        shared = "usr/libexec/printer-app/entrypoint-common.sh"
+        (self.layer / shared).unlink()
+        result = run_in_layer(self.variables["slim-printing-gate-commands"], self.layer)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(f"required path missing: {shared}", result.stderr)
 
     def test_python_keep_checks_only_apply_when_python_is_staged(self):
         """gutenprint-printer-app stages no python3; the gate must not demand

@@ -1,7 +1,7 @@
 ---
 name: printing-base
-version: "1.6"
-last_updated: 2026-10-25
+version: "1.7"
+last_updated: 2026-10-26
 id: printing-base
 one_line_purpose: Build, publish, and consume the shared printing base (printing/base.bst) for the printer applications.
 entry_point: docs/skills/printing-base.md
@@ -318,6 +318,11 @@ images are reused without re-pushing, independent of runner compressor changes.
    [shared startup API and example](../printing-entrypoint.md) for validation,
    private-state handling, CUPS defaults and supervision. Adoption in the four
    app repositories is follow-up work; do not copy the library into consumers.
+
+The shared slim gate unconditionally requires
+`usr/libexec/printer-app/entrypoint-common.sh`, including in images without
+Python. Keep it in the synthetic layer keep-list in `tests/test_slim_printing.py`
+so the tests cover both preservation by the recipe and rejection when missing.
 
 ## Shared slim recipe — `include/slim-printing.yml`
 
