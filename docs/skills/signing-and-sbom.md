@@ -1,7 +1,7 @@
 ---
 name: signing-and-sbom
-version: "1.2"
-last_updated: 2026-09-18
+version: "1.3"
+last_updated: 2026-10-26
 id: signing-and-sbom
 one_line_purpose: Sign published images and attach SPDX SBOMs as OCI referrers.
 entry_point: docs/skills/signing-and-sbom.md
@@ -169,6 +169,18 @@ with Grype. This is the only scan shape that works here — a rootfs scanner see
 one package or none. It also means a break in SBOM attachment silently degrades
 scanning, so treat a "no SPDX SBOM referrer found" warning as a publish bug,
 not a scanner quirk.
+
+The same scan matrix includes the published Ghostscript, Gutenprint and HPLIP
+printer apps under `ghcr.io/projectbluefin`, independently of `oci_images`.
+These consumers always scan `:latest`, including on manual runs with an FSDK
+tag override. Their SBOM signatures must match each consumer's exact
+`registry-actions.yml@refs/heads/main` identity; the FSDK workflow identity
+remains unchanged for catalog images. Add `ps-printer-app` only after it publishes.
+All entries share the Monday schedule, medium cutoff, report-only Grype policy,
+and existing warning/skip behavior for unpublished images or missing SBOMs.
+
+Matrix expansion follows GitHub's [matrix include documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/run-job-variations#expanding-or-adding-matrix-configurations).
+Consumer signature verification uses Cosign's [certificate identity check](https://docs.sigstore.dev/cosign/verifying/verify/).
 
 ### 7. Attestation constraints (blocking gotchas)
 
