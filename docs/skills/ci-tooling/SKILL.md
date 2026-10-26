@@ -446,6 +446,13 @@ apply the same external fetch retry loop there rather than reaching for
 
 ## Verification
 
+Python test discovery uses explicit filename patterns in `image-catalog.yml`
+and the Justfile. New workflow regression tests must match a committed pattern;
+for example, `test_catalog_vulnerability_scan.py` runs through `test_catalog*.py`
+both in CI and in `just catalog-check`. The catalog gate's
+`test_catalog_gate_coverage.py` rejects modules that no gate discovers. Matching
+the catalog pattern also makes test-only edits trigger the image-catalog workflow.
+
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
 - [ ] `just verify` passes locally (or in CI) after workflow changes
