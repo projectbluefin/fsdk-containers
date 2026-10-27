@@ -46,7 +46,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-tags depName=valkey-io/valkey
-  valkey_version: 9.1.2
+  valkey_version: 9.1.3
   hardening-flags: ""
   (?):
   - arch == "x86_64":
