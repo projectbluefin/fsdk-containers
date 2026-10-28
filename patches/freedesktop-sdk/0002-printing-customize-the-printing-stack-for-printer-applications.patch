@@ -1,4 +1,4 @@
-From 8da3847da47b00073ea9c29617e81554ad9fd0a3 Mon Sep 17 00:00:00 2001
+From 60e8a5cc8553bafd7e2724347fe4ebe6e9b39eab Mon Sep 17 00:00:00 2001
 From: castrojo <castrojo@users.noreply.github.com>
 Date: Fri, 25 Sep 2026 10:42:51 -0400
 Subject: [PATCH] feat(printing): customize the printing stack for printer
@@ -35,9 +35,9 @@ fsdk-containers' printing base; re-check every hunk on a junction bump.
  elements/components/cups-daemon-only.bst      |  1 +
  elements/components/cups-filters.bst          |  2 ++
  elements/components/cups.bst                  |  2 +-
- elements/components/ghostscript.bst           |  7 +++++--
+ elements/components/ghostscript.bst           |  7 ++--
  elements/components/libcupsfilters.bst        |  2 ++
- 8 files changed, 63 insertions(+), 5 deletions(-)
+ 8 files changed, 62 insertions(+), 5 deletions(-)
  create mode 100644 elements/components/_private/avahi-printing-base.bst
  create mode 100644 elements/components/avahi-printing.bst
 
@@ -167,7 +167,7 @@ index 8d3b185..0c0d570 100644
  config:
    include:
 diff --git a/elements/components/ghostscript.bst b/elements/components/ghostscript.bst
-index ed426a5..93790df 100644
+index a9d7e87..394c3d4 100644
 --- a/elements/components/ghostscript.bst
 +++ b/elements/components/ghostscript.bst
 @@ -16,13 +16,16 @@ depends:
@@ -190,13 +190,13 @@ index ed426a5..93790df 100644
  config:
    configure-commands:
 diff --git a/elements/components/libcupsfilters.bst b/elements/components/libcupsfilters.bst
-index 26b6ef5..e60d065 100644
+index 38226dd..ea2c145 100644
 --- a/elements/components/libcupsfilters.bst
 +++ b/elements/components/libcupsfilters.bst
-@@ -34,3 +34,5 @@ sources:
-   exclude:
-   - '*rc*'
-   ref: 2.2.1-0-g2a00cf6aa4234e2e0ac91b9844ab8990d04c7089
+@@ -38,3 +38,5 @@ sources:
+   path: patches/libcupsfilters/missing-root-object.patch
+ - kind: patch
+   path: patches/libcupsfilters/close-output-stream.patch
 +- kind: patch_queue
 +  path: patches/fsdk-containers/printing/libcupsfilters
 -- 
