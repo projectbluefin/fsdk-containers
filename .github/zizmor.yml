@@ -1,0 +1,55 @@
+# zizmor baseline for the `Audit GitHub Actions` check (projectbluefin/actions#674).
+#
+# The check runs `zizmor --min-severity=medium --min-confidence=medium .`
+# and must start green. Every entry below names a finding that exists on
+# main today and says why it is accepted or when it goes away. Remove an
+# entry as soon as the site it covers is fixed; never add one to silence a
+# finding on new code without a reason next to it.
+#
+# Regenerate the list of current findings with:
+#   zizmor --offline --no-config --min-severity=medium --min-confidence=medium .
+#
+# (--no-config is required: zizmor auto-discovers this file, so without it
+# every baselined finding is suppressed and the command reports nothing.)
+#
+# Bare filenames ignore a rule for the whole file. Prefer filename:line so
+# that a new finding elsewhere in the same file still fails the check.
+
+rules:
+  dangerous-triggers:
+    ignore:
+      # Prow command relay: never checks out or runs pull-request code; the
+      # reusable workflow only checks out cncf/prow-github-actions itself.
+      - prow.yml:15
+      - prow.yml:20
+      # workflow_run gated on event == push && head_branch == main; the job
+      # has no checkout and only reads run metadata to file/close an issue.
+      - ci-alert.yml:4
+
+  template-injection:
+    ignore:
+      # TEMPORARY: matrix.image comes from elements/targets.json via the
+      # matrix job, not from event data. Each site is a mechanical move into
+      # env:; drop the entries when that lands.
+      - build.yml:148
+      - build.yml:149
+      # TEMPORARY: inputs.image is validated against elements/targets.json by
+      # the only caller (build.yml); github.actor and secrets.GITHUB_TOKEN
+      # cannot carry shell metacharacters. Every site is a mechanical move
+      # into env:; drop the entry when that lands.
+      - oci-images.yml
+
+  github-app:
+    ignore:
+      # Self-hosted Renovate: the token must carry the installation's full
+      # permission set (contents, pull-requests, issues, workflows, checks,
+      # statuses, vulnerability alerts); the app installation, not this
+      # step, is where that set is bounded.
+      - renovate.yml:49
+
+  secrets-inherit:
+    ignore:
+      # Calls the first-party reusable workflow in this repository, which
+      # needs the caller's build-grid and signing secrets; an explicit secret
+      # list is a follow-up, not a regression.
+      - build.yml:262

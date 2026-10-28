@@ -115,11 +115,21 @@ Personal Access Tokens (PATs) are strictly banned in this organization. To perfo
   with:
     app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
     private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+    # Name only what the following steps do with the token. Without any
+    # permission-* input the token carries the installation's full set.
+    permission-contents: write
 ```
 
-Use the bare form above in this repo and in every non-fork repo: the action
+Use the form above in this repo and in every non-fork repo: the action
 resolves the installation through `GET /repos/{owner}/{repo}/installation`, so
-the token is scoped to the calling repository alone.
+the token is scoped to the calling repository alone. Repository scope is only
+half of it: always add the `permission-*` inputs for what the job actually
+does (`permission-contents: write` to push a branch or send a
+`repository_dispatch`, `permission-pull-requests: write` to open or comment on
+a PR). The `Audit GitHub Actions` check (zizmor, `github-app` audit) fails a
+mint with no `permission-*` input; the one documented exception is
+`renovate.yml`, where self-hosted Renovate needs the installation's full set
+and the installation itself bounds it (see `.github/zizmor.yml`).
 
 #### Forked repositories — pass `owner:` or the mint 404s
 
