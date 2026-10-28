@@ -135,7 +135,7 @@ class EntrypointTests(unittest.TestCase):
             self.assertEqual(self.run_shell('printer_app_prepare_state "$STATE" example', STATE=tmp).returncode, 73)
 
     def test_state_symlinks_refused_before_any_change(self):
-        for link in ("", "spool", "cups", "cups/ssl", "driver/run"):
+        for link in ("", "spool", "cups", "cups/ssl", "driver", "driver/run"):
             with self.subTest(link=link), tempfile.TemporaryDirectory() as tmp:
                 outside = Path(tmp) / "outside"
                 outside.mkdir(mode=0o755)

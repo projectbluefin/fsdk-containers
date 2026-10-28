@@ -79,8 +79,15 @@ printer_app_prepare_state() {
   local -a directories=("$state" "$state/ppd" "$state/spool" "$state/usb"
     "$state/cups" "$state/cups/ssl" "$state/.cups" "$state/.cups/ssl" "$@")
   # mkdir, the write probe and chmod would all follow a symlink out of the volume.
+  # Check every component below $state too: mkdir -p would follow a symlinked parent.
+  local component
   for directory in "${directories[@]}"; do
-    [[ ! -L "$directory" ]] || printer_app_state_error "$directory must not be a symlink"
+    component="$directory"
+    while :; do
+      [[ ! -L "$component" ]] || printer_app_state_error "$component must not be a symlink"
+      [[ "$component" == "$state"/* ]] || break
+      component="${component%/*}"
+    done
   done
   for directory in "${directories[@]}"; do
     mkdir -p -- "$directory" || printer_app_state_error "$directory"
