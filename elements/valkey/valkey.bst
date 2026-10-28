@@ -17,11 +17,13 @@ description: Build valkey (Redis fork) from source for the distroless valkey ser
 #    SUCCESS, remote compile ~58 min, 0 failures. Payload checked out and
 #    verified: /usr/bin/valkey-server, /usr/bin/valkey-cli,
 #    /etc/valkey/valkey.conf, /data.
-# 4. UPSTREAM VERSION + REF: valkey 9.1.1 (upstream "Latest" release,
-#    published 2026-07-21). Source is the GitHub auto-generated tag archive;
-#    valkey does not publish detached signatures, so the verifiable ref is the
-#    pinned sha256 below — re-verified against the live URL on 2026-08-21
-#    (7d7232ac…85ab7ee). Renovate tracks github-tags valkey-io/valkey.
+# 4. UPSTREAM VERSION + REF: the spike pinned the then-latest upstream
+#    release; the current version is `valkey_version` under `variables:` and
+#    its sha256 is the `ref:` below. Source is the GitHub auto-generated tag
+#    archive; valkey does not publish detached signatures, so the pinned
+#    sha256 is the verifiable ref. Renovate tracks github-tags
+#    valkey-io/valkey and bumps the version; refresh-bst-refs.yml then
+#    re-tracks the ref (docs/skills/track-upstream-versions.md).
 # ----------------------------------------------------------------------------
 
 sources:

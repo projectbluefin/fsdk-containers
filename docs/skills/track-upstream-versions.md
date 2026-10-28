@@ -1,7 +1,7 @@
 ---
 name: track-upstream-versions
 version: "1.0"
-last_updated: 2026-08-20
+last_updated: 2026-10-28
 id: track-upstream-versions
 one_line_purpose: Keep every non-FSDK upstream package pinned at its latest release automatically.
 entry_point: docs/skills/track-upstream-versions.md
@@ -176,6 +176,10 @@ When the tag is not a bare version, strip it with `extractVersion`:
 # renovate: datasource=github-tags depName=nginx/nginx extractVersion=^release-(?<version>.+)$
 nginx_version: 1.29.8
 ```
+
+Do not repeat the version or sha256 in a comment (a spike header, a "pinned at"
+note). The bump pipeline above rewrites only the annotated value and the `ref:`; a
+copied version in prose goes stale on the next bump. Point at the variable instead.
 
 ### Getting the initial ref
 
