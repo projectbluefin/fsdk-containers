@@ -69,6 +69,8 @@ printer_app_state_error() {
   exit 73
 }
 
+printer_app_owns() { [[ -O "$1" ]]; }
+
 # $1: state root; $2: application basename; remaining args: extra driver dirs.
 printer_app_prepare_state() {
   local state="$1" app="$2" directory probe file
@@ -76,11 +78,26 @@ printer_app_prepare_state() {
   umask 077
   local -a directories=("$state" "$state/ppd" "$state/spool" "$state/usb"
     "$state/cups" "$state/cups/ssl" "$state/.cups" "$state/.cups/ssl" "$@")
+  # mkdir, the write probe and chmod would all follow a symlink out of the volume.
+  # Check every component below $state too: mkdir -p would follow a symlinked parent.
+  local component
+  for directory in "${directories[@]}"; do
+    component="$directory"
+    while :; do
+      [[ ! -L "$component" ]] || printer_app_state_error "$component must not be a symlink"
+      [[ "$component" == "$state"/* ]] || break
+      component="${component%/*}"
+    done
+  done
   for directory in "${directories[@]}"; do
     mkdir -p -- "$directory" || printer_app_state_error "$directory"
     # mkdir/-w alone do not catch a read-only or full filesystem.
     probe="$(mktemp "$directory/.write-check.XXXXXXXXXX")" || printer_app_state_error "$directory"
     rm -- "$probe" || printer_app_state_error "$directory"
+    # A volume root may belong to the operator; secure it only when this user owns it.
+    if [[ "$directory" == "$state" ]] && ! printer_app_owns "$directory"; then
+      continue
+    fi
     chmod 0700 -- "$directory" || printer_app_state_error "$directory"
   done
   for file in "$state/$app.state" "$state/$app.log"; do

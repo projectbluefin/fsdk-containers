@@ -52,9 +52,14 @@ When web administration remains open, validation prints a notice on stderr.
 
 `printer_app_prepare_state STATE APP [DRIVER_DIR...]` sets `umask 077`, probes
 every mutable directory with a temporary file, checks existing state/log files,
-and repairs directory modes to 0700 on every start. TLS and spool contents also
-lose group/other access recursively. Failures exit 73, including read-only/full
-volumes or a failed permission repair. Driver directories must be app-owned
+and repairs directory modes to 0700 on every start. STATE itself is reset to
+0700 only when the app's user owns it, so an operator-owned volume root is left
+as mounted. TLS and spool contents also lose group/other access recursively.
+Any managed directory, STATE included, or any parent of one below STATE that
+is a symlink is refused before
+anything is created, probed or chmodded, so nothing outside the volume changes.
+Failures exit 73, including symlinks, read-only/full volumes or a failed
+permission repair. Driver directories must be app-owned
 absolute paths under STATE, not user-supplied arbitrary paths.
 
 `printer_app_seed_cups STATE [SNMP_SOURCE [USB_QUIRKS_SOURCE]]` seeds missing

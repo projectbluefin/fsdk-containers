@@ -134,6 +134,35 @@ class EntrypointTests(unittest.TestCase):
             path.symlink_to("missing")
             self.assertEqual(self.run_shell('printer_app_prepare_state "$STATE" example', STATE=tmp).returncode, 73)
 
+    def test_state_symlinks_refused_before_any_change(self):
+        for link in ("", "spool", "cups", "cups/ssl", "driver", "driver/run"):
+            with self.subTest(link=link), tempfile.TemporaryDirectory() as tmp:
+                outside = Path(tmp) / "outside"
+                outside.mkdir(mode=0o755)
+                outside.chmod(0o755)
+                state = Path(tmp) / "state"
+                target = state / link if link else state
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.symlink_to(outside)
+                result = self.run_shell(
+                    'printer_app_prepare_state "$STATE" example "$STATE/driver/run"', STATE=str(state))
+                self.assertEqual(result.returncode, 73, result.stderr)
+                self.assertIn("must not be a symlink", result.stderr)
+                self.assertEqual(outside.stat().st_mode & 0o777, 0o755)
+                self.assertEqual(list(outside.iterdir()), [])
+
+    def test_state_root_secured_only_when_owned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "state"
+            state.mkdir()
+            state.chmod(0o777)
+            result = self.run_shell(
+                'printer_app_owns() { [[ "$1" != "$STATE" ]]; }; '
+                'printer_app_prepare_state "$STATE" example', STATE=str(state))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(state.stat().st_mode & 0o777, 0o777)
+            self.assertEqual((state / "spool").stat().st_mode & 0o777, 0o700)
+
     def test_supervisor_exit_signal_and_readiness_cleanup(self):
         # Real processes and a real Unix socket; no system daemons are launched.
         stub = '''#!/usr/bin/env python3
