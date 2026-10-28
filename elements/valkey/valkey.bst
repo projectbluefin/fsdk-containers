@@ -27,7 +27,7 @@ description: Build valkey (Redis fork) from source for the distroless valkey ser
 sources:
 - kind: tar
   url: https://github.com/valkey-io/valkey/archive/refs/tags/%{valkey_version}.tar.gz
-  ref: 19c23908e7d57e8d91ef85b41f5646307582f10f4f0fb999bbf89ed24ec9c983
+  ref: 184e34ed2d9b51879b682b5b15205e2b9d677c60280e3cb453be8f520d04e293
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
