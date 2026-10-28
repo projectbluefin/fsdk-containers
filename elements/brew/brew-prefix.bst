@@ -9,8 +9,8 @@ sources:
 - kind: git_repo
   url: github:Homebrew/brew.git
     # renovate: datasource=github-tags depName=Homebrew/brew
-  track: 7.0.10
-  ref: 7.0.10-0-g8f10429b56be28a25032b87463fffc95e556b5bc
+  track: 7.0.11
+  ref: 7.0.11-0-gc6069d2a943b71b0a90d91fc1ac93cb9c1634dcc
   directory: brew-src
 - kind: local
   path: elements/brew/files
