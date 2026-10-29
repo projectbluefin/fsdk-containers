@@ -4,7 +4,7 @@ sources:
 - kind: git_repo
   url: gitlab:freedesktop-sdk/freedesktop-sdk.git
   track: freedesktop-sdk-26.08*
-  ref: freedesktop-sdk-26.08.3-0-gd0c0b597d58f8cc14ee26c427aec1be13c6a313e
+  ref: freedesktop-sdk-26.08.4-0-g114ae909ec9881958bd507c8b4414aa33f758d2b
 # Source patch queues for the printing stack (elements/printing/). The
 # 0002 patch in patches/freedesktop-sdk wires them into cups-base,
 # libcupsfilters and cups-filters. Only printing elements change key; see
