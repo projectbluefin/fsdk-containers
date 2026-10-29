@@ -52,7 +52,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
         with:
           tool: just
       # Pushes built artifacts to the shared cache on main only.
@@ -98,7 +98,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
         with:
           tool: just
 
