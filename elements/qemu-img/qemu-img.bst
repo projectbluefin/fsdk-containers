@@ -37,7 +37,7 @@ depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=custom.qemu-downloads depName=qemu extractVersion=qemu-(?<version>[0-9][^/]*)\.tar\.xz$
-  qemu_version: 11.1.2
+  qemu_version: 11.1.3
   hardening-flags: ""
   (?):
     - arch == "x86_64":
