@@ -465,6 +465,7 @@ the catalog pattern also makes test-only edits trigger the image-catalog workflo
 
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
+- [ ] `zizmor --min-severity=medium --min-confidence=medium .` passes (or the `Audit GitHub Actions` job; run without `--offline` so the `stale-action-refs` audit is included)
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] `just changed-targets <base> HEAD` selects the targets you expect
 - [ ] No new mutable action refs introduced
