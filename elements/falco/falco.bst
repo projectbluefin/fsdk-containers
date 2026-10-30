@@ -82,17 +82,17 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=falcosecurity/falco
-  falco_version: 0.45.1
+  falco_version: 0.45.2
 
 sources:
 - kind: remote
   (?):
   - arch == "x86_64":
       url: "https://download.falco.org/packages/bin/x86_64/falco-%{falco_version}-x86_64.tar.gz"
-      ref: a4a384055327207202c36e3f89a3e954d131db71d55088737c5174ff7dab7c7b
+      ref: b2e9961e51601095765c6c644329673e6af2f06c02357d0e77da0f680e4910da
   - arch == "aarch64":
       url: "https://download.falco.org/packages/bin/aarch64/falco-%{falco_version}-aarch64.tar.gz"
-      ref: fb2dbb07e1bca990a06432239c2294638b01be40ce2bf5c7a013418cdc1036b5
+      ref: 5bd79b879f07b605f02f57841c1b6dcda1604eb3da9aec80611ac52e9e3aa84f
   filename: falco.tar.gz
 
 config:
