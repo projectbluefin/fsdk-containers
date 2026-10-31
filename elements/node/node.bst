@@ -58,7 +58,7 @@ variables:
   # `node` versioning only proposes releases from an LTS-stable line, so this
   # follows the LTS schedule rather than the odd-numbered Current line.
   # renovate: datasource=node-version depName=node versioning=node
-  node_version: 24.22.1
+  node_version: 24.22.2
   hardening-flags: ""
   (?):
     - arch == "x86_64":
