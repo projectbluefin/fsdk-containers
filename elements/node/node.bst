@@ -10,61 +10,61 @@ sources:
   # and ref together and verify with
   # `curl -sL https://nodejs.org/dist/vX.Y.Z/node-vX.Y.Z.tar.gz | sha256sum`
   # against https://nodejs.org/dist/vX.Y.Z/SHASUMS256.txt.
-  - kind: tar
-    url: https://nodejs.org/dist/v%{node_version}/node-v%{node_version}.tar.gz
-    ref: 001773d9bd53fbd27a25efd42aa6a9693ebfe500998ca9bec635e9b6ee79bc91
+- kind: tar
+  url: https://nodejs.org/dist/v%{node_version}/node-v%{node_version}.tar.gz
+  ref: b2f5443a34a38d863e87c0f5f80c03630fc16917dfe16f26c1cec44c0b542959
 
 build-depends:
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
-  - freedesktop-sdk.bst:components/gcc.bst
-  - freedesktop-sdk.bst:components/make.bst
-  - freedesktop-sdk.bst:components/ninja.bst
+- freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+- freedesktop-sdk.bst:components/gcc.bst
+- freedesktop-sdk.bst:components/make.bst
+- freedesktop-sdk.bst:components/ninja.bst
   # configure is a Python script and the gyp build runs under python3.
-  - freedesktop-sdk.bst:components/python3.bst
+- freedesktop-sdk.bst:components/python3.bst
   # configure locates every --shared-* dependency via pkg-config.
-  - freedesktop-sdk.bst:components/pkg-config.bst
+- freedesktop-sdk.bst:components/pkg-config.bst
   # Shared libraries node links against (see depends: for the runtime side).
-  - freedesktop-sdk.bst:components/openssl.bst
-  - freedesktop-sdk.bst:components/zlib.bst
-  - freedesktop-sdk.bst:components/c-ares.bst
-  - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/icu.bst
+- freedesktop-sdk.bst:components/openssl.bst
+- freedesktop-sdk.bst:components/zlib.bst
+- freedesktop-sdk.bst:components/c-ares.bst
+- freedesktop-sdk.bst:components/libnghttp2.bst
+- freedesktop-sdk.bst:components/icu.bst
   # configure, gyp and the generated build shell out to sed/grep/awk and
   # coreutils without checking for them; FSDK's sandbox has no ambient
   # userland (see lab-runner/nginx.bst for the failure mode).
-  - freedesktop-sdk.bst:components/sed.bst
-  - freedesktop-sdk.bst:components/grep.bst
-  - freedesktop-sdk.bst:components/gawk.bst
-  - freedesktop-sdk.bst:bootstrap/coreutils.bst
+- freedesktop-sdk.bst:components/sed.bst
+- freedesktop-sdk.bst:components/grep.bst
+- freedesktop-sdk.bst:components/gawk.bst
+- freedesktop-sdk.bst:bootstrap/coreutils.bst
   # strip(1) for the installed binary — an unstripped node is ~2.7 GB of V8
   # symbols, which both blows the distroless size budget and, under the retired
   # remote-execution model, exceeded the ~2.42 GiB blob-size limit and failed
   # output capture.
-  - freedesktop-sdk.bst:components/binutils.bst
+- freedesktop-sdk.bst:components/binutils.bst
 
 depends:
   # node is linked against these shared libraries; declaring them here keeps
   # the runtime linkage explicit instead of relying on transitive luck.
   # All are FSDK components, so CVE patches land via the junction.
   # brotli is deliberately absent: see the --shared-brotli note below.
-  - freedesktop-sdk.bst:components/openssl.bst
-  - freedesktop-sdk.bst:components/zlib.bst
-  - freedesktop-sdk.bst:components/c-ares.bst
-  - freedesktop-sdk.bst:components/libnghttp2.bst
-  - freedesktop-sdk.bst:components/icu.bst
+- freedesktop-sdk.bst:components/openssl.bst
+- freedesktop-sdk.bst:components/zlib.bst
+- freedesktop-sdk.bst:components/c-ares.bst
+- freedesktop-sdk.bst:components/libnghttp2.bst
+- freedesktop-sdk.bst:components/icu.bst
 
 variables:
   strip-binaries: ""
   # `node` versioning only proposes releases from an LTS-stable line, so this
   # follows the LTS schedule rather than the odd-numbered Current line.
   # renovate: datasource=node-version depName=node versioning=node
-  node_version: 24.22.1
+  node_version: 24.22.2
   hardening-flags: ""
   (?):
-    - arch == "x86_64":
-        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
-    - arch == "aarch64":
-        hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
+  - arch == "x86_64":
+      hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -fcf-protection=full"
+  - arch == "aarch64":
+      hardening-flags: "-fstack-protector-strong -fstack-clash-protection -D_FORTIFY_SOURCE=3 -mbranch-protection=standard"
 
 # Job count via a nocache env var (FSDK's linux.bst/nss.bst pattern): an
 # inline %{max-jobs} enters the cache key, so hosts with different core
@@ -79,64 +79,64 @@ config:
     # gyp's ninja generator bakes CPPFLAGS/CFLAGS/CXXFLAGS from the
     # environment into build.ninja at configure time (the make generator
     # reads them at build time), so exporting before configure covers both.
-    - export CFLAGS="%{hardening-flags}" CXXFLAGS="%{hardening-flags}"
-    - |
-      # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2
-      #   instead of node's vendored copies. libuv/llhttp/ada/simdjson stay
-      #   bundled — FSDK ships no components for them.
-      # brotli stays bundled (no --shared-brotli) since node 24.22.1: its
-      #   deps/brotli carries the CVE-2026-111497 fix and src/node_zlib.cc
-      #   exports the new BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH code,
-      #   which only exists in brotli >= 1.2.1 (released 2026-10-21).
-      #   FSDK 26.08.2 pins brotli v1.2.0, so --shared-brotli fails to
-      #   compile and would also link the unfixed decoder. Re-add
-      #   --shared-brotli plus the components/brotli.bst build-depends/depends
-      #   once the junction's components/brotli.bst ref is >= v1.2.1.
-      # --with-intl=system-icu: links FSDK's CVE-patched icu 78.3 (node's
-      #   minimum_icu=73, tools/icu/icu_versions.json) with full Intl parity
-      #   with official node images. Alternatives measured 2026-10-09:
-      #   small-icu (bundled, root+en data) drops the ~39 MB icu runtime dep
-      #   but strips break-iterator data, so `new Intl.Segmenter().segment()`
-      #   SEGFAULTs (nodejs/node#51752, open; reproduced on Fedora's
-      #   small-icu node 22 / ICU 78.2). The configure default full-icu builds
-      #   offline from the tarball's deps/icu-small (full data) but embeds the
-      #   same ~32 MB of data in node and forfeits FSDK's icu patching.
-      # HISTORICAL NOTE 2026-08-09 (retired remote-execution / BuildBarn grid):
-      # worker caches were poisoned (empty-blob digest staged as brew's subuid
-      # content via write-through-hardlink); fixed by truncating/deleting the
-      # corrupt cache entries. Irrelevant to the current local bst2 builds.
-      # --without-npm/--without-corepack: this is a distroless runtime image,
-      #   not a dev environment (same shape as gcr.io/distroless/nodejs).
-      # --ninja: gyp emits build.ninja; `make` stays the driver and forwards
-      #   -j${MAXJOBS} to ninja via MAKEFLAGS.
-      ./configure \
-        --prefix=/usr \
-        --shared-openssl \
-        --shared-zlib \
-        --shared-cares \
-        --shared-nghttp2 \
-        --with-intl=system-icu \
-        --without-npm \
-        --without-corepack \
-        --ninja
+  - export CFLAGS="%{hardening-flags}" CXXFLAGS="%{hardening-flags}"
+  - |
+    # --shared-*: link FSDK's CVE-patched openssl/zlib/c-ares/nghttp2
+    #   instead of node's vendored copies. libuv/llhttp/ada/simdjson stay
+    #   bundled — FSDK ships no components for them.
+    # brotli stays bundled (no --shared-brotli) since node 24.22.1: its
+    #   deps/brotli carries the CVE-2026-111497 fix and src/node_zlib.cc
+    #   exports the new BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH code,
+    #   which only exists in brotli >= 1.2.1 (released 2026-10-21).
+    #   FSDK 26.08.2 pins brotli v1.2.0, so --shared-brotli fails to
+    #   compile and would also link the unfixed decoder. Re-add
+    #   --shared-brotli plus the components/brotli.bst build-depends/depends
+    #   once the junction's components/brotli.bst ref is >= v1.2.1.
+    # --with-intl=system-icu: links FSDK's CVE-patched icu 78.3 (node's
+    #   minimum_icu=73, tools/icu/icu_versions.json) with full Intl parity
+    #   with official node images. Alternatives measured 2026-10-09:
+    #   small-icu (bundled, root+en data) drops the ~39 MB icu runtime dep
+    #   but strips break-iterator data, so `new Intl.Segmenter().segment()`
+    #   SEGFAULTs (nodejs/node#51752, open; reproduced on Fedora's
+    #   small-icu node 22 / ICU 78.2). The configure default full-icu builds
+    #   offline from the tarball's deps/icu-small (full data) but embeds the
+    #   same ~32 MB of data in node and forfeits FSDK's icu patching.
+    # HISTORICAL NOTE 2026-08-09 (retired remote-execution / BuildBarn grid):
+    # worker caches were poisoned (empty-blob digest staged as brew's subuid
+    # content via write-through-hardlink); fixed by truncating/deleting the
+    # corrupt cache entries. Irrelevant to the current local bst2 builds.
+    # --without-npm/--without-corepack: this is a distroless runtime image,
+    #   not a dev environment (same shape as gcr.io/distroless/nodejs).
+    # --ninja: gyp emits build.ninja; `make` stays the driver and forwards
+    #   -j${MAXJOBS} to ninja via MAKEFLAGS.
+    ./configure \
+      --prefix=/usr \
+      --shared-openssl \
+      --shared-zlib \
+      --shared-cares \
+      --shared-nghttp2 \
+      --with-intl=system-icu \
+      --without-npm \
+      --without-corepack \
+      --ninja
 
   build-commands:
-    - make -j"${MAXJOBS}"
+  - make -j"${MAXJOBS}"
 
   install-commands:
-    - make install DESTDIR="%{install-root}"
+  - make install DESTDIR="%{install-root}"
     # Strip the installed binary explicitly; strip-binaries stays "".
-    - strip --strip-unneeded "%{install-root}/usr/bin/node"
+  - strip --strip-unneeded "%{install-root}/usr/bin/node"
     # Layout on record (lands in the bst log; also the size feed for #127).
-    - du -sh "%{install-root}"/* 2>/dev/null | sort -rh | head -30 || true
+  - du -sh "%{install-root}"/* 2>/dev/null | sort -rh | head -30 || true
     # Capture only the installed /usr hierarchy — the compose element selects
     # from /usr anyway. Guard: [ -e ] for the empty-glob case under set -e.
-    - |
-      cd "%{install-root}"
-      for p in *; do
-        [ -e "$p" ] || continue
-        [ "$p" = "usr" ] || rm -rf "$p"
-      done
-    # Remove the contents only: the sandbox mounts %{build-root}'s parent
+  - |
+    cd "%{install-root}"
+    for p in *; do
+      [ -e "$p" ] || continue
+      [ "$p" = "usr" ] || rm -rf "$p"
+    done
+   # Remove the contents only: the sandbox mounts %{build-root}'s parent
     # read-only, so unlinking the directory itself fails with EROFS.
-    - rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*
+  - rm -rf "%{build-root}"/* "%{build-root}"/.[!.]* "%{build-root}"/..?*
