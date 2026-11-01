@@ -41,6 +41,10 @@ build-depends:
   # remote-execution model, exceeded the ~2.42 GiB blob-size limit and failed
   # output capture.
 - freedesktop-sdk.bst:components/binutils.bst
+  # rustc/cargo (>= 1.86) build V8's Temporal backend (temporal_capi) from the
+  # crates vendored in the tarball's deps/crates; without them configure
+  # silently drops Temporal (see --v8-enable-temporal-support below).
+- freedesktop-sdk.bst:components/rust.bst
 
 depends:
   # node is linked against these shared libraries; declaring them here keeps
@@ -71,6 +75,10 @@ variables:
 # counts would never share the node artifact.
 environment:
   MAXJOBS: "%{max-jobs}"
+  # cargo resolves crates from deps/crates/vendor (deps/crates/.cargo/config.toml);
+  # keep it offline and give it a writable home inside the build root.
+  CARGO_NET_OFFLINE: "true"
+  CARGO_HOME: "%{build-root}/.cargo-home"
 environment-nocache:
 - MAXJOBS
 
@@ -105,8 +113,15 @@ config:
     # worker caches were poisoned (empty-blob digest staged as brew's subuid
     # content via write-through-hardlink); fixed by truncating/deleting the
     # corrupt cache entries. Irrelevant to the current local bst2 builds.
-    # --without-npm/--without-corepack: this is a distroless runtime image,
-    #   not a dev environment (same shape as gcr.io/distroless/nodejs).
+    # --without-npm: this is a distroless runtime image, not a dev
+    #   environment (same shape as gcr.io/distroless/nodejs). Corepack is
+    #   not installed by default since node 25 (only --with-corepack
+    #   exists), and configure forwards unknown flags to gyp, which then
+    #   fails on them, so --without-corepack must not be passed.
+    # --v8-enable-temporal-support: node >= 26 builds Temporal via cargo;
+    #   the default silently disables it when cargo/rustc are missing, while
+    #   this flag makes configure fail instead, keeping Temporal parity with
+    #   official node images.
     # --ninja: gyp emits build.ninja; `make` stays the driver and forwards
     #   -j${MAXJOBS} to ninja via MAKEFLAGS.
     ./configure \
@@ -117,7 +132,7 @@ config:
       --shared-nghttp2 \
       --with-intl=system-icu \
       --without-npm \
-      --without-corepack \
+      --v8-enable-temporal-support \
       --ninja
 
   build-commands:
