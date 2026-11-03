@@ -23,7 +23,7 @@ build-depends:
 variables:
   # Must equal brew-prefix.bst's source track (tests/test_brew_version_pin.py).
   # renovate: datasource=github-tags depName=Homebrew/brew
-  brew-version: "7.0.11"
+  brew-version: "7.0.12"
 
 config:
   commands:
