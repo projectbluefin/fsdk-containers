@@ -16,17 +16,17 @@ variables:
   # manual-element sandboxes anyway, so just disable it.
   strip-binaries: ""
   # renovate: datasource=github-releases depName=mikefarah/yq
-  yq_version: v4.54.1
+  yq_version: v4.54.2
 
 sources:
 - kind: remote
   (?):
   - arch == "x86_64":
       url: "https://github.com/mikefarah/yq/releases/download/%{yq_version}/yq_linux_amd64"
-      ref: 8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f
+      ref: 44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32
   - arch == "aarch64":
       url: "https://github.com/mikefarah/yq/releases/download/%{yq_version}/yq_linux_arm64"
-      ref: 189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf1d57a71b
+      ref: bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e
   filename: yq
 
 config:
