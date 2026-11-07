@@ -168,6 +168,15 @@ class ElementReachabilityTests(unittest.TestCase):
             "SPIKE_ELEMENTS",
         )
 
+    def test_renovate_ignores_exactly_the_registered_spikes(self):
+        config = json.loads((ROOT / "renovate.json").read_text())
+        self.assertCountEqual(
+            config.get("ignorePaths", []),
+            [f"elements/{element}" for element in SPIKE_ELEMENTS],
+            "Renovate exclusions must match SPIKE_ELEMENTS exactly; update both "
+            "when adding or graduating a spike",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
