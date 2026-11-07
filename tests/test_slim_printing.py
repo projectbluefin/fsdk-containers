@@ -151,6 +151,21 @@ def forbidden_globs(loaded):
     return [line for line in loaded["slim-printing-forbidden-paths"].splitlines() if line]
 
 
+def gate_inlined_forbidden_paths(loaded):
+    """The forbidden paths exactly as written inside the gate's heredoc.
+
+    The heredoc is quoted, so BuildStream and bash read these lines verbatim;
+    this is the ground truth for what the gate actually checks, independent of
+    any variable expansion.
+    """
+    lines = loaded["slim-printing-gate-commands"].split("\n")
+    start = next(i for i, line in enumerate(lines)
+                 if line.strip().startswith("done <<'FORBIDDEN'"))
+    end = next(i for i in range(start + 1, len(lines))
+               if lines[i].strip() == "FORBIDDEN")
+    return [line for line in lines[start + 1:end] if line]
+
+
 def materialise(pattern):
     path = pattern
     for regex, replacement in _MATERIALISE:
@@ -299,6 +314,24 @@ class FragmentShapeTests(unittest.TestCase):
         for line in forbidden_globs(loaded):
             with self.subTest(glob=line):
                 self.assertNotRegex(line, r"\s|^/")
+
+    def test_gate_inlines_the_forbidden_list_not_a_reference(self):
+        """#509: the gate must carry the list itself, not `%{...}`.
+
+        A cross-junction include is pre-expanded against the consumer's project
+        variables only, so a reference to this fragment's own
+        `slim-printing-forbidden-paths` key fails to expand and aborts the
+        build before anything is built. The inlined heredoc must equal that key
+        line for line, so editing one without the other fails here, not in a
+        consumer's OCI script.
+        """
+        loaded, _ = load_variables()
+        inlined = gate_inlined_forbidden_paths(loaded)
+        listed = [ln for ln in loaded["slim-printing-forbidden-paths"].splitlines() if ln]
+        self.assertEqual(
+            inlined, listed,
+            "the gate heredoc and slim-printing-forbidden-paths have drifted",
+        )
 
 
 if __name__ == "__main__":
