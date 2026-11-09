@@ -12,6 +12,34 @@
   "schedule": [
     "after 2am and before 6am"
   ],
+  "ignorePaths": [
+    "elements/curl/curl-runtime.bst",
+    "elements/curl/curl-stack.bst",
+    "elements/falco/falco-stack.bst",
+    "elements/falco/falco.bst",
+    "elements/go-md2man/go-md2man.bst",
+    "elements/go/go-runtime.bst",
+    "elements/go/go-stack.bst",
+    "elements/kubestellar-hive/hive-bin.bst",
+    "elements/kubestellar-hive/kubestellar-hive-stack.bst",
+    "elements/kubestellar-hive/libwebsockets.bst",
+    "elements/kubestellar-hive/ttyd.bst",
+    "elements/mariadb/mariadb-runtime.bst",
+    "elements/mariadb/mariadb-stack.bst",
+    "elements/mariadb/mariadb.bst",
+    "elements/nginx/nginx-runtime.bst",
+    "elements/nginx/nginx-stack.bst",
+    "elements/nginx/nginx.bst",
+    "elements/postgres/postgres-runtime.bst",
+    "elements/postgres/postgres-stack.bst",
+    "elements/postgres/postgres.bst",
+    "elements/valkey/valkey-runtime.bst",
+    "elements/valkey/valkey-stack.bst",
+    "elements/valkey/valkey.bst",
+    "elements/volcano/volcano-runtime.bst",
+    "elements/volcano/volcano-stack.bst",
+    "elements/volcano/volcano.bst"
+  ],
   "customManagers": [
     {
       "description": "BuildStream elements: any value annotated with a '# renovate:' comment on the preceding line. Covers `<tool>_version:` variables, `track:` pins and pinned tarball URLs.",
