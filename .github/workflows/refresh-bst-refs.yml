@@ -156,6 +156,8 @@ jobs:
         with:
           app-id: ${{ secrets.MERGERAPTOR_APP_ID }}
           private-key: ${{ secrets.MERGERAPTOR_PRIVATE_KEY }}
+          # The token only pushes refreshed .bst refs onto the Renovate branch.
+          permission-contents: write
 
       - name: Commit and push refreshed refs
         if: steps.diff.outputs.changed == 'true'
