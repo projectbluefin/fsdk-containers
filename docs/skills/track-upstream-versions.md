@@ -23,9 +23,9 @@ metadata:
 
 ## The rule
 
-**Nothing in this repo may sit behind upstream.** Every non-FSDK package is pinned in a
-BuildStream element, and every one of those pins is discovered by Renovate and refreshed
-automatically (one known gap: the `bst2` builder image — see the end of this doc). If upstream releases it, we want it.
+Every non-FSDK package used by a published target is pinned in a BuildStream element,
+and its pin is discovered by Renovate and refreshed automatically (one known gap: the
+`bst2` builder image — see the end of this doc).
 
 FSDK itself is not covered here — its junction is tracked by
 `.github/workflows/auto-update-fsdk.yml`. See [bump-fsdk-version.md](bump-fsdk-version.md).
@@ -158,6 +158,12 @@ sources:
 The annotation is read by the single `customManagers` regex in `renovate.json`, which
 matches any `# renovate:` comment on the line **before** the pinned value. It works in
 `.bst` files and in the `Justfile`.
+
+Unreachable experiments in `SPIKE_ELEMENTS` in `tests/test_catalog_element_reachability.py`
+are excluded individually by `renovate.json`'s `ignorePaths`. The catalog gate requires
+the two lists to match: when an element graduates, remove its exact path from both lists
+so Renovate resumes tracking it. Do not exclude entire directories; a directory can
+contain both published and experimental elements.
 
 Supported keys: `datasource` (required), `depName` (required), `versioning`, `extractVersion`.
 
