@@ -463,7 +463,7 @@ both in CI and in `just catalog-check`. The catalog gate's
 `test_catalog_gate_coverage.py` rejects modules that no gate discovers. Matching
 the catalog pattern also makes test-only edits trigger the image-catalog workflow.
 
-- [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
+- [ ] Every action or reusable-workflow reference has a full 40-char SHA; Docker actions use an immutable SHA-256 image digest. Add a `# vX` comment only when that tag resolves to the pinned commit
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
 - [ ] `zizmor --min-severity=medium --min-confidence=medium .` passes (or the `Audit GitHub Actions` job; run without `--offline` so the `stale-action-refs` audit is included)
 - [ ] `just verify` passes locally (or in CI) after workflow changes
