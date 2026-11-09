@@ -44,7 +44,15 @@
 # and a consumer's `just verify` re-checks it against the exported rootfs
 # (docs/skills/printing-base.md, consumer contract rule 6). Every rm below
 # has a line in that list; every line in that list is covered by an rm here.
-# tests/test_slim_printing.py holds the two sides together.
+#
+# The gate inlines this list inside its own heredoc instead of referencing
+# `%{slim-printing-forbidden-paths}`. A cross-junction include is pre-expanded
+# against the consumer's project variables only, and this key is a sibling in
+# the fragment, not one of theirs, so the reference failed to expand and
+# aborted every printer-app build (projectbluefin/fsdk-containers#509). The
+# `slim-printing-forbidden-paths` key is kept for consumers that read it, and
+# tests/test_slim_printing.py fails if the inlined heredoc and that key drift
+# apart.
 
 slim-printing-commands: |
   set -eu
@@ -362,7 +370,97 @@ slim-printing-gate-commands: |
       bad=1
     done
   done <<'FORBIDDEN'
-  %{slim-printing-forbidden-paths}
+  usr/lib/*/libasan.so*
+  usr/lib/*/libtsan.so*
+  usr/lib/*/liblsan.so*
+  usr/lib/*/libubsan.so*
+  usr/lib/*/libhwasan.so*
+  usr/lib/*/libgfortran.so*
+  usr/lib/*/libquadmath.so*
+  usr/lib/debug
+  usr/lib/*/gconv/EBCDIC-*
+  usr/lib/*/gconv/IBM*
+  usr/lib/locale/locale-archive
+  usr/share/i18n/charmaps
+  usr/share/i18n/locales
+  usr/bin/localedef
+  usr/bin/ldconfig
+  usr/bin/sln
+  usr/bin/pcre2test
+  usr/lib/*/libpcre2-16.so*
+  usr/lib/*/libpcre2-32.so*
+  usr/lib/*/libpcre2-posix.so*
+  usr/lib/*/libicu*.so*
+  usr/lib/*/libharfbuzz-icu.so*
+  usr/lib/*/libxml2.so*
+  usr/bin/uconv
+  usr/bin/genrb
+  usr/bin/icuinfo
+  usr/bin/xmllint
+  usr/bin/xmlcatalog
+  usr/lib/python3*/site-packages/libxml2mod*.so
+  usr/**/__pycache__/*.opt-1.pyc
+  usr/**/__pycache__/*.opt-2.pyc
+  usr/lib/python3*/test
+  usr/lib/python3*/ensurepip
+  usr/lib/python3*/idlelib
+  usr/lib/python3*/tkinter
+  usr/lib/python3*/_pyrepl
+  usr/lib/python3*/pydoc_data
+  usr/lib/python3*/unittest
+  usr/lib/python3*/lib2to3
+  usr/lib/python3*/config-*
+  usr/lib/python3*/site-packages/setuptools
+  usr/lib/python3*/site-packages/_distutils_hack
+  usr/lib/python3*/site-packages/mako
+  usr/lib/python3*/site-packages/markdown
+  usr/lib/python3*/site-packages/markupsafe
+  usr/bin/pydoc3*
+  usr/bin/mako-render
+  usr/bin/markdown_py
+  usr/bin/sqlite3
+  usr/bin/openssl
+  usr/bin/zstd
+  usr/bin/lz4
+  usr/bin/certtool
+  usr/bin/p11tool
+  usr/bin/gnutls-cli
+  usr/bin/gi-compile-repository
+  usr/bin/glib-compile-schemas
+  usr/bin/gdbus
+  usr/bin/fc-cache
+  usr/bin/fc-list
+  usr/bin/hb-shape
+  usr/bin/hb-subset
+  usr/bin/cjpeg
+  usr/bin/djpeg
+  usr/bin/tjbench
+  usr/bin/cwebp
+  usr/bin/tiffinfo
+  usr/bin/tiff2pdf
+  usr/bin/opj_compress
+  usr/bin/jpgicc
+  usr/bin/getenforce
+  usr/bin/sefcontext_compile
+  usr/bin/capsh
+  usr/bin/dbus-test-tool
+  usr/lib/*/libsepol.so*
+  usr/lib/*/libhwy_contrib.so*
+  usr/lib/*/libhwy_test.so*
+  usr/lib/*/libturbojpeg.so*
+  usr/lib/*/libharfbuzz-subset.so*
+  usr/lib/*/libgnutlsxx.so*
+  usr/lib/*/libtiffxx.so*
+  usr/lib/*/libgmpxx.so*
+  usr/lib/*/libpoppler-cpp.so*
+  usr/lib/*/libgif.so*
+  usr/lib/*/libwebpmux.so*
+  usr/lib/*/libwebpdemux.so*
+  usr/lib/*/libwebpdecoder.so*
+  usr/lib/*/libxcb-glx.so*
+  usr/lib/*/libxcb-xinput.so*
+  usr/lib/*/libxcb-xkb.so*
+  usr/lib/*/libxcb-randr.so*
   FORBIDDEN
   # require GLOB...: at least one of the alternatives must match.
   require() {
