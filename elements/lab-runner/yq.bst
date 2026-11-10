@@ -23,10 +23,10 @@ sources:
   (?):
   - arch == "x86_64":
       url: "https://github.com/mikefarah/yq/releases/download/%{yq_version}/yq_linux_amd64"
-      ref: 44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32
+      ref: 129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973
   - arch == "aarch64":
       url: "https://github.com/mikefarah/yq/releases/download/%{yq_version}/yq_linux_arm64"
-      ref: bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e
+      ref: 89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67
   filename: yq
 
 config:
