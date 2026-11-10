@@ -16,7 +16,7 @@ variables:
   # manual-element sandboxes anyway, so just disable it.
   strip-binaries: ""
   # renovate: datasource=github-releases depName=mikefarah/yq
-  yq_version: v4.54.2
+  yq_version: v4.54.3
 
 sources:
 - kind: remote
