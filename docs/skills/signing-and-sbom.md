@@ -170,6 +170,18 @@ one package or none. It also means a break in SBOM attachment silently degrades
 scanning, so treat a "no SPDX SBOM referrer found" warning as a publish bug,
 not a scanner quirk.
 
+Grype's SBOM-only SARIF can contain nonempty `locations` arrays whose
+`physicalLocation.artifactLocation.uri` is empty. Code Scanning ingestion
+requires an artifact location even when the upload action succeeds. The
+`Patch SARIF with an artifact location` step must cover both absent/null/empty
+location arrays and empty/missing URIs within existing locations. Use the SBOM
+path as the fallback while preserving valid URIs, regions, and other metadata.
+Keep regression coverage in `tests/test_catalog_vulnerability_scan.py` executing
+the workflow's actual shell step, so CI exercises the deployed jq filter.
+See jq's [update assignment](https://jqlang.org/manual/v1.7/#update-assignment)
+and [alternative operator](https://jqlang.org/manual/v1.7/#alternative-operator)
+for the nested update and null fallback semantics.
+
 The same scan matrix includes the published Ghostscript, Gutenprint and HPLIP
 printer apps under `ghcr.io/projectbluefin`, independently of `oci_images`.
 These consumers always scan `:stable`, the tag they publish, including on manual runs with an FSDK
