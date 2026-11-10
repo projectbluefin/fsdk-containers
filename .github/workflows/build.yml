@@ -30,15 +30,10 @@ concurrency:
   group: build-${{ github.event.client_payload.ref || github.ref }}-${{ github.event.inputs.image || 'all' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Ceiling permissions for the whole run. Reusable-workflow calling jobs
-# (oci-images, vm-guest) cannot be granted more than this; each restricts
-# further to only what its own jobs use. Jobs that don't call a reusable
-# workflow set their own, narrower `permissions:` below.
-permissions:
-  contents: write
-  packages: write
-  attestations: write
-  id-token: write
+# No workflow-wide token permissions: every job grants its own below. A job
+# that calls a reusable workflow (oci-images, vm-guest) grants what that
+# workflow's jobs use; the called workflow can only narrow it further.
+permissions: {}
 
 jobs:
   validate:

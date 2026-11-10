@@ -10,6 +10,8 @@ on:
     paths:
       - 'catalog/**'
       - 'elements/**'
+      # Reachability checks also enforce Renovate's spike exclusions.
+      - 'renovate.json'
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
       - 'scripts/verify_contract.py'
@@ -46,6 +48,7 @@ on:
     paths:
       - 'catalog/**'
       - 'elements/**'
+      - 'renovate.json'
       - 'scripts/catalog.py'
       - 'scripts/generate_image_elements.py'
       - 'scripts/verify_contract.py'
