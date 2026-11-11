@@ -468,6 +468,7 @@ the catalog pattern also makes test-only edits trigger the image-catalog workflo
 - [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run
   `zizmor --min-severity=medium --min-confidence=medium .` locally using the
   `.github/zizmor.yml` baseline
+  Changes to the baseline itself also trigger the audit workflow.
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] `just changed-targets <base> HEAD` selects the targets you expect
 - [ ] No new mutable action refs introduced
