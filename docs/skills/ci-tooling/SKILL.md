@@ -50,6 +50,13 @@ lacks `workflow` scope. Read the API error rather than treating the CLI's generi
 policy message as a CI failure. Obtain explicitly authorized workflow-capable
 credentials or merge through GitHub's UI; do not bypass repository protections.
 
+### Merge queue checks and publication
+
+`merge_group` runs `validate` and `changed-targets`, using the queue's `base_sha`
+for both diff consumers. PR builds stay PR-only; publishing jobs allow only push
+and dispatch events. Keep the queue's temporary `github.ref` in the concurrency
+group. See GitHub's [merge_group reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#merge_group).
+
 ### Prow reviewer-request failures are not build failures
 
 If `prow / prow` fails with `could not request reviewers` and HTTP 422
