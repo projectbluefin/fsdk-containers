@@ -9,6 +9,7 @@ name: Build images
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   repository_dispatch:
@@ -37,7 +38,7 @@ permissions: {}
 
 jobs:
   validate:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -63,7 +64,7 @@ jobs:
   # elements/targets.json (`just changed-targets`), and a change to a shared
   # path builds the canary image instead of the world.
   changed-targets:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -84,7 +85,7 @@ jobs:
           tool: just
       - id: resolve
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           TARGETS="$(just changed-targets "${BASE_SHA}" HEAD)"
@@ -96,15 +97,15 @@ jobs:
             echo "any_oci=$(jq -r '.oci_images | length > 0' <<<"${TARGETS}")"
           } >> "$GITHUB_OUTPUT"
           {
-            echo "### Pull-request build gate"
+            echo "### Changed-target selection"
             echo
-            echo "- OCI images built and verified: \`$(jq -r '.oci_images | if length == 0 then "none" else join(", ") end' <<<"${TARGETS}")\`"
-            echo "- podman-vm guest built and boot-tested: \`$(jq -r '.vm_guest' <<<"${TARGETS}")\`"
+            echo "- Selected OCI images: \`$(jq -r '.oci_images | if length == 0 then "none" else join(", ") end' <<<"${TARGETS}")\`"
+            echo "- Selected podman-vm guest: \`$(jq -r '.vm_guest' <<<"${TARGETS}")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify multi-arch ref parity
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: python3 scripts/check_multiarch_refs.py --base "${BASE_SHA}" --head HEAD
 
   # Deliberately NOT a call into oci-images.yml: this job has no login, tag,
@@ -218,7 +219,7 @@ jobs:
   # own copy of the image list. Adding a package requires one entry in that
   # manifest, not an edit to any workflow.
   matrix:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -249,7 +250,7 @@ jobs:
 
   oci-images:
     needs: matrix
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -266,7 +267,7 @@ jobs:
     secrets: inherit
 
   vm-guest:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/vm-guest.yml
     permissions:
       contents: write
@@ -283,7 +284,7 @@ jobs:
   # `always()` so this never gates publication -- it is purely informational.
   summary:
     needs: [oci-images, vm-guest]
-    if: always() && github.event_name != 'pull_request'
+    if: always() && (github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
