@@ -52,4 +52,4 @@ rules:
       # Calls the first-party reusable workflow in this repository, which
       # needs the caller's build-grid and signing secrets; an explicit secret
       # list is a follow-up, not a regression.
-      - build.yml:257
+      - build.yml:258
