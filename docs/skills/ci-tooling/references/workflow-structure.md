@@ -115,6 +115,9 @@ accepts one image name, so its `manifest` job waits only for that image's two
 architecture legs. Never pass the whole target list into a reusable workflow
 whose manifest job has `needs: build`: that makes every image's publication
 wait for the slowest or failed unrelated matrix leg.
+The caller explicitly passes the optional `CASD_CLIENT_KEY`,
+`ARTIFACT_HUB_KEY_ID`, and `ARTIFACT_HUB_KEY_SECRET` secrets declared by the
+reusable workflow; it does not inherit all repository secrets.
 
 Manual `workflow_dispatch` exposes an optional `image` text input. An empty
 value builds the whole canonical manifest; a non-empty value is validated
