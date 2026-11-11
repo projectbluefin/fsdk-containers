@@ -7,42 +7,7 @@ name: image-catalog
 
 on:
   pull_request:
-    paths:
-      - 'catalog/**'
-      - 'elements/**'
-      # Reachability checks also enforce Renovate's spike exclusions.
-      - 'renovate.json'
-      - 'scripts/catalog.py'
-      - 'scripts/generate_image_elements.py'
-      - 'scripts/verify_contract.py'
-      - 'scripts/check_multiarch_refs.py'
-      - 'tests/test_catalog*.py'
-      - 'tests/test_generated*.py'
-      - 'tests/test_verify_contract*.py'
-      # test_catalog_slim_includes.py and test_slim*.py gate the shared slim
-      # fragments (include/slim*.yml): the printing one is consumed across the
-      # junction, so nothing else in this repository ever runs it.
-      - 'include/**'
-      - 'tests/test_slim*.py'
-      - 'scripts/printing_base_bundle.py'
-      - 'tests/test_printing_base_bundle*.py'
-      - 'tests/test_printing_runtime_layer*.py'
-      - '.github/requirements/**'
-      # test_catalog_ci_inventory.py (run below via test_catalog*.py) gates the
-      # workflow/action inventory against docs/skills/ci-tooling/references/.
-      # Without these two the drift gate never fires for the exact changes it
-      # guards -- adding or deleting a workflow, or editing the reference doc.
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - 'docs/skills/ci-tooling/**'
-      # test_catalog_readme_inventory.py ratchets the README image table against
-      # elements/targets.json. Without this the gate never fires for a
-      # README-only edit -- deleting or renaming a published image's row.
-      - 'README.md'
-      # test_catalog_sbom_provenance.py ratchets the --spdx-creator lines in the
-      # sbom/sboms recipes. Without this a Justfile-only edit that drops them
-      # never runs the gate.
-      - 'Justfile'
+  merge_group:
   push:
     branches: [main]
     paths:

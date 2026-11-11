@@ -458,19 +458,18 @@ apply the same external fetch retry loop there rather than reaching for
 - A rootfs vulnerability scanner pointed at a distroless image ref
 - A `pip install` of `.github/requirements/*.txt` without `--require-hashes --only-binary=:all:`
 - A requirement in `.github/requirements/*.txt` whose only hash is its `.tar.gz`
-- A CI-input path (`.github/requirements/**`, the workflow file itself) missing from a workflow's `paths:` filter — the PR that changes it runs nothing
+- A CI-input path missing from a filtered workflow's `paths:` — the change it guards may run nothing
 - A Justfile recipe that splices an `env()`/`--set`-overridable value into shell as `"{{var}}"` — just substitutes text before bash parses it, so a value containing `"` injects commands past any validation. Export the variable and use `"${var}"` (see `_check-bst2-image`)
 
 ## Verification
 
-Python test discovery uses explicit filename patterns in `image-catalog.yml`
-and the Justfile. New workflow regression tests must match a committed pattern;
-for example, `test_catalog_vulnerability_scan.py` runs through `test_catalog*.py`
-both in CI and in `just catalog-check`. The catalog gate's
-`test_catalog_gate_coverage.py` rejects modules that no gate discovers. Matching
-the catalog pattern also makes test-only edits trigger the image-catalog workflow.
+Workflow regression tests must match a discovery pattern in `image-catalog.yml`
+and the Justfile (for example, `test_catalog*.py`); `test_catalog_gate_coverage.py`
+rejects modules that no gate discovers.
 
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
+- [ ] Required checks run on every PR and `merge_group`; do not path-filter PRs.
+  Keep filtered `push` triggers where appropriate. See [GitHub's merge group event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#merge_group).
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
 - [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run
   `zizmor --min-severity=medium --min-confidence=medium .` locally using the
