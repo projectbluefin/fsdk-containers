@@ -76,14 +76,22 @@ jobs:
           echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
       - name: Log in to ghcr
         if: github.event_name != 'repository_dispatch'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "${GH_TOKEN}" | podman login ghcr.io -u "${ACTOR}" --password-stdin
       - name: Build and verify image
+        env:
+          IMAGE: ${{ inputs.image }}
         run: |
-          BUILD_IMAGE_NAME=${{ inputs.image }} just build
-          BUILD_IMAGE_NAME=${{ inputs.image }} just verify
+          BUILD_IMAGE_NAME="${IMAGE}" just build
+          BUILD_IMAGE_NAME="${IMAGE}" just verify
       - name: Publish architecture image
         if: github.event_name != 'repository_dispatch'
-        run: BUILD_IMAGE_NAME=${{ inputs.image }} just tag-push "${BUILD_IMAGE_REGISTRY}/${{ inputs.image }}-${{ matrix.arch }}"
+        env:
+          IMAGE: ${{ inputs.image }}
+          ARCH: ${{ matrix.arch }}
+        run: BUILD_IMAGE_NAME="${IMAGE}" just tag-push "${BUILD_IMAGE_REGISTRY}/${IMAGE}-${ARCH}"
 
   manifest:
     outputs:
@@ -124,26 +132,34 @@ jobs:
         uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
 
       - name: Log in to ghcr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           mkdir -p ~/.docker
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
+          echo "${GH_TOKEN}" | podman login ghcr.io -u "${ACTOR}" --password-stdin
+          echo "${GH_TOKEN}" | podman login ghcr.io -u "${ACTOR}" --password-stdin --compat-auth-file ~/.docker/config.json
 
       - name: Generate BuildStream-native SBOM
-        run: just sbom "${{ inputs.image }}"
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: just sbom "${IMAGE}"
 
       - name: Assemble multi-arch manifest, sign, and attach SBOM
         id: resolve-digest
+        env:
+          IMAGE: ${{ inputs.image }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
-          IMAGE="${{ inputs.image }}"
           REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
 
           # Check which per-architecture images were successfully built and published
           POINT_TAG="$(just tags | tail -1)"
           AVAIL_ARCHS=()
           for arch in x86_64 aarch64; do
-            if skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
+            if skopeo inspect --no-tags --creds "${ACTOR}:${GH_TOKEN}" "docker://${REPO}-${arch}:${POINT_TAG}" >/dev/null 2>&1; then
               AVAIL_ARCHS+=("${arch}")
             fi
           done
@@ -165,7 +181,7 @@ jobs:
           # assembled with `docker buildx imagetools create --annotation
           # index:...` instead (docker CLI reuses the GHCR credentials the
           # login step wrote to ~/.docker/config.json).
-          INDEX_LABELS="$(skopeo inspect --no-tags --config --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}-x86_64:${POINT_TAG}" \
+          INDEX_LABELS="$(skopeo inspect --no-tags --config --creds "${ACTOR}:${GH_TOKEN}" "docker://${REPO}-x86_64:${POINT_TAG}" \
             | jq -r '.config.Labels // {} | to_entries[]
                      | select(.key | startswith("org.opencontainers.image.") or startswith("io.artifacthub.package."))
                      | "\(.key)=\(.value)"')"
@@ -178,7 +194,7 @@ jobs:
           # The FSDK point-release/beta tag is immutable: skip it if already published.
           FIRST_TAG=""
           while read -r t; do
-            if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
+            if [[ "${t}" == "${POINT_TAG}" ]] && skopeo inspect --no-tags --creds "${ACTOR}:${GH_TOKEN}" "docker://${REPO}:${t}" >/dev/null 2>&1; then
               echo "==> skipping ${REPO}:${t} (point-release tag already published, immutable)"
               continue
             fi
@@ -208,7 +224,7 @@ jobs:
           fi
 
           # Step 2: Resolve canonical manifest list digest exactly once
-          DIGEST=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
+          DIGEST=$(skopeo inspect --creds "${ACTOR}:${GH_TOKEN}" "docker://${REPO}:${FIRST_TAG}" | jq -r '.Digest')
           if [[ -z "${DIGEST}" || "${DIGEST}" == "null" ]]; then
             echo "ERROR: Failed to resolve digest for ${REPO}:${FIRST_TAG}"
             exit 1
@@ -257,6 +273,7 @@ jobs:
       - name: Register image with Artifact Hub
         if: steps.resolve-digest.outputs.digest != ''
         env:
+          IMAGE: ${{ inputs.image }}
           ARTIFACT_HUB_KEY_ID: ${{ secrets.ARTIFACT_HUB_KEY_ID }}
           ARTIFACT_HUB_KEY_SECRET: ${{ secrets.ARTIFACT_HUB_KEY_SECRET }}
         shell: bash
@@ -266,13 +283,13 @@ jobs:
             echo 'Artifact Hub registration skipped: configure ARTIFACT_HUB_KEY_ID and ARTIFACT_HUB_KEY_SECRET repository secrets.'
             exit 0
           fi
-          REPO="${BUILD_IMAGE_REGISTRY}/${{ inputs.image }}"
+          REPO="${BUILD_IMAGE_REGISTRY}/${IMAGE}"
           OCI_URL="oci://${REPO}"
           API="https://artifacthub.io/api/v1"
           AUTH=(-H "X-API-KEY-ID: ${ARTIFACT_HUB_KEY_ID}" -H "X-API-KEY-SECRET: ${ARTIFACT_HUB_KEY_SECRET}")
           REGISTRATION_PAYLOAD="$(jq -cn \
-            --arg name '${{ inputs.image }}' \
-            --arg display_name 'Project Bluefin ${{ inputs.image }} container image' \
+            --arg name "${IMAGE}" \
+            --arg display_name "Project Bluefin ${IMAGE} container image" \
             --arg url "${OCI_URL}" \
             '{
               kind: 12,
@@ -302,7 +319,7 @@ jobs:
 
           if [[ -n "${REPOSITORY_ID}" ]]; then
             curl --fail-with-body --silent --show-error --request PUT \
-              "${API}/repositories/org/projectbluefin/${{ inputs.image }}" \
+              "${API}/repositories/org/projectbluefin/${IMAGE}" \
               "${AUTH[@]}" \
               -H 'Content-Type: application/json' \
               --data "${REGISTRATION_PAYLOAD}" \
@@ -381,18 +398,24 @@ jobs:
         uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
 
       - name: Log in to ghcr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
           mkdir -p ~/.docker
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin --compat-auth-file ~/.docker/config.json
+          echo "${GH_TOKEN}" | podman login ghcr.io -u "${ACTOR}" --password-stdin --compat-auth-file ~/.docker/config.json
 
       - name: Pull and run published architecture image
         env:
           TAG_ARCH: ${{ matrix.tag_arch }}
           PLATFORM_ARCH: ${{ matrix.platform_arch }}
+          IMAGE: ${{ inputs.image }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
-          arch_digest="$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+          arch_digest="$(skopeo inspect --creds "${ACTOR}:${GH_TOKEN}" \
             "docker://${REPO}-${TAG_ARCH}:${TAG}" | jq -r '.Digest')"
           test "${arch_digest}" != "" && test "${arch_digest}" != "null"
           podman pull --platform "linux/${PLATFORM_ARCH}" "${REPO}@${arch_digest}"
@@ -405,7 +428,7 @@ jobs:
           # never touches this job; `smoke: none` gets the plain
           # /usr/bin/true runnability probe, `smoke: no-exec` (base, static,
           # data-only or no executables) stops at the pull/arch check.
-          CONTRACT_ENV=$(python3 scripts/verify_contract.py "${{ inputs.image }}" --env)
+          CONTRACT_ENV=$(python3 scripts/verify_contract.py "${IMAGE}" --env)
           eval "$CONTRACT_ENV"
           SMOKE_OPTS_ARR=()
           if [ -n "$SMOKE_OPTS" ]; then
