@@ -472,10 +472,7 @@ the catalog pattern also makes test-only edits trigger the image-catalog workflo
 
 - [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
-- [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run
-  `zizmor --min-severity=medium --min-confidence=medium .` locally using the
-  `.github/zizmor.yml` baseline
-  Changes to the baseline itself also trigger the audit workflow.
+- [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run `zizmor --min-severity=medium --min-confidence=medium .` locally using the `.github/zizmor.yml` baseline. Baseline changes trigger the audit; refresh line-specific entries when workflow edits move findings.
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] `just changed-targets <base> HEAD` selects the targets you expect
 - [ ] No new mutable action refs introduced
