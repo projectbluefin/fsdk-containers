@@ -136,7 +136,7 @@ does (`permission-contents: write` to push a branch or send a
 a PR). The `Audit GitHub Actions` check (zizmor, `github-app` audit) fails a
 mint with no `permission-*` input; the one documented exception is
 `renovate.yml`, where self-hosted Renovate needs the installation's full set
-and the installation itself bounds it (see `.github/zizmor.yml`).
+and the installation itself bounds it (see the inline exception in `renovate.yml`).
 
 #### Forked repositories — pass `owner:` or the mint 404s
 
@@ -472,7 +472,7 @@ rejects modules that no gate discovers.
 - [ ] Required checks run on every PR and `merge_group`; do not path-filter PRs.
   Keep filtered `push` triggers where appropriate. See [GitHub's merge group event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#merge_group).
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
-- [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run `zizmor --min-severity=medium --min-confidence=medium .` locally using the `.github/zizmor.yml` baseline. Baseline changes trigger the audit; refresh line-specific entries when workflow edits move findings.
+- [ ] `Audit GitHub Actions` (zizmor) passes in CI, or run `zizmor --min-severity=medium --min-confidence=medium .` locally and with `--no-config`: fix findings or document an inline exception; never pin exceptions to lines or whole files.
 - [ ] `just verify` passes locally (or in CI) after workflow changes
 - [ ] `just changed-targets <base> HEAD` selects the targets you expect
 - [ ] No new mutable action refs introduced
