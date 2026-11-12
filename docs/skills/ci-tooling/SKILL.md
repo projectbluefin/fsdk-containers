@@ -309,8 +309,7 @@ the other nine behind a single click.
 ### Slow elements, main-run concurrency, and the shared cache
 
 `project.conf`'s remotes are pull-only and anything no remote serves is
-compiled from scratch in every run. Measured (runs 37962030576, 37401968758,
-37245550972):
+compiled from scratch in every run. Measured (runs 37962030576, 37401968758, 37245550972):
 
 | Element | Job | x86_64 | aarch64 |
 |---|---|---|---|

@@ -58,6 +58,10 @@ Adding a workflow means adding its row in the same change.
 | `build` (`vm-guest.yml`) | called for `push`/`workflow_dispatch`/`repository_dispatch`, after `guest-contract` | matrix arch (x86_64 + aarch64): builds the `podman-vm-efi.bst` VM guest disk, converts it to QCOW2, checksums both, generates an SPDX SBOM, boot-tests the disk under plain QEMU (`tests/vm-boot.sh`, both architectures), then (only `push`/`workflow_dispatch`) publishes the zstd-compressed disks (`.raw.zst`, `.qcow2.zst`) + checksum sidecars + SBOM as GitHub Release assets and attests them |
 | `summary` (`build.yml`) | `always()`, not on `pull_request` | queries the Jobs API for the run and renders a target/status/duration table to the step summary |
 
+Cold x86_64 builds of `node` and `review-runtime` share the expensive Node
+compile. Their OCI build jobs allow 330 minutes, below GitHub's six-hour
+limit; other image/architecture jobs retain 180 minutes.
+
 The **canonical manifest** for the OCI image lane is `elements/targets.json`
 (`oci_images` list). Adding a package means adding one entry there —
 `build.yml`'s `matrix` job reads it directly, and `just image-list`/
@@ -74,14 +78,11 @@ same caution applies to the VM guest's publish step: it only runs on
 
 ### Main build alerts
 
-`ci-alert.yml` listens for completed `Build images` push runs on `main`
-(success *or* failure — a green run is what closes the alert). On failure it
-records `failure`, `cancelled`, `timed_out`, and `skipped` job links in one
-canonical `[CI] Build images failed on main` issue, reopening it when a later
-failure occurs; `cancelled`/`timed_out` are included because a cancelled
-matrix, summary, or guest-contract job is the common shape of a stuck run and
-the old `failure`+`skipped` filter only listed the downstream jobs that were
-skipped because of it. On success it closes the same issue (if open) with a
+`ci-alert.yml` listens for completed `Build images` push runs on `main`.
+Failure, cancellation, or timeout opens or reopens the canonical
+`[CI] Build images failed on main` issue. It fetches every jobs API page and
+records `failure`, `cancelled`, `timed_out`, and `skipped` job links.
+On success it closes the same issue (if open) with a
 comment linking the green run, but only when the run's `head_sha` is still
 the current `main` HEAD — a re-run or late finish of an older commit must
 not close an alert a newer commit raised. The guard reads `/commits/main`

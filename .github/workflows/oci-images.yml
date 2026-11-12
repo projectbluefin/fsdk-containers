@@ -50,7 +50,8 @@ jobs:
           - arch: aarch64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    # Cold x86_64 Node builds can run for over three hours.
+    timeout-minutes: ${{ matrix.arch == 'x86_64' && (inputs.image == 'node' || inputs.image == 'review-runtime') && 330 || 180 }}
     permissions:
       contents: read
       packages: write
