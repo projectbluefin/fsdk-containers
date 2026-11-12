@@ -317,6 +317,12 @@ compiled from scratch in every run. Measured (runs 37962030576, 37401968758,
 | `node/node.bst` | `review-runtime` | 97-127 min | 86 min |
 | `freedesktop-sdk.bst:components/linux.bst` | `vm-guest` | pulled (job 4 min) | ~59 min |
 
+Cold x86_64 builds of `node` and `review-runtime` share the expensive Node
+compile. Their OCI build jobs allow 330 minutes, below GitHub's six-hour
+limit; other image/architecture jobs retain 180 minutes. A completed main
+build that is cancelled or timed out must open or update the CI alert, just
+like a failure. Fetch every jobs API page when identifying the affected job.
+
 **Main runs are never cancelled.** `build.yml`, `oci-images.yml` and
 `printing-base.yml` set `cancel-in-progress` only for pull requests / non-main
 refs. With `cancel-in-progress: true`, 67 of the last 100 main `build.yml`
