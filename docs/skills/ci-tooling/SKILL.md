@@ -195,10 +195,9 @@ alone cannot identify or verify the exact archive artifact.
 
 ### Regenerating `.github/requirements` hashes
 
-The required `Build images / validate` job installs every
-`.github/requirements/*.txt` into a fresh target directory on pull requests and
-merge groups, so an already-installed package cannot hide stale hashes. Other
-jobs install `.github/requirements/verify.txt` as follows:
+On pull requests and merge groups, required `Build images / validate` installs
+each `.github/requirements/*.txt` into a fresh target to expose stale hashes.
+Other jobs install `.github/requirements/verify.txt` as follows:
 
 ```yaml
 run: python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt
