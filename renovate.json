@@ -54,7 +54,7 @@
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
     },
     {
-      "description": "Pinned Python dependencies for the catalog / verify workflows (.github/requirements/verify.txt). Matches `dep==version` lines (hashes follow on the same line) so pinned PyPI packages stay current under the human-review gate below.",
+      "description": "Pinned Python dependencies for the catalog / verify workflows (.github/requirements/verify.txt). Matches `dep==version` lines; the required validation job checks the accompanying hashes.",
       "customType": "regex",
       "managerFilePatterns": [
         "/\\.github/requirements/.*\\.txt$/"
@@ -78,7 +78,7 @@
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "github-actions-non-major",
+      "groupName": "github-actions-third-party-non-major",
       "matchUpdateTypes": [
         "minor",
         "patch",
@@ -86,20 +86,33 @@
         "pin",
         "pinDigest"
       ],
-      "description": "Never automerge GitHub Actions bumps: digest pinning blunts tag-rewriting but not a compromised release under a new SHA. Workflows here handle mergeraptor tokens, cosign signing, and packages:write, so every action update gets human review (mirrors the custom.regex gate below).",
-      "automerge": false
+      "matchPackageNames": [
+        "!projectbluefin/**"
+      ],
+      "description": "Third-party GitHub Actions updates use a three-day minimum release age before Renovate automerges them; pin and digest updates have Renovate's documented timestamp limitations.",
+      "minimumReleaseAge": "3 days",
+      "automerge": true
     },
     {
       "matchManagers": [
         "github-actions"
       ],
-      "matchUpdateTypes": [
-        "major"
+      "matchPackageNames": [
+        "projectbluefin/**"
       ],
-      "automerge": false
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "groupName": "github-actions-first-party-non-major",
+      "description": "First-party GitHub Actions updates can automerge without a release-age delay.",
+      "automerge": true
     },
     {
-      "description": "Upstream software pinned in BuildStream elements. Never automerge: the sha256/commit ref must be refreshed by `bst source track` (see .github/workflows/refresh-bst-refs.yml) and the image must pass `just verify` first.",
+      "description": "Upstream software pinned in BuildStream elements. Renovate does not automerge these updates; the ref-refresh workflow updates source refs, required checks validate the PR, and Build images runs after merge. The hive can merge Renovate PRs without a binding human review.",
       "matchManagers": [
         "custom.regex"
       ],
@@ -114,7 +127,7 @@
       ]
     },
     {
-      "description": "Pinned PyPI packages in .github/requirements/*.txt. Never automerge: this manager rewrites only the `==` version, so the committed sha256 hashes go stale and `pip install --require-hashes --only-binary=:all:` rejects the bump. Regenerate the hashes before merging -- see docs/skills/ci-tooling/SKILL.md, 'Regenerating .github/requirements hashes'. `bst source track` is NOT involved.",
+      "description": "Pinned PyPI packages in .github/requirements/*.txt. Renovate does not automerge these updates, but the hive can merge them; the required validation job rejects stale hashes. Regenerate the complete hash-locked requirements as described in docs/skills/ci-tooling/SKILL.md before merging.",
       "matchManagers": [
         "custom.regex"
       ],
@@ -133,6 +146,16 @@
         "kubernetes/kubernetes"
       ],
       "ignoreUnstable": true
+    },
+    {
+      "description": "Renovate does not automerge GitHub Actions majors. The hive's trusted-bot merge policy is independent of this setting.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
     }
   ]
 }

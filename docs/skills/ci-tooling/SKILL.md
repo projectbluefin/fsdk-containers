@@ -195,7 +195,9 @@ alone cannot identify or verify the exact archive artifact.
 
 ### Regenerating `.github/requirements` hashes
 
-Four steps install `.github/requirements/verify.txt`, always the same way:
+On pull requests and merge groups, required `Build images / validate` installs
+each `.github/requirements/*.txt` into a fresh target to expose stale hashes.
+Other jobs install `.github/requirements/verify.txt` as follows:
 
 ```yaml
 run: python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/requirements/verify.txt
@@ -211,9 +213,9 @@ inside `oci-images.yml`'s verify job, which holds `packages: write`,
 hash is ever dropped.
 
 The `custom.regex` manager in `renovate.json` rewrites only the `==` version,
-never the hashes, so **every Renovate bump of this file arrives with stale
-hashes and a red install step**. That is pip failing closed, not a bug — but it
-means the reviewer regenerates before merging:
+never the hashes, so a version bump needs refreshed hashes before the required
+validation job can pass. Renovate's own automerge setting does not prevent the
+hive from merging trusted-bot PRs; do not rely on review as the hash gate.
 
 1. Re-resolve the transitive closure in a throwaway venv. A bump can add or
    drop a dependency and `--require-hashes` needs the *whole* closure:

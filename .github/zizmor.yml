@@ -31,8 +31,8 @@ rules:
       # TEMPORARY: matrix.image comes from elements/targets.json via the
       # matrix job, not from event data. Each site is a mechanical move into
       # env:; drop the entries when that lands.
-      - build.yml:143
-      - build.yml:144
+      - build.yml:152
+      - build.yml:153
       # TEMPORARY: inputs.image is validated against elements/targets.json by
       # the only caller (build.yml); github.actor and secrets.GITHUB_TOKEN
       # cannot carry shell metacharacters. Every site is a mechanical move
@@ -52,4 +52,4 @@ rules:
       # Calls the first-party reusable workflow in this repository, which
       # needs the caller's build-grid and signing secrets; an explicit secret
       # list is a follow-up, not a regression.
-      - build.yml:258
+      - build.yml:266
