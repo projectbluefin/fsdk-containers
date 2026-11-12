@@ -12,7 +12,7 @@ sources:
   # against https://nodejs.org/dist/vX.Y.Z/SHASUMS256.txt.
 - kind: tar
   url: https://nodejs.org/dist/v%{node_version}/node-v%{node_version}.tar.gz
-  ref: 986ead18ef18256831bae3e57d94aef680a7b84cfd4044f3e8471f833fbd7191
+  ref: 60c6cdf11c3e9d5932fccd0eafae77f1152661584e129047684cb8646f228d3e
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
