@@ -39,14 +39,6 @@ rules:
       # into env:; drop the entry when that lands.
       - oci-images.yml
 
-  github-app:
-    ignore:
-      # Self-hosted Renovate: the token must carry the installation's full
-      # permission set (contents, pull-requests, issues, workflows, checks,
-      # statuses, vulnerability alerts); the app installation, not this
-      # step, is where that set is bounded.
-      - renovate.yml:49
-
   secrets-inherit:
     ignore:
       # Calls the first-party reusable workflow in this repository, which
