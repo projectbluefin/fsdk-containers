@@ -48,6 +48,14 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
           persist-credentials: false
+      - name: Verify pinned Python requirements
+        run: |
+          set -euo pipefail
+          for requirements in .github/requirements/*.txt; do
+            target="$(mktemp -d)"
+            python3 -m pip install --target "$target" --require-hashes --only-binary=:all: -r "$requirements"
+            rm -rf "$target"
+          done
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with:
           tool: just
