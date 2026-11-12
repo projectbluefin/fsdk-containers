@@ -37,6 +37,11 @@ Supporting workflows, none of which touch publication:
 | `brew-nspawn.yml` | relevant brew/shared-input PRs, weekly, dispatch | PR source/seed behavioral tests and native artifact inspection; native x86_64/aarch64 `just verify-brew-boot` (both formats and offline user scopes) weekly/on demand |
 | `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
 
+For the zizmor audit, fix findings where possible; otherwise place a reason
+above an inline `# zizmor: ignore[rule]` at the finding. Never use line-number
+or whole-file exceptions: edits can shift the former and the latter hide new
+findings. Run with `--no-config` to check inline exceptions independently.
+
 Both tables above are a gated inventory, not a summary.
 `tests/test_catalog_ci_inventory.py` fails if a file in
 `.github/workflows/` or a composite action in `.github/actions/` is not named

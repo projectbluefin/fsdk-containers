@@ -1,7 +1,8 @@
 name: CI alert
 
 on:
-  workflow_run:
+  # The job handles main push metadata only and never checks out code.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["Build images"]
     types: [completed]
 

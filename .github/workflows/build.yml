@@ -148,9 +148,11 @@ jobs:
           echo "OCI_IMAGE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "OCI_IMAGE_CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
       - name: Build and verify ${{ matrix.image }} (${{ matrix.arch }})
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
-          BUILD_IMAGE_NAME=${{ matrix.image }} just build
-          BUILD_IMAGE_NAME=${{ matrix.image }} just verify
+          BUILD_IMAGE_NAME="${IMAGE}" just build
+          BUILD_IMAGE_NAME="${IMAGE}" just verify
 
   # Cheap host-side gate for the guest bootstrap contract: no VM, no
   # BuildStream. Unit-covers elements/podman-vm/files/donate-clanker-bootstrap.py
