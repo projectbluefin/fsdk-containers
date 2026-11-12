@@ -108,7 +108,10 @@
         "pinDigest"
       ],
       "groupName": "github-actions-first-party-non-major",
-      "description": "First-party GitHub Actions updates can automerge without a release-age delay.",
+      "description": "First-party GitHub Actions updates can open at any time and automerge without a release-age delay.",
+      "schedule": [
+        "at any time"
+      ],
       "automerge": true
     },
     {
@@ -146,6 +149,17 @@
         "kubernetes/kubernetes"
       ],
       "ignoreUnstable": true
+    },
+    {
+      "description": "Publishing workflows are human-merge paths in the hive. Give their updates their own branches, so a pin-only update to them is a PR of its own that the hive's pin-only exception can merge, instead of being held with other workflows.",
+      "matchFileNames": [
+        ".github/workflows/build.yml",
+        ".github/workflows/oci-images.yml",
+        ".github/workflows/vm-guest.yml",
+        ".github/workflows/printing-base.yml",
+        ".github/workflows/printing-runtime-layer.yml"
+      ],
+      "additionalBranchPrefix": "publishing-workflows-"
     },
     {
       "description": "Renovate does not automerge GitHub Actions majors. The hive's trusted-bot merge policy is independent of this setting.",
