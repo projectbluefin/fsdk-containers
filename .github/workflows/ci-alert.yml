@@ -36,9 +36,14 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
           RUN_ID="${{ github.event.workflow_run.id }}"
-          FAILURES=$(gh api --paginate --slurp "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" \
-            | jq -r '[.[].jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out" or .conclusion == "skipped")
-                   | "- [\(.name)](\(.html_url)) (\(.conclusion))"] | join("\n")')
+          JOBS=$(gh api --paginate --slurp "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100")
+          JOB_COUNT=$(jq '[.[].jobs[]] | length' <<< "$JOBS")
+          FAILURES=$(jq -r '[.[].jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out" or .conclusion == "skipped")
+                   | "- [\(.name)](\(.html_url)) (\(.conclusion))"] | join("\n")' <<< "$JOBS")
+          if [[ "${{ github.event.workflow_run.conclusion }}" == "cancelled" && "$JOB_COUNT" == "0" ]]; then
+            echo "Run was cancelled before any job started; nothing was alerted."
+          fi
+          echo "count=${JOB_COUNT}" >> "$GITHUB_OUTPUT"
           {
             echo "failures<<EOF"
             echo "${FAILURES}"
@@ -59,7 +64,7 @@ jobs:
           echo "issue_number=${ISSUE_NUM:-}" >> "$GITHUB_OUTPUT"
 
       - name: Create or reopen alert issue
-        if: github.event.workflow_run.conclusion != 'success'
+        if: github.event.workflow_run.conclusion != 'success' && (github.event.workflow_run.conclusion != 'cancelled' || steps.jobs.outputs.count != '0')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}

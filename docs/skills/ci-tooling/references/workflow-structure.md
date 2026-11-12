@@ -28,7 +28,7 @@ Supporting workflows, none of which touch publication:
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
 | `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, keeps the newest 5 tagged `printing-base-devel` bundles per arch, deletes `printing-runtime-layer` run-/test- tags older than 14 days (key tags are kept), and removes bare `:latest` tags (dry-run on schedule; real delete only via `workflow_dispatch` with `dry_run` unchecked) |
-| `ci-alert.yml` | completed `Build images` push on `main` | on failure reopens one CI alert issue listing `failure`/`cancelled`/`timed_out`/`skipped` jobs; on success closes the same issue (only if the green run is current `main` HEAD) with a link to the run |
+| `ci-alert.yml` | completed `Build images` push on `main` | on failure reopens one CI alert issue listing `failure`/`cancelled`/`timed_out`/`skipped` jobs; ignores runs cancelled before any job started; on success closes the same issue (only if the green run is current `main` HEAD) with a link to the run |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
 | `image-catalog.yml` | every PR and merge group; filtered push to `main` | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*`, `test_printing_base_bundle*` and `test_printing_runtime_layer*` suites. The only workflow that runs the Python tests |
@@ -85,8 +85,10 @@ same caution applies to the VM guest's publish step: it only runs on
 
 `ci-alert.yml` listens for completed `Build images` push runs on `main`.
 Failure, cancellation, or timeout opens or reopens the canonical
-`[CI] Build images failed on main` issue. It fetches every jobs API page and
-records `failure`, `cancelled`, `timed_out`, and `skipped` job links.
+`[CI] Build images failed on main` issue, except that a run cancelled before
+any job started (replaced by a newer push) is ignored. It fetches every jobs
+API page to count all jobs and records `failure`, `cancelled`, `timed_out`,
+and `skipped` job links. A failed jobs lookup prevents any issue mutation.
 On success it closes the same issue (if open) with a
 comment linking the green run, but only when the run's `head_sha` is still
 the current `main` HEAD — a re-run or late finish of an older commit must
