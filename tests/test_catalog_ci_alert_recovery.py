@@ -192,6 +192,24 @@ class AlertRecoveryTests(unittest.TestCase):
         self.assertEqual(len([call for call in calls if call[:2] == ["issue", "create"]]), 1)
         self.assertFalse(any(call[:2] == ["issue", "close"] for call in calls))
 
+    def test_cancelled_without_jobs_does_not_mutate_alert(self):
+        self.event["conclusion"] = "cancelled"
+        self.data["jobs"] = []
+        for issues in ([], [{"number": 336, "title": TITLE, "state": "closed"}]):
+            with self.subTest(issues=issues):
+                self.data["issues"] = issues
+                code, calls = self.exercise()
+                self.assertEqual(code, 0)
+                self.assertFalse(any(call[:2] in (["issue", "create"], ["issue", "reopen"], ["issue", "edit"]) for call in calls))
+
+    def test_failure_without_jobs_still_creates_alert(self):
+        self.event["conclusion"] = "failure"
+        self.data["jobs"] = []
+        self.data["issues"] = []
+        code, calls = self.exercise()
+        self.assertEqual(code, 0)
+        self.assertTrue(any(call[:2] == ["issue", "create"] for call in calls))
+
     def test_cancelled_and_timed_out_runs_report_jobs_on_later_pages(self):
         for conclusion in ("cancelled", "timed_out"):
             with self.subTest(conclusion=conclusion):
