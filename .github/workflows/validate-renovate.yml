@@ -18,4 +18,4 @@ jobs:
       contents: read
     # v1 is a moving tag in projectbluefin/actions; Renovate keeps this pin current.
     # Without this, every PR fails the audit from each v1 move until Renovate's next run.
-    uses: projectbluefin/actions/.github/workflows/reusable-validate-renovate.yml@4d0850f9bcc9d80a6233fd112aa979fc6adceb2a # v1 # zizmor: ignore[ref-version-mismatch]
+    uses: projectbluefin/actions/.github/workflows/reusable-validate-renovate.yml@46001bf923f11eab3a88fe1cf4540debb050516c # v1 # zizmor: ignore[ref-version-mismatch]
