@@ -29,7 +29,6 @@ Supporting workflows, none of which touch publication:
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
 | `ghcr-cleanup.yml` | weekly, dispatch | prunes untagged manifests for this repo's packages only, keeps the newest 5 tagged `printing-base-devel` bundles per arch, deletes `printing-runtime-layer` run-/test- tags older than 14 days (key tags are kept), and removes bare `:latest` tags (dry-run on schedule; real delete only via `workflow_dispatch` with `dry_run` unchecked) |
 | `ci-alert.yml` | completed `Build images` push on `main` | on failure reopens one CI alert issue listing `failure`/`cancelled`/`timed_out`/`skipped` jobs; on success closes the same issue (only if the green run is current `main` HEAD) with a link to the run |
-| `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
 | `image-catalog.yml` | every PR and merge group; filtered push to `main` | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*`, `test_printing_base_bundle*` and `test_printing_runtime_layer*` suites. The only workflow that runs the Python tests |
 | `skill-catalog.yml` | every PR and merge group; filtered push to `main` | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
@@ -222,9 +221,10 @@ workflow. That is not a style point: Renovate ran with `github.token` while
 could merge with **no checks having run at all**, and the nightly FSDK bump
 branch was pushed the same way.
 
-Every automated write — the FSDK bump branch push, its PR, its
-`repository_dispatch`, and Renovate itself — mints a Mergeraptor installation
-token. Mergeraptor is an org-level GitHub App whose permissions are already
+The FSDK bump branch push, its PR, and its `repository_dispatch` mint a
+Mergeraptor installation token. Renovate runs org-wide from
+`projectbluefin/renovate-config` with the Mergeraptor app. Mergeraptor is an
+org-level GitHub App whose permissions are already
 granted, so this is a reuse of the existing `MERGERAPTOR_APP_ID` /
 `MERGERAPTOR_PRIVATE_KEY` secrets: **never request a PAT, a new secret, or new
 permissions for this.** Workflows that write only through that token drop their
@@ -262,10 +262,9 @@ GitHub's log masking knows the raw token but not its base64 encoding, so if git
 ever prints the resolved config the header value leaks unmasked — mask it the
 way `actions/checkout` does with `core.setSecret()`.
 
-`projectbluefin/actions` also ships `reusable-renovate.yml`, but it validates
-its token with `check-token-health`'s `required_scopes: repo,workflow` — an
-OAuth scope check a GitHub App installation token cannot satisfy. Until that
-changes, this repo runs Renovate locally rather than reintroducing a PAT.
+Renovate runs org-wide from `projectbluefin/renovate-config` and reads this
+repo's `renovate.json`. Do not add a second local runner: it would compete
+for the same dependency update branches.
 
 `platformAutomerge` is disabled in `renovate.json`: GitHub's auto-merge queue
 needs branch protection this repo does not have, so Renovate merges on its own

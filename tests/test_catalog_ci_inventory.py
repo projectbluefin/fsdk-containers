@@ -37,10 +37,8 @@ REFERENCE = (
     ROOT / "docs" / "skills" / "ci-tooling" / "references" / "workflow-structure.md"
 )
 
-# Workflow files this repository does not own. `reusable-renovate.yml` lives in
-# projectbluefin/actions and is named here only as the callee of the thin
-# caller `validate-renovate.yml`; requiring a local file for it would be wrong.
-FOREIGN_WORKFLOWS = frozenset({"reusable-renovate.yml"})
+# Documented workflow files owned by other repositories.
+FOREIGN_WORKFLOWS = frozenset()
 
 # A bare workflow filename as the document writes it in code spans, either on
 # its own (`build.yml`) or path-qualified (`.github/workflows/brew-nspawn.yml`).
