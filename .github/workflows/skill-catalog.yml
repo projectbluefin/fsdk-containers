@@ -6,12 +6,7 @@ name: skill-catalog
 
 on:
   pull_request:
-    paths:
-      - 'docs/skills/**'
-      - 'scripts/generate_skill_index.py'
-      - 'tests/test_skill_index.py'
-      - '.github/requirements/**'
-      - '.github/workflows/skill-catalog.yml'
+  merge_group:
   push:
     branches: [main]
     paths:

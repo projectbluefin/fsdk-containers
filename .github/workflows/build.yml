@@ -264,7 +264,10 @@ jobs:
     with:
       image: ${{ matrix.image }}
       ref: ${{ github.event.client_payload.ref || github.ref }}
-    secrets: inherit
+    secrets:
+      CASD_CLIENT_KEY: ${{ secrets.CASD_CLIENT_KEY }}
+      ARTIFACT_HUB_KEY_ID: ${{ secrets.ARTIFACT_HUB_KEY_ID }}
+      ARTIFACT_HUB_KEY_SECRET: ${{ secrets.ARTIFACT_HUB_KEY_SECRET }}
 
   vm-guest:
     if: github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'

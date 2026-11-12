@@ -18,6 +18,13 @@ on:
         description: Git ref to check out (supports repository_dispatch client_payload.ref).
         required: true
         type: string
+    secrets:
+      CASD_CLIENT_KEY:
+        required: false
+      ARTIFACT_HUB_KEY_ID:
+        required: false
+      ARTIFACT_HUB_KEY_SECRET:
+        required: false
 
 concurrency:
   # Serialize only conflicting publication for this ref/image; other targets

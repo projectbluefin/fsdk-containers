@@ -23,7 +23,7 @@ Supporting workflows, none of which touch publication:
 
 | File | Trigger | Purpose |
 |---|---|---|
-| `actionlint.yml` | PR/push touching `.github/workflows/**` or `.github/actions/**` | lints the pipeline itself |
+| `actionlint.yml` | every PR and merge group; filtered push to `main` | lints and audits the pipeline itself |
 | `validate-renovate.yml` | PR/push touching `renovate.json` | thin caller into `projectbluefin/actions` |
 | `scorecard.yml` | weekly, push to `main`, branch-protection changes | OpenSSF Scorecard into code scanning |
 | `vulnerability-scan.yml` | weekly, dispatch | Grype over the **published SPDX SBOM**, not the rootfs (see below) |
@@ -31,8 +31,8 @@ Supporting workflows, none of which touch publication:
 | `ci-alert.yml` | completed `Build images` push on `main` | on failure reopens one CI alert issue listing `failure`/`cancelled`/`timed_out`/`skipped` jobs; on success closes the same issue (only if the green run is current `main` HEAD) with a link to the run |
 | `renovate.yml` | nightly, dispatch | Renovate, running with a Mergeraptor app token |
 | `auto-update-fsdk.yml` | nightly, dispatch | FSDK bump branch + PR + verification dispatch |
-| `image-catalog.yml` | PR/push touching `catalog/**`, `elements/**`, `include/**`, or the catalog scripts/tests | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*`, `test_printing_base_bundle*` and `test_printing_runtime_layer*` suites. The only workflow that runs the Python tests |
-| `skill-catalog.yml` | PR/push touching `docs/skills/**` or the skill-index script/tests | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
+| `image-catalog.yml` | every PR and merge group; filtered push to `main` | the generation gate: proves the committed `elements/oci/*.bst` are what `catalog/<name>.yaml` generates, and runs the `test_catalog*`/`test_generated*`/`test_verify_contract*`/`test_slim*`, `test_printing_base_bundle*` and `test_printing_runtime_layer*` suites. The only workflow that runs the Python tests |
+| `skill-catalog.yml` | every PR and merge group; filtered push to `main` | proves `docs/skills/index.json`/`index.md` match the skills' front matter, and enforces the 500-line hard cap on a skill file |
 | `refresh-bst-refs.yml` | `pull_request` touching `elements/**/*.bst` | runs `bst source track` for a version bump Renovate cannot resolve a `ref:` for, and pushes the recomputed refs back onto the PR branch. The only workflow here that writes to a branch |
 | `brew-nspawn.yml` | relevant brew/shared-input PRs, weekly, dispatch | PR source/seed behavioral tests and native artifact inspection; native x86_64/aarch64 `just verify-brew-boot` (both formats and offline user scopes) weekly/on demand |
 | `prow.yml` | `issues`, `issue_comment`, `pull_request_target`, `pull_request_review`, `check_suite`, hourly, dispatch | Prow slash commands (`/kind`, `/area`, `/hold`, `/lgtm`, `/approve`, `/triage`, `/priority`), reviewers/approvers from `OWNERS`, and label sync |
@@ -115,6 +115,9 @@ accepts one image name, so its `manifest` job waits only for that image's two
 architecture legs. Never pass the whole target list into a reusable workflow
 whose manifest job has `needs: build`: that makes every image's publication
 wait for the slowest or failed unrelated matrix leg.
+The caller explicitly passes the optional `CASD_CLIENT_KEY`,
+`ARTIFACT_HUB_KEY_ID`, and `ARTIFACT_HUB_KEY_SECRET` secrets declared by the
+reusable workflow; it does not inherit all repository secrets.
 
 Manual `workflow_dispatch` exposes an optional `image` text input. An empty
 value builds the whole canonical manifest; a non-empty value is validated

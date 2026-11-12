@@ -5,10 +5,7 @@ name: actionlint
 
 on:
   pull_request:
-    paths:
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - '.github/zizmor.yml'
+  merge_group:
   push:
     branches: [main]
     paths:
