@@ -1,0 +1,84 @@
+From 522af8dd135f4dde66b1aac8b9d067808bbe122d Mon Sep 17 00:00:00 2001
+From: Aayush Kumar <166936037+AayushKumar26@users.noreply.github.com>
+Date: Thu, 16 Jul 2026 16:54:50 +0530
+Subject: [PATCH] Fix crash from wrong-tag output-bin-default attribute
+ (OCU-01-002) (#78)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* Fix crash from wrong-tag output-bin-default attribute (OCU-01-002)
+
+ppdCreatePPDFromIPP2() looked up output-bin-default with IPP_TAG_ZERO and
+passed ippGetString() directly into strdup(), so a wrong-tag (e.g. integer)
+value returned NULL and crashed on strdup(NULL). Validate the value tag is
+a string type before using the value.
+
+Fixes #77
+
+* Cover three more *-default attributes with the same fix (OCU-01-002)
+
+Following review, extend the tag guard to print-content-optimize-default,
+print-rendering-intent-default and print-scaling-default in
+ppdCreatePPDFromIPP2(). Each is looked up with IPP_TAG_ZERO and its value
+goes straight into strlcpy(), which crashes on NULL from a wrong-tag
+attribute — same class as the output-bin-default crash, and named by the
+audit's mitigation.
+---
+ ppd/ppd-generator.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/ppd/ppd-generator.c b/ppd/ppd-generator.c
+index 2336f69f..3ba8c7ee 100644
+--- a/ppd/ppd-generator.c
++++ b/ppd/ppd-generator.c
+@@ -419,8 +419,11 @@ ppdCreatePPDFromIPP2(char         *buffer,          // I - Filename buffer
+   cupsFilePrintf(fp, "*ShortNickName: \"%s %s\"\n", make, model);
+ 
+   // Which is the default output bin?
+-  if ((attr = ippFindAttribute(supported, "output-bin-default", IPP_TAG_ZERO))
+-      != NULL)
++  if ((attr = ippFindAttribute(supported, "output-bin-default",
++			       IPP_TAG_ZERO)) != NULL &&
++      (ippGetValueTag(attr) == IPP_TAG_NAME ||
++       ippGetValueTag(attr) == IPP_TAG_NAMELANG ||
++       ippGetValueTag(attr) == IPP_TAG_KEYWORD))
+     defaultoutbin = strdup(ippGetString(attr, 0, NULL));
+   // Find out on which position of the list of output bins the default one is,
+   // if there is no default bin, take the first of this list
+@@ -2464,7 +2467,10 @@ ppdCreatePPDFromIPP2(char         *buffer,          // I - Filename buffer
+     //
+ 
+     if ((attr = ippFindAttribute(supported, "print-content-optimize-default",
+-				 IPP_TAG_ZERO)) != NULL)
++				 IPP_TAG_ZERO)) != NULL &&
++	(ippGetValueTag(attr) == IPP_TAG_NAME ||
++	 ippGetValueTag(attr) == IPP_TAG_NAMELANG ||
++	 ippGetValueTag(attr) == IPP_TAG_KEYWORD))
+       strlcpy(ppdname, ippGetString(attr, 0, NULL), sizeof(ppdname));
+     else
+       strlcpy(ppdname, "auto", sizeof(ppdname));
+@@ -2501,7 +2507,10 @@ ppdCreatePPDFromIPP2(char         *buffer,          // I - Filename buffer
+     //
+ 
+     if ((attr = ippFindAttribute(supported, "print-rendering-intent-default",
+-				 IPP_TAG_ZERO)) != NULL)
++				 IPP_TAG_ZERO)) != NULL &&
++	(ippGetValueTag(attr) == IPP_TAG_NAME ||
++	 ippGetValueTag(attr) == IPP_TAG_NAMELANG ||
++	 ippGetValueTag(attr) == IPP_TAG_KEYWORD))
+       strlcpy(ppdname, ippGetString(attr, 0, NULL), sizeof(ppdname));
+     else
+       strlcpy(ppdname, "auto", sizeof(ppdname));
+@@ -2541,7 +2550,10 @@ ppdCreatePPDFromIPP2(char         *buffer,          // I - Filename buffer
+     //
+ 
+     if ((attr = ippFindAttribute(supported, "print-scaling-default",
+-				 IPP_TAG_ZERO)) != NULL)
++				 IPP_TAG_ZERO)) != NULL &&
++	(ippGetValueTag(attr) == IPP_TAG_NAME ||
++	 ippGetValueTag(attr) == IPP_TAG_NAMELANG ||
++	 ippGetValueTag(attr) == IPP_TAG_KEYWORD))
+       strlcpy(ppdname, ippGetString(attr, 0, NULL), sizeof(ppdname));
+     else
+       strlcpy(ppdname, "auto", sizeof(ppdname));
