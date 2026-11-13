@@ -1,15 +1,14 @@
 kind: manual
 description: pappl-retrofit, the CUPS driver retrofit layer for PAPPL printer applications.
 
-# Upstream has no release newer than 1.0b2, which predates the libcupsfilters
-# 2.x API, so this is pinned to a reviewed commit on master. `bst source track`
-# (`just track printing/pappl-retrofit.bst`) moves it to master's HEAD; review
-# that diff like any other bump.
+# Pin a reviewed master commit for fixes newer than the 1.0b3 release.
+# `just track printing/pappl-retrofit.bst` moves it to master's HEAD;
+# review the upstream diff like any other bump.
 sources:
 - kind: git_repo
   url: github:OpenPrinting/pappl-retrofit.git
   track: master
-  ref: 1626b338fc8b92a99c2c1a483ac39c739d71b305
+  ref: 39b6313c607642f1844cb949c74ce929b3d592b7
 
 build-depends:
 - freedesktop-sdk.bst:public-stacks/buildsystem-autotools.bst

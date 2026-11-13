@@ -33,6 +33,11 @@ applications (ghostscript, gutenprint, hplip, ps). It is a `kind: stack` of:
 | `freedesktop-sdk.bst:components/avahi-printing.bst` | added by the patch |
 | `printing/pappl.bst` (tag pin), `printing/pappl-retrofit.bst` (commit pin) | this repo |
 
+The retrofit element tracks a reviewed master commit rather than a release when
+post-release fixes are needed. Review upstream changes, including configure and
+install rules, before moving its ref; upstream's PPD upload and form regression
+tests exercise the web fixes.
+
 Opt-in elements outside `base.bst`:
 - `printing/foomatic-db.bst`: FSDK `components/foomatic-db.bst` stack. Built
   against the patched CUPS. Deliberately not in `base.bst`: only applications
