@@ -179,7 +179,7 @@ jobs:
     needs: build
     # Require build success: never assemble index if any architecture build failed
     if: needs.build.result == 'success' && !cancelled()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
