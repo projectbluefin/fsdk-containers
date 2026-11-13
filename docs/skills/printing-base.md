@@ -29,7 +29,7 @@ applications (ghostscript, gutenprint, hplip, ps). It is a `kind: stack` of:
 | `freedesktop-sdk.bst:components/cups-daemon-only.bst` (+ `cups.bst`) | FSDK, patched |
 | `freedesktop-sdk.bst:components/cups-filters.bst`, `libcupsfilters.bst` | FSDK, patched |
 | `freedesktop-sdk.bst:components/ghostscript.bst` | FSDK, patched (headless `--without-x`, no GhostPDL PCL/XPS) |
-| `freedesktop-sdk.bst:components/libppd.bst` | FSDK |
+| `freedesktop-sdk.bst:components/libppd.bst` | FSDK, patched |
 | `freedesktop-sdk.bst:components/avahi-printing.bst` | added by the patch |
 | `printing/pappl.bst` (tag pin), `printing/pappl-retrofit.bst` (commit pin) | this repo |
 
@@ -48,6 +48,17 @@ at the same FSDK pin) plus the source patch queues in `patches/printing/`,
 staged into the junction by `elements/freedesktop-sdk.bst`. Ghostscript is
 built without X11 (`--without-x`, dropping `xorg-lib-xt.bst`) and without
 GhostPDL's PCL/XPS binaries (`--without-pcl`, `--without-xps`, `--without-gpdl`).
+
+The source queues carry two OpenPrinting audit fixes until FSDK moves each
+library to a release containing the corresponding upstream commit:
+
+- libcupsfilters OCU-01-016 caps PNG dimensions (OpenPrinting/libcupsfilters
+  commit `b722e1ce07fb7fcb455471b0e303d81156b19d09`).
+- libppd OCU-01-002 rejects a wrong-tag `output-bin-default`
+  (OpenPrinting/libppd commit `522af8dd135f4dde66b1aac8b9d067808bbe122d`).
+
+Recheck and remove each patch separately when its upstream commit is included
+in the FSDK-pinned release.
 
 ## Why no other image's cache key moves
 

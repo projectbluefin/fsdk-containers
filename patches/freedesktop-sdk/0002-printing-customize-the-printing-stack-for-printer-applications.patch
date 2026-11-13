@@ -20,7 +20,7 @@ with two differences:
   (_private/avahi-printing-base.bst, avahi-printing.bst).
 
 cups-base/cups/cups-daemon-only switch TLS to gnutls and enable libusb,
-libcupsfilters and cups-filters gain the printer-app source patches, and
+libcupsfilters, libppd and cups-filters gain the printer-app source patches, and
 ghostscript builds its bundled zlib, drops X11/xorg-lib-xt, and stops
 building GhostPDL's gpcl6 and gxps binaries. None of these elements are
 in the graph of any other fsdk-containers target.
@@ -37,7 +37,8 @@ fsdk-containers' printing base; re-check every hunk on a junction bump.
  elements/components/cups.bst                  |  2 +-
  elements/components/ghostscript.bst           |  7 ++--
  elements/components/libcupsfilters.bst        |  2 ++
- 8 files changed, 62 insertions(+), 5 deletions(-)
+ elements/components/libppd.bst                |  2 ++
+ 9 files changed, 64 insertions(+), 5 deletions(-)
  create mode 100644 elements/components/_private/avahi-printing-base.bst
  create mode 100644 elements/components/avahi-printing.bst
 
@@ -199,6 +200,15 @@ index 38226dd..ea2c145 100644
    path: patches/libcupsfilters/close-output-stream.patch
 +- kind: patch_queue
 +  path: patches/fsdk-containers/printing/libcupsfilters
+diff --git a/elements/components/libppd.bst b/elements/components/libppd.bst
+--- a/elements/components/libppd.bst
++++ b/elements/components/libppd.bst
+@@ -18,3 +18,5 @@ sources:
+   exclude:
+   - '*rc*'
+   ref: 2.1.1-0-g2b37a73c02126d1ba031270322b6c79034cc0d0f
++- kind: patch_queue
++  path: patches/fsdk-containers/printing/libppd
 -- 
 2.55.0
 
