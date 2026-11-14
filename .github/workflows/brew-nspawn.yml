@@ -7,6 +7,25 @@ on:
   schedule:
     - cron: "30 4 * * 1"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'elements/brew/**'
+      - 'elements/oci/brew-nspawn.bst'
+      - 'plugins/sources/ghcr_tar.py'
+      - 'scripts/verify_brew.py'
+      - 'tests/test_brew*.py'
+      - 'tests/brew-boot.sh'
+      - 'elements/base/**'
+      - 'elements/freedesktop-sdk.bst'
+      # project.conf imports GNOME/FSDK configuration and plugin junctions.
+      - 'elements/gnome-build-meta.bst'
+      - 'elements/plugins/**'
+      - 'include/**'
+      - 'patches/**'
+      - 'project.conf'
+      - 'Justfile'
+      - '.github/workflows/brew-nspawn.yml'
   pull_request:
     paths:
       - 'elements/brew/**'
@@ -28,8 +47,7 @@ on:
 
 concurrency:
   group: brew-nspawn-${{ github.ref }}
-  cancel-in-progress: true
-
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 
@@ -80,6 +98,11 @@ jobs:
         with:
           tool: just
 
+      # Pushes built artifacts to the shared cache on main only.
+      - uses: ./.github/actions/bst-cache-config
+        env:
+          CASD_CLIENT_CERT: ${{ vars.CASD_CLIENT_CERT }}
+          CASD_CLIENT_KEY: ${{ secrets.CASD_CLIENT_KEY }}
       - name: Install consumer inspection tools
         run: |
           sudo apt-get update

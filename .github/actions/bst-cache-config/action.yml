@@ -1,8 +1,8 @@
 name: BuildStream cache config
 description: >-
   Point `just bst` at the mTLS cache.projectbluefin.io:11002 CAS when the
-  CASD_CLIENT_CERT / CASD_CLIENT_KEY step env is set: push on push and
-  workflow_dispatch to main, pull-only everywhere else. Without both values
+  CASD_CLIENT_CERT / CASD_CLIENT_KEY step env is set: push on push,
+  workflow_dispatch, and schedule to main, pull-only everywhere else. Without both values
   (forks, unprovisioned repos) it does nothing and project.conf's pull-only
   remotes apply unchanged. Mirrors projectbluefin/dakota's
   generate-bst-ci-config; see docs/skills/ci-tooling/SKILL.md.
@@ -23,7 +23,7 @@ runs:
         fi
         # Never push from a pull request (fork safety) or a non-main ref.
         PUSH=false
-        if [[ "${EVENT}" == push || "${EVENT}" == workflow_dispatch ]] && [[ "${REF}" == refs/heads/main ]]; then
+        if [[ "${EVENT}" == push || "${EVENT}" == workflow_dispatch || "${EVENT}" == schedule ]] && [[ "${REF}" == refs/heads/main ]]; then
           PUSH=true
         fi
         # Under the checkout, which `just bst` mounts at /src; gitignored.
