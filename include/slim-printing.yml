@@ -475,6 +475,7 @@ slim-printing-gate-commands: |
     bad=1
   }
   require usr/libexec/printer-app/entrypoint-common.sh
+  require usr/libexec/printer-app/countme.py
   require usr/bin/bash
   require usr/bin/cat
   require 'usr/lib/*/gconv/UTF-16.so'
