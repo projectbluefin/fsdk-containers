@@ -334,6 +334,16 @@ images are reused without re-pushing, independent of runner compressor changes.
    [shared startup API and example](../printing-entrypoint.md) for validation,
    private-state handling, CUPS defaults and supervision. Adoption in the four
    app repositories is follow-up work; do not copy the library into consumers.
+   For daily active-installation reporting, invoke
+   `printer_app_start_countme "$state" "$app"` immediately before supervision;
+   the shared cleanup stops it without making reporting a fatal child. Persist
+   `/var/lib/<app>` across restarts: `.countme_day` tracks UTC reporting days,
+   while `.countme.lock` must retain its inode. This counts reporting app
+   installations, never hosts, printers or jobs. Python and CA runtime
+   dependencies belong to `printing/entrypoint-common.bst`, not individual
+   consumers, including otherwise Python-free Gutenprint. Validate offline with
+   `python3 -m unittest discover -s tests -p 'test_printing_runtime_layer_countme.py'`;
+   never send valid production test pings or add telemetry PIDs to `wait -n`.
 
 The shared slim gate unconditionally requires
 `usr/libexec/printer-app/entrypoint-common.sh`, including in images without
