@@ -57,6 +57,12 @@ for both diff consumers. PR builds stay PR-only; publishing jobs allow only push
 and dispatch events. Keep the queue's temporary `github.ref` in the concurrency
 group. See GitHub's [merge_group reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#merge_group).
 
+`PR builds` aggregates changed-target selection and the PR-only build jobs into
+one stable check. It accepts skipped builds but fails on failed or cancelled
+dependencies; on merge groups the builds are skipped, so the PR run is the
+actual build gate. A maintainer must configure this check as required. The
+separate brew nspawn and printing runtime workflows are not included.
+
 ### Prow reviewer-request failures are not build failures
 
 If `prow / prow` fails with `could not request reviewers` and HTTP 422

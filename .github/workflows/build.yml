@@ -224,6 +224,29 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+  # One stable check for branch protection, including intentionally skipped builds.
+  pr-builds:
+    name: PR builds
+    needs: [changed-targets, pr-build-oci, pr-guest-contract, pr-build-vm-guest]
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check PR build results
+        env:
+          CHANGED_TARGETS: ${{ needs.changed-targets.result }}
+          OCI_BUILD: ${{ needs.pr-build-oci.result }}
+          GUEST_CONTRACT: ${{ needs.pr-guest-contract.result }}
+          VM_BUILD: ${{ needs.pr-build-vm-guest.result }}
+        run: |
+          for result in "$CHANGED_TARGETS" "$OCI_BUILD" "$GUEST_CONTRACT" "$VM_BUILD"; do
+            if [[ "$result" == failure || "$result" == cancelled ]]; then
+              echo "A required PR build dependency ended with $result" >&2
+              exit 1
+            fi
+          done
+
   # Resolve the OCI image matrix from the single canonical manifest
   # (elements/targets.json) once, so oci-images.yml never hand-maintains its
   # own copy of the image list. Adding a package requires one entry in that
