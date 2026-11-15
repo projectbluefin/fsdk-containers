@@ -423,9 +423,7 @@ done
 just bst build "oci/{{image_name}}.bst"
 ```
 
-If `validate` or `verify` start exhibiting the same intermittent failure,
-apply the same external fetch retry loop there rather than reaching for
-`--network-retries`.
+If `validate` or `verify` show the same intermittent failure, retry the fetch externally rather than using `--network-retries`.
 
 ## Common Rationalizations
 
