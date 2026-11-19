@@ -82,10 +82,8 @@ run; a new head must still pass its own applicable checks.
 
 ### Action pins — always use SHA, never mutable tags
 
-Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
-Use the exact release tag for that SHA in the version comment. The audit
-checks that the comment resolves to the pinned commit; a moving major tag
-can fail the audit even when the workflow still runs the same commit.
+Pin every `uses:` line to a full commit SHA and use its exact release tag in the
+version comment. A moving major tag can stop resolving to the pin and fail the audit.
 
 ```yaml
 # correct
@@ -95,10 +93,8 @@ can fail the audit even when the workflow still runs the same commit.
 - uses: taiki-e/install-action@v2
 ```
 
-These examples illustrate SHA pinning; they are not the source of truth for
-current action versions. When reusing an action, copy its current pin from
-[the workflows](../../../.github/workflows/). When updating workflow pins,
-refresh matching examples here too.
+Copy current pins from [the workflows](../../../.github/workflows/), not these
+examples. Refresh matching examples when updating workflow pins.
 
 ### Installing `just` — taiki-e/install-action, not snap/cargo/apt
 
@@ -473,7 +469,7 @@ Workflow regression tests must match a discovery pattern in `image-catalog.yml`
 and the Justfile (for example, `test_catalog*.py`); `test_catalog_gate_coverage.py`
 rejects modules that no gate discovers.
 
-- [ ] Every `uses:` line has a full 40-char SHA and a `# vX` comment
+- [ ] Every `uses:` line has a full 40-char SHA and its exact release tag in the comment
 - [ ] Required checks run on every PR and `merge_group`; do not path-filter PRs.
   Keep filtered `push` triggers where appropriate. See [GitHub's merge group event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#merge_group).
 - [ ] `actionlint` passes (`actionlint` locally, or the `actionlint` workflow)
