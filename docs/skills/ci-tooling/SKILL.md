@@ -83,10 +83,13 @@ run; a new head must still pass its own applicable checks.
 ### Action pins — always use SHA, never mutable tags
 
 Every `uses:` line must reference a full commit SHA. Never use `@v2` or `@main`.
+Use the exact release tag for that SHA in the version comment. The audit
+checks that the comment resolves to the pinned commit; a moving major tag
+can fail the audit even when the workflow still runs the same commit.
 
 ```yaml
 # correct
-- uses: taiki-e/install-action@e407f7bafb71fd004bc5c2da3032e5470cbb6ef0 # v2
+- uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
 
 # wrong — mutable tag, supply-chain risk
 - uses: taiki-e/install-action@v2
