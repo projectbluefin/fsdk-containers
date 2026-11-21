@@ -25,6 +25,7 @@ printer_app_seed_cups "$state"
 # HOME, PPD_PATHS, STATE_FILE, SPOOL_DIR, USB_QUIRK_DIR, etc.; seed drivers here.
 # Create /run/<app> if required. Retain the app's existing init/catatonit setup.
 args=(-o "log-file=$state/$app.log" "${printer_app_args[@]}")
+printer_app_start_countme "$state" "$app"
 printer_app_supervise /run "$app" "${args[@]}" server
 ```
 
@@ -66,6 +67,42 @@ absolute paths under STATE, not user-supplied arbitrary paths.
 defaults without replacing existing files or symlinks; an absent packaged SNMP
 default is tolerated, but a missing USB quirks database fails closed. The optional
 source paths support host tests; production consumers use the packaged defaults.
+
+## Daily active installation reporting
+
+Call `printer_app_start_countme STATE APP` after preparing persistent state and
+immediately before supervision. It launches `/usr/libexec/printer-app/countme.py`
+as a noncritical direct Python child and stores `printer_app_countme_pid`.
+`printer_app_stop_countme` terminates and reaps it; repeated stops are safe.
+The supervisor calls stop on every cleanup path, but never starts reporting
+automatically and never includes it in the fatal `wait -n` child list.
+`printing/entrypoint-common.bst` supplies Python and CA certificates even for an
+otherwise Python-free consumer such as Gutenprint.
+
+The metric is **active reporting app installations per UTC calendar day**, not
+unique hosts, physical printers, or print jobs. APP must be exactly
+`ghostscript-printer-app`, `hplip-printer-app`, `gutenprint-printer-app`, or
+`ps-printer-app`. The only payload is `{"image":"<app>/main:unknown"}`, sent by
+HTTPS PUT to `https://countme.projectbluefin.io/v1/ping` with a 10-second network
+timeout and normal certificate verification. Digest-based deployments cannot
+reliably identify a release stream, so the stream remains `unknown`. No machine
+IDs, IP addresses, tokens, or host paths are added to the payload.
+
+The helper checks at startup and every four hours. STATE's private `.countme_day`
+marker is atomically replaced only after HTTP 200 with JSON `success: true`.
+The separate `.countme.lock` inode is retained and locked nonblocking, so
+overlapping reporters on one volume cannot send simultaneously. Unsafe symlinks,
+nonregular files, malformed markers, clock/read/write/lock and network failures
+skip reporting without affecting printing. A backwards clock does not recount
+an earlier day. State loss can recount; a lost acknowledgement cannot guarantee
+exactly-once delivery. Keep `/var/lib/<app>` persisted (ChairLift binds
+`~/printer-workspaces/<family>/<name>`) across disable/re-enable cycles.
+
+Run the host-only behavioral regression with
+`python3 -m unittest discover -s tests -p 'test_printing_runtime_layer_countme.py'`.
+It intercepts stdlib HTTP transport and clocks and uses temporary state; never
+validate by sending a valid production ping. Python API references consulted via
+Context7 `/python/cpython`: `urllib.request`, `fcntl.flock`, and `os.replace`.
 
 ## Supervision
 
