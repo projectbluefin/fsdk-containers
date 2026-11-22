@@ -154,7 +154,7 @@ jobs:
       # schedule trigger, where `inputs.*` is empty.
       - name: Delete stale :latest tags
         if: steps.packages.outputs.list != ''
-        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           packages: ${{ steps.packages.outputs.list }}
           delete-tags: latest
@@ -171,7 +171,7 @@ jobs:
         # workflow-structure.md). The token-permission probe above is what
         # makes a credential regression audible, not this guard.
         if: steps.packages.outputs.list != ''
-        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           packages: ${{ steps.packages.outputs.list }}
           delete-untagged: true
@@ -186,7 +186,7 @@ jobs:
       # removes once the digest they sign is gone.
       - name: Keep the last 5 printing-base-devel bundles (x86_64)
         if: steps.packages.outputs.printing == 'true'
-        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           packages: printing-base-devel
           keep-n-tagged: 5
@@ -197,7 +197,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Keep the last 5 printing-base-devel bundles (aarch64)
         if: steps.packages.outputs.printing == 'true'
-        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           packages: printing-base-devel
           keep-n-tagged: 5
@@ -217,7 +217,7 @@ jobs:
       # delete-orphaned-images drops cosign `sha256-*` tags whose digest went.
       - name: Prune printing-runtime-layer run and test tags
         if: steps.packages.outputs.runtime_layer == 'true'
-        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           packages: printing-runtime-layer
           delete-tags: 'run-*,*-run-*,test-*,*-test-*'
