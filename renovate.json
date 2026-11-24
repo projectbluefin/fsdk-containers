@@ -7,7 +7,8 @@
   ],
   "enabledManagers": [
     "github-actions",
-    "custom.regex"
+    "custom.regex",
+    "pip_requirements"
   ],
   "schedule": [
     "after 2am and before 6am"
@@ -52,20 +53,13 @@
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s+[^\\n]*?[:=]\\s*\"?(?<currentValue>[\\w][\\w.+-]*)\"?"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
-    },
-    {
-      "description": "Pinned Python dependencies for the catalog / verify workflows (.github/requirements/verify.txt). Matches `dep==version` lines; the required validation job checks the accompanying hashes.",
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/\\.github/requirements/.*\\.txt$/"
-      ],
-      "matchStrings": [
-        "(?<depName>[A-Za-z0-9][A-Za-z0-9._-]*)==(?<currentValue>[0-9][A-Za-z0-9.+_-]*)"
-      ],
-      "datasourceTemplate": "pypi",
-      "versioningTemplate": "pep440"
     }
   ],
+  "pip_requirements": {
+    "managerFilePatterns": [
+      "/^\\.github/requirements/.*\\.txt$/"
+    ]
+  },
   "customDatasources": {
     "qemu-downloads": {
       "description": "qemu-img tracks the release tarballs on download.qemu.org, not the GitLab tags. Upstream creates the vX.Y.Z tag before the tarball is published, so a gitlab-tags proposal makes `bst source track` fail with HTTP 404 until the tarball lands. Scraping the download index only ever proposes a version that can actually be fetched.",
@@ -130,9 +124,9 @@
       ]
     },
     {
-      "description": "Pinned PyPI packages in .github/requirements/*.txt. Renovate does not automerge these updates, but the hive can merge them; the required validation job rejects stale hashes. Regenerate the complete hash-locked requirements as described in docs/skills/ci-tooling/SKILL.md before merging.",
+      "description": "Pinned PyPI packages in .github/requirements/*.txt. Renovate does not automerge these updates, but the hive can merge them. Renovate's pip_requirements manager refreshes the hashes itself, and the required validation job still checks them. A bump that adds or drops a transitive dependency needs the manual procedure in docs/skills/ci-tooling/SKILL.md.",
       "matchManagers": [
-        "custom.regex"
+        "pip_requirements"
       ],
       "matchDatasources": [
         "pypi"

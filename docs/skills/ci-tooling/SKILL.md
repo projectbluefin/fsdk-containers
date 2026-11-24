@@ -215,9 +215,11 @@ inside `oci-images.yml`'s verify job, which holds `packages: write`,
 **wheel** hash, and the flag makes an sdist fallback impossible even if a wheel
 hash is ever dropped.
 
-The `custom.regex` manager in `renovate.json` rewrites only the `==` version,
-never the hashes, so a version bump needs refreshed hashes before the required
-validation job can pass. Renovate's own automerge setting does not prevent the
+Renovate's native `pip_requirements` manager (enabled in `renovate.json` for
+`.github/requirements/*.txt`) regenerates the hashes with `hashin` when it bumps
+a version, so ordinary bumps arrive with valid hashes. A bump that adds or drops
+a transitive dependency still needs the manual procedure below, because the
+required validation job needs the whole closure hashed. Renovate's own automerge setting does not prevent the
 hive from merging trusted-bot PRs; do not rely on review as the hash gate.
 
 1. Re-resolve the transitive closure in a throwaway venv. A bump can add or
