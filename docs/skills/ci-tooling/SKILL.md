@@ -218,9 +218,9 @@ hash is ever dropped.
 Renovate's native `pip_requirements` manager (enabled in `renovate.json` for
 `.github/requirements/*.txt`) regenerates the hashes with `hashin` when it bumps
 a version, so ordinary bumps arrive with valid hashes. A bump that adds or drops
-a transitive dependency still needs the manual procedure below, because the
-required validation job needs the whole closure hashed. Renovate's own automerge setting does not prevent the
-hive from merging trusted-bot PRs; do not rely on review as the hash gate.
+a transitive dependency still needs the manual procedure below (the required
+validation job needs the whole closure hashed). Renovate's automerge setting
+does not stop the hive merging trusted-bot PRs; do not rely on review as gate.
 
 1. Re-resolve the transitive closure in a throwaway venv. A bump can add or
    drop a dependency and `--require-hashes` needs the *whole* closure:

@@ -3,11 +3,13 @@
 # Installed with `python3 -m pip install --user --require-hashes
 # --only-binary=:all: -r` so a runner can only pull a prebuilt wheel whose
 # sha256 hash matches one of the entries.
-# Hashes sit on the same line as each requirement: that is the only format
-# accepted by recent pip in --require-hashes mode.
+# Hashes may sit on one line per requirement (hand-written) or on
+# backslash-continued lines (as Renovate's hashin rewrites them); pip accepts
+# both.
 #
-# All published files are listed (Renovate's hashin adds every file PyPI
-# publishes for a version); the install flags restrict what is actually used.
+# Renovate-bumped entries list every file PyPI publishes for that version.
+# Hand-regenerated entries list manylinux/none-any wheels plus the sdist. The
+# install flags restrict what is actually used.
 # NOTE: --require-hashes needs the FULL transitive closure of jsonschema
 # (attrs, jsonschema-specifications, referencing, rpds-py, typing-extensions).
 #
