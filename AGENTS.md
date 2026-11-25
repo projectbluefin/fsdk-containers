@@ -55,10 +55,11 @@ python3 -m pip install --user --require-hashes --only-binary=:all: -r .github/re
 ```
 
 That is the exact line all four CI install steps run, and the file carries the
-full transitive closure with wheel hashes. A Renovate bump rewrites the `==`
-version but never the hashes, so the install fails closed until they are
-regenerated — the procedure is in
-[docs/skills/ci-tooling/SKILL.md](docs/skills/ci-tooling/SKILL.md)
+full transitive closure with wheel hashes, one backslash-continued `--hash=`
+line each (Renovate's `pip_requirements` manager skips a requirement whose
+hashes share its line). Renovate regenerates the hashes when it bumps a
+version; a bump that adds or drops a transitive dependency needs the manual
+procedure in [docs/skills/ci-tooling/SKILL.md](docs/skills/ci-tooling/SKILL.md)
 ("Regenerating `.github/requirements` hashes").
 
 All builds run in GitHub Actions or locally in the container wrapper via podman.
