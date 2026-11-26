@@ -221,13 +221,6 @@ A bump that adds or drops a transitive dependency still needs the manual
 procedure below (whole closure must be hashed). Renovate's automerge setting does
 not stop the hive merging trusted-bot PRs; do not rely on review as gate.
 
-Keep every `--hash=` on its own backslash-continued line under its
-`name==version` line. Renovate's `pip_requirements` extractor drops only what
-follows ` \` before matching `name==version` against an anchored pattern, so a
-requirement with its hashes on the same line is silently skipped. That is why
-#582 turned the manager on and the Dependency Dashboard still listed no
-`pip_requirements` dependencies (#581).
-
 1. Re-resolve the transitive closure in a throwaway venv. A bump can add or
    drop a dependency and `--require-hashes` needs the *whole* closure:
 
@@ -237,11 +230,10 @@ requirement with its hashes on the same line is silently skipped. That is why
    $ /tmp/reqgen/bin/pip freeze
    ```
 
-2. Emit one backslash-continued block per requirement from the PyPI JSON API
-   (the layout above). The committed selection is `py3-none-any` wheels +
-   `manylinux` wheels + the sdist: the runners are `ubuntu-24.04` /
-   `ubuntu-24.04-arm` (glibc), so musllinux, macOS and Windows wheels are
-   deliberately excluded.
+2. Emit one block per requirement from the PyPI JSON API, each `--hash=` on its
+   own ` \`-continued line (Renovate skips a requirement whose hashes share its
+   line, #581). Keep `py3-none-any` + `manylinux` wheels + sdist only: runners
+   are glibc `ubuntu-24.04`/`-arm`, so musllinux/macOS/Windows are excluded.
 
    ```console
    $ python3 - <<'EOF'
@@ -253,8 +245,7 @@ requirement with its hashes on the same line is silently skipped. That is why
        hashes = [u["digests"]["sha256"] for u in urls
                  if u["filename"].endswith(("-none-any.whl", ".tar.gz"))
                  or "manylinux" in u["filename"]]
-       print(" \\\n".join([f"{pkg}=={ver}"]
-                          + [f"    --hash=sha256:{h}" for h in hashes]))
+       print(" \\\n".join([f"{pkg}=={ver}", *(f"    --hash=sha256:{h}" for h in hashes)]))
    EOF
    ```
 
