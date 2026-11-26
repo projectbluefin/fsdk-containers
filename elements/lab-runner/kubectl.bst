@@ -12,7 +12,7 @@ build-depends:
 variables:
   strip-binaries: ""
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.37.2
+  kubectl_version: v1.37.3
 
 sources:
 - kind: remote
