@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-28",
+  "generated_at": "2026-11-27",
   "schema_version": "1.0",
   "skills": [
     {
@@ -259,8 +259,8 @@
         "brew"
       ],
       "description": "Use when building or consuming FSDK Brew nspawn machines: EROFS/tar output, genuine Git seeds, offline portable Ruby, and guest user scopes.",
-      "version": "1.4",
-      "last_updated": "2026-10-16",
+      "version": "1.5",
+      "last_updated": "2026-11-27",
       "doc_type": "procedure"
     },
     {

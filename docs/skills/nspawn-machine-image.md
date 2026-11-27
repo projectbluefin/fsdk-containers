@@ -1,7 +1,7 @@
 ---
 name: nspawn-machine-image
-version: "1.4"
-last_updated: 2026-10-16
+version: "1.5"
+last_updated: 2026-11-27
 id: nspawn-machine-image
 one_line_purpose: Build a non-distroless systemd-nspawn machine image rootfs from FSDK.
 entry_point: docs/skills/nspawn-machine-image.md
@@ -37,12 +37,16 @@ exception does not expand that lane. Do not rebuild upstream-maintained OCI tool
 
 `oci/brew-nspawn.bst` exports three files:
 
-- `homebrew-env-7.0.11.raw.zst`: a plain, single-filesystem **EROFS** machine,
-  not a GPT disk, with the immutable prefix seed at
+- `homebrew-env-<brew-version>.raw.zst`: a plain, single-filesystem **EROFS**
+  machine, not a GPT disk, with the immutable prefix seed at
   `/usr/share/bluefin/homebrew-seed`. `/home/linuxbrew/.linuxbrew` is empty.
-- `homebrew-env-7.0.11.tar.zst`: the existing complete rootfs, with its prefix
-  directly at `/home/linuxbrew/.linuxbrew`, for `machinectl import-tar`.
+- `homebrew-env-<brew-version>.tar.zst`: the existing complete rootfs, with its
+  prefix directly at `/home/linuxbrew/.linuxbrew`, for `machinectl import-tar`.
 - `SHA256SUMS`: covers both compressed outputs.
+
+`<brew-version>` is the element's `brew-version` property — the pinned Homebrew
+release (`elements/brew/brew-prefix.bst`'s `track:`) — so the artifact names
+follow the pin instead of naming one release here.
 
 The raw consumer copies the seed once to a persistent, single-nonroot-owner
 directory and binds it at `/home/linuxbrew/.linuxbrew`. Use `Volatile=overlay`
@@ -64,7 +68,7 @@ at UID/GID 1001 and `/home/linuxbrew` host bind. No guest user should own `/usr`
    logind, NSS and PAM are prerequisites, not a second distro package set.
 2. `brew-runtime.bst` excludes only debug/doc/tests, keeping devel, locale,
    shells, sysconf, sysusers and user-service units. Never apply SLIM here.
-3. `portable-ruby.bst` imports Homebrew's exact **portable Ruby 4.0.9** bottle
+3. `portable-ruby.bst` imports Homebrew's exact **portable Ruby 4.0.10** bottle
    for each architecture. The digests are copied from the pinned Brew
    `Library/Homebrew/vendor/portable-ruby-{x86_64,arm64}-linux` files; FSDK's
    unrelated system Ruby cannot replace them.
@@ -83,7 +87,7 @@ Public GHCR bottle requests return HTTP 401 without authentication. The source
 plugin obtains an **anonymous**, repository-scoped pull token during *source
 fetch*, follows storage redirects without forwarding registry credentials across
 hosts, verifies SHA256, and safely stages the archive. Tokens are not stored in
-sources/artifacts. Both actual 4.0.9 blobs are available from GHCR; there is no
+sources/artifacts. Both actual 4.0.10 blobs are available from GHCR; there is no
 matching release in the older `Homebrew/homebrew-portable-ruby` GitHub releases.
 Do not put `curl`/`brew vendor-install` network commands in build/install commands.
 
@@ -95,13 +99,15 @@ restricted to Homebrew's portable-ruby repository and needs Python >=3.12 in bst
 On a Brew source-pin conflict, retain the new release's `track`/`ref`, the seed
 source `directory` and local assembly source, and align both output-version
 variables. Read all three vendor files at that exact upstream commit before
-changing the bottle pins: 7.0.11 moved from 4.0.7_1 to 4.0.9 with two new digests.
+changing the bottle pins: a release bump moves the portable-Ruby version and
+its digests (7.0.11 moved from 4.0.7_1 to 4.0.9 with two new digests).
 Neither green seed unit tests nor an older release's boot run validates the new
 producer; dispatch native artifact/boot verification on the resolved branch.
 
 ### Offline boot versus normal package management
 
-Brew 7.0.11 fetches its package API before Ruby commands such as `brew config`.
+The pinned Brew release fetches its package API before Ruby commands such as
+`brew config`.
 The producer bundles the matching Ruby interpreter, not a package API snapshot.
 Verify Ruby and the shell-level `brew --prefix` without network; exercise normal
 `brew config`, installs and updates on a networked consumer. Preserve upstream API

@@ -276,6 +276,14 @@ for the same dependency update branches.
 needs branch protection this repo does not have, so Renovate merges on its own
 check results. Major updates keep `automerge: false`.
 
+The publishing workflows are the exception to that. `build.yml`,
+`oci-images.yml`, `vm-guest.yml`, `printing-base.yml` and
+`printing-runtime-layer.yml` are the publication paths, so updates to them get
+the `publishing-workflows-` branch prefix and `automerge: false`. Renovate
+opens them as a PR of their own and never merges them itself — its own merge
+would skip the hold these files carry. The hive's pin-only exception merges a
+pin-only update; anything else, a major included, waits for a person.
+
 ### Scanning a distroless image
 
 Do not add a rootfs vulnerability scanner. There is no RPM or dpkg database in
