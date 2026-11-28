@@ -52,6 +52,7 @@ _MATERIALISE = [
 # tzdata, the CA bundle, terminfo, PPD archives and license texts.
 KEEP = [
     "usr/libexec/printer-app/entrypoint-common.sh",
+    "usr/libexec/printer-app/countme.py",
     "usr/bin/bash",
     "usr/bin/cat",
     "usr/bin/python3",

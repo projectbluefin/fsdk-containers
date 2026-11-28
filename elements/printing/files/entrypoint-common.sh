@@ -124,6 +124,28 @@ printer_app_seed_cups() {
   fi
 }
 
+# $1: prepared persistent state; $2: exact printer application basename.
+# Reporting is optional and never joins the supervisor's fatal child list.
+printer_app_start_countme() {
+  printer_app_stop_countme
+  python3 /usr/libexec/printer-app/countme.py "$1" "$2" </dev/null >/dev/null 2>&1 &
+  printer_app_countme_pid=$!
+  return 0
+}
+
+printer_app_stop_countme() {
+  local pid="${printer_app_countme_pid:-}" running
+  printer_app_countme_pid=
+  if [[ -n "$pid" ]]; then
+    # Only signal a still-running shell job, not a recycled PID after an exit.
+    running="$(jobs -pr)"
+    if [[ " ${running//$'\n'/ } " == *" $pid "* ]]; then
+      kill -TERM "$pid" 2>/dev/null || true
+    fi
+    wait "$pid" 2>/dev/null || true
+  fi
+}
+
 # $1: runtime directory (normally /run); remaining args: application command.
 # Call last: owns the entrypoint's traps and exits with the first child's status.
 printer_app_supervise() {
@@ -137,7 +159,10 @@ printer_app_supervise() {
       pid="${printer_app_children[index]}"
       kill -TERM "$pid" 2>/dev/null || true
     done
-    wait "${printer_app_children[@]}" 2>/dev/null || true
+    if ((${#printer_app_children[@]})); then
+      wait "${printer_app_children[@]}" 2>/dev/null || true
+    fi
+    printer_app_stop_countme
   }
   # shellcheck disable=SC2317 # Invoked by the signal traps below.
   printer_app_handle_signal() {
