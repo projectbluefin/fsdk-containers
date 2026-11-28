@@ -11,8 +11,8 @@ sources:
 - kind: git_repo
   url: github:michaelrsweet/pappl.git
   # renovate: datasource=github-tags depName=michaelrsweet/pappl
-  track: v1.4.12
-  ref: v1.4.12-0-g6db8e137557ad84662e78d24fdb2a591c621f4ac
+  track: v1.4.13
+  ref: v1.4.13-0-g33e5c2fd340d4b65631e60df235ae744551df8d5
 - kind: patch_queue
   path: patches/printing/pappl
 
